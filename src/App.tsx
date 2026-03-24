@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   Home, 
-  Map, 
+  Map as MapIcon, 
   Calculator, 
   ClipboardList, 
   FlaskConical, 
@@ -40,13 +40,17 @@ import {
   Sun,
   Moon,
   ArrowRightLeft,
-  RefreshCw
+  RefreshCw,
+  Trash2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { translations, materialTests, quizQuestions, homeTopics } from './data/content';
 import { cn } from './lib/utils';
 import { getChatResponse, estimateMaterials, analyzeLand, generateExampleImage, generateQuizQuestions } from './services/gemini';
 import ReactMarkdown from 'react-markdown';
+import { MapContainer, TileLayer, Marker, Polygon, useMapEvents, useMap } from 'react-leaflet';
+import L from 'leaflet';
+import * as turf from '@turf/turf';
 import { 
   auth, 
   db, 
@@ -61,6 +65,22 @@ import {
   OperationType,
   User
 } from './firebase';
+
+// Fix Leaflet default icon issue
+// @ts-ignore
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+});
+
+function ChangeView({ center, zoom }: { center: [number, number], zoom: number }) {
+  const map = useMap();
+  map.setView(center, zoom);
+  return null;
+}
+
 import { serverTimestamp } from 'firebase/firestore';
 
 type Tab = 'home' | 'survey' | 'land' | 'estimating' | 'materials' | 'quiz' | 'chat' | 'mech_design' | 'thermo' | 'fluids' | 'circuits' | 'power' | 'control' | 'software' | 'data' | 'network' | 'settings' | 'plot_planner' | 'slab_design' | 'unit_converter';
@@ -83,7 +103,7 @@ const DEPT_TABS: Record<Dept, Tab[]> = {
 const TAB_ICONS: Record<string, any> = {
   home: <Home size={20} />,
   survey: <Navigation size={20} />,
-  land: <Map size={20} />,
+  land: <MapIcon size={20} />,
   plot_planner: <LayoutGrid size={20} />,
   slab_design: <Layers size={20} />,
   unit_converter: <ArrowRightLeft size={20} />,
@@ -428,7 +448,7 @@ export default function App() {
               >
                 {activeTab === 'home' && <HomeTab t={t} lang={lang} dept={dept} config={config} setActiveTab={setActiveTab} />}
                 {activeTab === 'survey' && <SurveyTab t={t} config={config} />}
-                {activeTab === 'land' && <LandTab t={t} config={config} />}
+                {activeTab === 'land' && <LandTab t={t} lang={lang} config={config} />}
                 {activeTab === 'plot_planner' && <PlotPlannerTab t={t} config={config} />}
                 {activeTab === 'slab_design' && <SlabDesignTab t={t} lang={lang} config={config} />}
                 {activeTab === 'unit_converter' && <UnitConverterTab t={t} config={config} />}
@@ -1308,8 +1328,24 @@ function SurveyTab({ t, config }: { t: any, config: any }) {
   const [coords, setCoords] = useState<{ lat: number, lng: number } | null>(null);
   const [isSurveying, setIsSurveying] = useState(false);
   const [heading, setHeading] = useState(0);
+  const [currentTime, setCurrentTime] = useState<string | null>(null);
 
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let timer: any;
+    if (isSurveying) {
+      setCurrentTime(new Date().toLocaleTimeString());
+      timer = setInterval(() => {
+        setCurrentTime(new Date().toLocaleTimeString());
+      }, 1000);
+    } else {
+      setCurrentTime(null);
+    }
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [isSurveying]);
 
   useEffect(() => {
     let watchId: number;
@@ -1406,6 +1442,9 @@ function SurveyTab({ t, config }: { t: any, config: any }) {
               <SurveyCard label={t.lng} value={coords?.lng.toFixed(6) || "---"} config={config} />
               <SurveyCard label={t.rl} value="12.45 m" config={config} />
               <SurveyCard label={t.msl} value="15.20 m" config={config} />
+              <div className="col-span-2">
+                <SurveyCard label={t.currentTime} value={currentTime || "---"} config={config} />
+              </div>
             </div>
 
             {/* Animated Compass */}
@@ -1469,21 +1508,29 @@ function SurveyTab({ t, config }: { t: any, config: any }) {
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-black text-stone-400 dark:text-stone-500 uppercase tracking-widest flex items-center gap-2">
-                <Map size={14} />
+                <MapIcon size={14} />
                 {t.mapView}
               </h3>
             </div>
             <div className="aspect-square bg-stone-100 dark:bg-stone-800 rounded-[2rem] border border-stone-200 dark:border-stone-700 overflow-hidden relative shadow-inner">
               {coords ? (
-                <iframe 
-                  key={`${coords.lat}-${coords.lng}-${isSurveying}`}
-                  className="w-full h-full grayscale opacity-80 contrast-125 dark:invert dark:hue-rotate-180"
-                  src={`https://www.openstreetmap.org/export/embed.html?bbox=${coords.lng-0.003}%2C${coords.lat-0.003}%2C${coords.lng+0.003}%2C${coords.lat+0.003}&layer=mapnik&marker=${coords.lat}%2C${coords.lng}`}
-                  title="Map"
-                />
+                <div className="w-full h-full relative">
+                  <iframe 
+                    key={`${coords.lat}-${coords.lng}`}
+                    className="w-full h-full border-0 grayscale opacity-80 contrast-125 dark:invert dark:hue-rotate-180"
+                    src={`https://maps.google.com/maps?q=${coords.lat},${coords.lng}&z=15&output=embed`}
+                    title="Google Map"
+                    loading="lazy"
+                    allowFullScreen
+                  />
+                  {/* Overlay to prevent interaction if needed, or just leave it */}
+                  <div className="absolute bottom-2 right-2 bg-white/80 dark:bg-stone-900/80 backdrop-blur-sm px-2 py-1 rounded-lg text-[8px] font-bold text-stone-500 pointer-events-none uppercase tracking-tighter">
+                    Google Maps View
+                  </div>
+                </div>
               ) : (
                 <div className="w-full h-full flex items-center justify-center flex-col gap-4 text-stone-300 dark:text-stone-600 p-8 text-center">
-                  <Map size={48} className={cn(isSurveying ? "animate-pulse" : "")} />
+                  <MapIcon size={48} className={cn(isSurveying ? "animate-pulse" : "")} />
                   <p className="text-xs font-bold uppercase tracking-widest">
                     {error ? error : (isSurveying ? "Locating your position..." : "Start Survey to see Map")}
                   </p>
@@ -1531,127 +1578,299 @@ function SurveyCard({ label, value, config }: { label: string, value: string, co
   );
 }
 
-function LandTab({ t, config }: { t: any, config: any }) {
-  const [landDetails, setLandDetails] = useState("");
-  const [suggestion, setSuggestion] = useState<any>(null);
-  const [loading, setLoading] = useState(false);
+function LandTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: any }) {
+  const [points, setPoints] = useState<[number, number][]>([]);
+  const [areaInfo, setAreaInfo] = useState<{
+    sqm: number;
+    sqft: number;
+    decimal: number;
+    katha: number;
+    bigha: number;
+  } | null>(null);
+  const [center, setCenter] = useState<[number, number] | null>(null);
+  const [mapType, setMapType] = useState<'roadmap' | 'satellite' | 'hybrid'>('roadmap');
+  const [aiCommand, setAiCommand] = useState("");
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [landAnalysis, setLandAnalysis] = useState<string | null>(null);
+  const [visualOverlays, setVisualOverlays] = useState<any[]>([]);
 
-  const handleAnalyze = async () => {
-    if (!landDetails) return;
-    setLoading(true);
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition((pos) => {
+        setCenter([pos.coords.latitude, pos.coords.longitude]);
+      });
+    } else {
+      setCenter([23.8103, 90.4125]); // Default Dhaka
+    }
+  }, []);
+
+  useEffect(() => {
+    if (points.length > 2) {
+      const polygonPoints = [...points, points[0]]; // Close the polygon
+      const turfPolygon = turf.polygon([polygonPoints.map(p => [p[1], p[0]])]);
+      const areaSqm = turf.area(turfPolygon);
+      
+      const sqft = areaSqm * 10.7639;
+      const decimal = sqft / 435.6;
+      const katha = sqft / 720;
+      const bigha = sqft / 14400;
+
+      setAreaInfo({
+        sqm: areaSqm,
+        sqft,
+        decimal,
+        katha,
+        bigha
+      });
+    } else {
+      setAreaInfo(null);
+      setVisualOverlays([]);
+    }
+  }, [points]);
+
+  function MapEvents() {
+    useMapEvents({
+      click(e) {
+        setPoints(prev => [...prev, [e.latlng.lat, e.latlng.lng]]);
+      },
+    });
+    return null;
+  }
+
+  const clearPoints = () => {
+    setPoints([]);
+    setLandAnalysis(null);
+    setVisualOverlays([]);
+  };
+
+  const undoLastPoint = () => {
+    setPoints(prev => prev.slice(0, -1));
+  };
+
+  const handleAiCommand = async () => {
+    if (!aiCommand.trim() || points.length < 3) return;
+    setIsProcessing(true);
     try {
-      const res = await analyzeLand(landDetails);
-      setSuggestion(res);
+      const prompt = `
+        I have a land area defined by these GPS coordinates: ${JSON.stringify(points)}.
+        The user wants to: "${aiCommand}".
+        Please analyze this land and provide a response.
+        If the user wants to divide or mark something, describe how it would look.
+        Return your response in Markdown.
+      `;
+      const response = await getChatResponse(prompt, [], 'long');
+      setLandAnalysis(response);
     } catch (e) {
       console.error(e);
     } finally {
-      setLoading(false);
+      setIsProcessing(false);
     }
   };
 
-  return (
-    <div className="space-y-8">
-      <div className="bg-white dark:bg-stone-900 p-10 rounded-[3rem] border border-stone-200 dark:border-stone-800 shadow-xl transition-colors duration-300">
-        <div className="flex items-center gap-4 mb-8">
-          <div className={cn("p-4 rounded-2xl bg-stone-50 dark:bg-stone-800", config.text)}>
-            <Map size={28} />
-          </div>
-          <h2 className="text-3xl font-black text-stone-900 dark:text-stone-100">{t.land}</h2>
-        </div>
+  const googleMapsUrl = (type: string) => {
+    switch(type) {
+      case 'satellite': return "https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}";
+      case 'hybrid': return "https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}";
+      default: return "https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}";
+    }
+  };
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-          <div className="space-y-6">
-            <textarea 
-              className="w-full bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 rounded-[2rem] p-6 min-h-[200px] focus:outline-none focus:ring-4 focus:ring-stone-100 dark:focus:ring-stone-800 transition-all text-lg font-medium text-stone-900 dark:text-stone-100 placeholder:text-stone-400 dark:placeholder:text-stone-600"
-              placeholder="Enter land dimensions (e.g., 40ft x 60ft) or description..."
-              value={landDetails}
-              onChange={(e) => setLandDetails(e.target.value)}
-            />
+  // 2D Model Normalization
+  const getNormalizedPoints = () => {
+    if (points.length === 0) return "";
+    const lats = points.map(p => p[0]);
+    const lngs = points.map(p => p[1]);
+    const minLat = Math.min(...lats);
+    const maxLat = Math.max(...lats);
+    const minLng = Math.min(...lngs);
+    const maxLng = Math.max(...lngs);
+    
+    const latRange = maxLat - minLat || 0.0001;
+    const lngRange = maxLng - minLng || 0.0001;
+    
+    // Maintain aspect ratio
+    const scale = 80 / Math.max(latRange, lngRange);
+    
+    return points.map(p => {
+      const x = 10 + (p[1] - minLng) * scale;
+      const y = 90 - (p[0] - minLat) * scale;
+      return `${x},${y}`;
+    }).join(" ");
+  };
+
+  return (
+    <div className="space-y-6 sm:space-y-8">
+      <div className="bg-white dark:bg-stone-900 p-4 sm:p-8 rounded-[2rem] sm:rounded-[3rem] border border-stone-200 dark:border-stone-800 shadow-xl transition-colors duration-300">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 sm:mb-8">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <div className={cn("p-3 sm:p-4 rounded-2xl bg-stone-50 dark:bg-stone-800", config.text)}>
+              <MapIcon size={24} className="sm:w-7 sm:h-7" />
+            </div>
+            <h2 className="text-xl sm:text-3xl font-black text-stone-900 dark:text-stone-100">{t.land}</h2>
+          </div>
+          
+          <div className="flex items-center gap-1 sm:gap-2 bg-stone-50 dark:bg-stone-800 p-1 rounded-2xl border border-stone-100 dark:border-stone-700 overflow-x-auto no-scrollbar">
             <button 
-              onClick={handleAnalyze}
-              disabled={loading || !landDetails}
-              className={cn("w-full text-white py-6 rounded-[2rem] font-black text-xl flex items-center justify-center gap-4 disabled:opacity-50 shadow-2xl hover:scale-[1.01] active:scale-[0.99] transition-all", config.bg, config.shadow)}
+              onClick={() => setMapType('roadmap')}
+              className={cn("px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap", mapType === 'roadmap' ? "bg-white dark:bg-stone-700 shadow-sm text-stone-900 dark:text-white" : "text-stone-400")}
             >
-              {loading ? <Loader2 className="animate-spin" /> : <Calculator size={28} />}
-              {t.calculate}
+              Roadmap
+            </button>
+            <button 
+              onClick={() => setMapType('satellite')}
+              className={cn("px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap", mapType === 'satellite' ? "bg-white dark:bg-stone-700 shadow-sm text-stone-900 dark:text-white" : "text-stone-400")}
+            >
+              Satellite
+            </button>
+            <button 
+              onClick={() => setMapType('hybrid')}
+              className={cn("px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap", mapType === 'hybrid' ? "bg-white dark:bg-stone-700 shadow-sm text-stone-900 dark:text-white" : "text-stone-400")}
+            >
+              Hybrid
             </button>
           </div>
 
-          <div className="space-y-4">
-            <p className="text-xs font-black text-stone-400 dark:text-stone-500 uppercase tracking-widest">{t.mapView}</p>
-            <div className="aspect-square bg-stone-900 dark:bg-black rounded-[2.5rem] border border-stone-800 dark:border-stone-900 overflow-hidden relative shadow-2xl">
-              {/* Technical Grid Map Mockup */}
-              <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(circle, #fff 1px, transparent 1px)', backgroundSize: '30px 30px' }} />
-              <div className="absolute inset-0 flex items-center justify-center">
-                <AnimatePresence mode="wait">
-                  {suggestion ? (
-                    <motion.div 
-                      key="land-shape"
-                      initial={{ scale: 0, rotate: -45 }}
-                      animate={{ scale: 1, rotate: 0 }}
-                      className={cn("w-48 h-48 border-4 border-dashed shadow-[0_0_30px_rgba(255,255,255,0.1)]", config.border, config.bg.replace('600', '500/20'))}
-                    >
-                      <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-[10px] font-black text-white/40 uppercase">North</div>
-                      <div className="w-full h-full flex items-center justify-center flex-col gap-1">
-                        <span className="text-white font-black text-lg">{suggestion.maxBuiltArea}</span>
-                        <span className="text-white/40 text-[10px] font-bold uppercase tracking-tighter">SQ FT</span>
-                      </div>
-                    </motion.div>
-                  ) : (
-                    <motion.div 
-                      key="placeholder"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      className="text-center space-y-4"
-                    >
-                      <Compass size={64} className="text-stone-700 dark:text-stone-800 mx-auto animate-pulse" />
-                      <p className="text-stone-600 dark:text-stone-700 text-xs font-bold uppercase tracking-widest">Awaiting Data</p>
-                    </motion.div>
+          <div className="flex gap-2">
+            <button 
+              onClick={undoLastPoint}
+              disabled={points.length === 0}
+              className="flex-1 sm:flex-none px-4 py-2 rounded-xl bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 text-[10px] font-black uppercase tracking-widest hover:bg-stone-200 transition-all disabled:opacity-50"
+            >
+              {lang === 'bn' ? "পয়েন্ট মুছুন" : "Undo"}
+            </button>
+            <button 
+              onClick={clearPoints}
+              disabled={points.length === 0}
+              className="flex-1 sm:flex-none px-4 py-2 rounded-xl bg-red-50 dark:bg-red-900/30 text-red-500 dark:text-red-400 text-[10px] font-black uppercase tracking-widest hover:bg-red-100 transition-all disabled:opacity-50"
+            >
+              {lang === 'bn' ? "সব মুছুন" : "Clear All"}
+            </button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
+          {/* Map View */}
+          <div className="lg:col-span-2 space-y-4">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-[10px] sm:text-xs font-black text-stone-400 dark:text-stone-500 uppercase tracking-widest leading-tight">{t.clickOnMap}</p>
+              <div className="flex items-center gap-2 shrink-0">
+                <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                <span className="text-[9px] sm:text-[10px] font-bold text-stone-400 uppercase whitespace-nowrap">{points.length} POINTS</span>
+              </div>
+            </div>
+            <div className="aspect-video lg:aspect-square bg-stone-100 dark:bg-stone-800 rounded-[1.5rem] sm:rounded-[2.5rem] border border-stone-200 dark:border-stone-700 overflow-hidden relative shadow-inner z-0">
+              {center && (
+                <MapContainer 
+                  center={center} 
+                  zoom={18} 
+                  style={{ height: '100%', width: '100%' }}
+                  zoomControl={false}
+                >
+                  <TileLayer
+                    attribution='&copy; Google Maps'
+                    url={googleMapsUrl(mapType)}
+                  />
+                  <MapEvents />
+                  {points.map((p, i) => (
+                    <Marker key={i} position={p} />
+                  ))}
+                  {points.length > 1 && (
+                    <Polygon 
+                      positions={points} 
+                      pathOptions={{ 
+                        color: config.text.includes('emerald') ? '#10b981' : config.text.includes('orange') ? '#f97316' : config.text.includes('blue') ? '#3b82f6' : '#a855f7',
+                        fillColor: config.text.includes('emerald') ? '#10b981' : config.text.includes('orange') ? '#f97316' : config.text.includes('blue') ? '#3b82f6' : '#a855f7',
+                        fillOpacity: 0.3 
+                      }} 
+                    />
                   )}
-                </AnimatePresence>
+                </MapContainer>
+              )}
+            </div>
+          </div>
+
+          {/* 2D Model & AI */}
+          <div className="space-y-6">
+            <div>
+              <p className="text-[10px] sm:text-xs font-black text-stone-400 dark:text-stone-500 uppercase tracking-widest mb-3 sm:mb-4">2D Model View</p>
+              <div className="aspect-square bg-stone-50 dark:bg-stone-950 rounded-[1.5rem] sm:rounded-[2rem] border border-stone-200 dark:border-stone-800 relative flex items-center justify-center overflow-hidden shadow-inner">
+                {points.length > 2 ? (
+                  <svg viewBox="0 0 100 100" className="w-full h-full p-4">
+                    <polygon 
+                      points={getNormalizedPoints()} 
+                      className={cn("fill-current opacity-20 stroke-[2px] stroke-current", config.text)}
+                    />
+                    {getNormalizedPoints().split(" ").map((p, i) => {
+                      const [x, y] = p.split(",");
+                      return (
+                        <circle key={i} cx={x} cy={y} r="1.5" className={cn("fill-current", config.text)} />
+                      );
+                    })}
+                  </svg>
+                ) : (
+                  <div className="text-center p-6 sm:p-8">
+                    <Compass size={40} className="sm:w-12 sm:h-12 mx-auto text-stone-200 dark:text-stone-800 mb-4 animate-pulse" />
+                    <p className="text-[9px] sm:text-[10px] font-black text-stone-300 dark:text-stone-700 uppercase tracking-widest">Select at least 3 points on map</p>
+                  </div>
+                )}
               </div>
-              <div className="absolute bottom-4 left-4 flex gap-2">
-                <div className="w-3 h-3 rounded-full bg-emerald-500" />
-                <div className="w-3 h-3 rounded-full bg-stone-700 dark:bg-stone-800" />
+            </div>
+
+            <div className="space-y-4">
+              <p className="text-[10px] sm:text-xs font-black text-stone-400 dark:text-stone-500 uppercase tracking-widest">{t.aiSuggestion}</p>
+              <div className="relative">
+                <input 
+                  type="text"
+                  placeholder={lang === 'bn' ? "AI কে কমান্ড দিন..." : "Command AI..."}
+                  className="w-full bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-2xl py-3 sm:py-4 pl-4 sm:pl-6 pr-12 sm:pr-14 text-xs sm:text-sm font-bold focus:outline-none focus:ring-2 focus:ring-stone-200 dark:focus:ring-stone-700 transition-all"
+                  value={aiCommand}
+                  onChange={(e) => setAiCommand(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleAiCommand()}
+                />
+                <button 
+                  onClick={handleAiCommand}
+                  disabled={isProcessing || points.length < 3}
+                  className={cn("absolute right-1.5 sm:right-2 top-1/2 -translate-y-1/2 p-2 rounded-xl text-white transition-all disabled:opacity-50", config.bg)}
+                >
+                  {isProcessing ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+                </button>
               </div>
+
+              <AnimatePresence mode="wait">
+                {landAnalysis && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className="p-4 sm:p-6 bg-stone-50 dark:bg-stone-800 rounded-2xl sm:rounded-3xl border border-stone-100 dark:border-stone-700 max-h-[250px] overflow-y-auto no-scrollbar"
+                  >
+                    <div className="prose prose-xs sm:prose-sm dark:prose-invert prose-stone">
+                      <ReactMarkdown>{landAnalysis}</ReactMarkdown>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 sm:gap-4">
+              <ResultCard label={t.sqft} value={areaInfo ? areaInfo.sqft.toLocaleString(undefined, { maximumFractionDigits: 1 }) : "---"} unit="ft²" config={config} />
+              <ResultCard label={t.decimal} value={areaInfo ? areaInfo.decimal.toLocaleString(undefined, { maximumFractionDigits: 3 }) : "---"} unit="Dec" config={config} />
             </div>
           </div>
         </div>
       </div>
+    </div>
+  );
+}
 
-      <AnimatePresence>
-        {suggestion && (
-          <motion.div 
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            className={cn("p-10 rounded-[3rem] border shadow-2xl relative overflow-hidden", config.border, config.bg.replace('bg-', 'bg-').replace('600', '50 dark:bg-stone-900/50'))}
-          >
-            <div className={cn("flex items-center gap-4 font-black text-2xl mb-8", config.text)}>
-              <div className={cn("p-3 rounded-xl bg-white dark:bg-stone-800 shadow-sm")}>
-                <Info size={28} />
-              </div>
-              {t.aiSuggestion}
-            </div>
-            
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-8">
-              <div className="bg-white dark:bg-stone-800 p-6 rounded-3xl shadow-md border border-stone-100 dark:border-stone-700 hover:scale-[1.02] transition-transform">
-                <p className="text-xs text-stone-400 dark:text-stone-500 uppercase font-black mb-2 tracking-widest">{t.maxArea}</p>
-                <p className={cn("text-4xl font-black", config.text)}>{suggestion.maxBuiltArea} <span className="text-lg font-medium opacity-60">sq ft</span></p>
-              </div>
-              <div className="bg-white dark:bg-stone-800 p-6 rounded-3xl shadow-md border border-stone-100 dark:border-stone-700 hover:scale-[1.02] transition-transform">
-                <p className="text-xs text-stone-400 dark:text-stone-500 uppercase font-black mb-2 tracking-widest">{t.maxFloors}</p>
-                <p className={cn("text-4xl font-black", config.text)}>{suggestion.maxFloors} <span className="text-lg font-medium opacity-60">Floors</span></p>
-              </div>
-            </div>
-            
-            <div className="bg-white/50 dark:bg-stone-950/50 backdrop-blur-sm p-6 rounded-3xl border border-white/50 dark:border-stone-800/50">
-              <p className="text-stone-800 dark:text-stone-200 leading-relaxed font-semibold text-lg">{suggestion.reasoning}</p>
-            </div>
-
-            <div className="absolute -right-10 -bottom-10 w-48 h-48 bg-stone-200/20 dark:bg-stone-800/20 rounded-full blur-3xl pointer-events-none" />
-          </motion.div>
-        )}
-      </AnimatePresence>
+function ResultCard({ label, value, unit, config }: { label: string, value: string, unit: string, config: any }) {
+  return (
+    <div className="bg-stone-50 dark:bg-stone-800 p-6 rounded-3xl border border-stone-100 dark:border-stone-700 group hover:border-stone-300 dark:hover:border-stone-600 transition-all">
+      <p className="text-[10px] text-stone-400 dark:text-stone-500 uppercase font-black tracking-widest mb-2">{label}</p>
+      <div className="flex items-baseline gap-2">
+        <span className={cn("text-2xl font-mono font-black", config.text)}>{value}</span>
+        <span className="text-[10px] font-bold text-stone-400 uppercase">{unit}</span>
+      </div>
     </div>
   );
 }
