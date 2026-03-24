@@ -1,0 +1,26 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "User Profile",
+      "description": "Stores user settings and profile information.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "The unique ID of the user." },
+        "displayName": { "type": "string", "description": "The display name of the user." },
+        "email": { "type": "string", "description": "The email address of the user." },
+        "photoURL": { "type": "string", "description": "The URL of the user's profile photo." },
+        "lang": { "type": "string", "enum": ["bn", "en"], "description": "The preferred language of the user." },
+        "dept": { "type": "string", "enum": ["civil", "mechanical", "electrical", "computer"], "description": "The preferred department of the user." },
+        "theme": { "type": "string", "enum": ["light", "dark"], "description": "The preferred theme of the user." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "The time the profile was created." }
+      },
+      "required": ["uid", "displayName", "email", "lang", "dept", "theme", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User profile document."
+    }
+  }
+}

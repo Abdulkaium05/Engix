@@ -1,0 +1,5 @@
+{
+  "name": "Engix",
+  "description": "A comprehensive engineering assistant with digital survey, material estimation, AI-powered land analysis, and educational resources for all engineering disciplines in Bangla and English.",
+  "requestFramePermissions": ["geolocation", "camera"]
+}
