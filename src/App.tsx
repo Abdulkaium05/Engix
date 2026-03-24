@@ -105,9 +105,9 @@ const TAB_ICONS: Record<string, any> = {
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>('home');
-  const [lang, setLang] = useState<'bn' | 'en'>('bn');
-  const [dept, setDept] = useState<Dept>('civil');
-  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const [lang, setLang] = useState<'bn' | 'en'>(() => (localStorage.getItem('engix_lang') as 'bn' | 'en') || 'bn');
+  const [dept, setDept] = useState<Dept>(() => (localStorage.getItem('engix_dept') as Dept) || 'civil');
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => (localStorage.getItem('engix_theme') as 'light' | 'dark') || 'light');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [isAuthReady, setIsAuthReady] = useState(false);
@@ -153,6 +153,11 @@ export default function App() {
   };
 
   const saveUserSettings = async (newLang: 'bn' | 'en', newDept: Dept, newTheme: 'light' | 'dark' = theme) => {
+    // Always save to localStorage for guest persistence
+    localStorage.setItem('engix_lang', newLang);
+    localStorage.setItem('engix_dept', newDept);
+    localStorage.setItem('engix_theme', newTheme);
+
     if (!user) return;
     try {
       const userRef = doc(db, 'users', user.uid);
@@ -204,10 +209,10 @@ export default function App() {
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
 
   return (
-    <div className="min-h-screen bg-stone-50 dark:bg-stone-950 text-stone-900 dark:text-stone-100 font-sans transition-colors duration-300">
-      {/* Header */}
-      <header className="sticky top-0 z-50 bg-white/80 dark:bg-stone-900/80 backdrop-blur-md border-b border-stone-200 dark:border-stone-800 px-4 py-3 flex items-center justify-between transition-colors duration-300">
-        <div className="flex items-center gap-3">
+    <div className="min-h-screen bg-stone-50 dark:bg-stone-950 text-stone-900 dark:text-stone-100 font-sans transition-colors duration-300 flex overflow-hidden">
+      {/* Desktop Sidebar */}
+      <aside className="hidden lg:flex flex-col w-72 h-screen border-r border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 transition-colors duration-300 shrink-0">
+        <div className="p-6 flex items-center gap-3 border-b border-stone-100 dark:border-stone-800/50">
           <motion.div 
             key={dept}
             initial={{ rotate: -90, scale: 0.8 }}
@@ -221,112 +226,172 @@ export default function App() {
             <p className={cn("text-[10px] font-bold uppercase tracking-widest mt-1", config.text)}>{t[dept]}</p>
           </div>
         </div>
-        
-        <div className="flex items-center gap-2">
+
+        <nav className="flex-1 overflow-y-auto p-4 space-y-1 no-scrollbar">
+          <p className="text-[10px] font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest px-4 mb-2 mt-4">{t.navigation || 'Navigation'}</p>
+          {DEPT_TABS[dept].map(tabId => (
+            <MenuLink 
+              key={tabId}
+              active={activeTab === tabId} 
+              onClick={() => setActiveTab(tabId)} 
+              icon={TAB_ICONS[tabId]} 
+              label={t[tabId]} 
+              color={config.text} 
+            />
+          ))}
+          
+          <div className="pt-4 mt-4 border-t border-stone-100 dark:border-stone-800">
+            <p className="text-[10px] font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest px-4 mb-2">{t.settings}</p>
+            <MenuLink 
+              active={activeTab === 'settings'} 
+              onClick={() => setActiveTab('settings')} 
+              icon={TAB_ICONS.settings} 
+              label={t.settings} 
+              color={config.text} 
+            />
+          </div>
+        </nav>
+
+        <div className="p-4 border-t border-stone-100 dark:border-stone-800 space-y-4">
           {user ? (
-            <button 
-              onClick={() => setActiveTab('settings')}
-              className="p-2 rounded-xl bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700 transition-all flex items-center gap-2"
-            >
+            <div className="flex items-center gap-3 p-3 rounded-2xl bg-stone-50 dark:bg-stone-950 border border-stone-100 dark:border-stone-800/50">
               {user.photoURL ? (
-                <img src={user.photoURL} alt="Profile" className="w-6 h-6 rounded-full" referrerPolicy="no-referrer" />
+                <img src={user.photoURL} alt="Profile" className="w-8 h-8 rounded-full" referrerPolicy="no-referrer" />
               ) : (
-                <UserIcon size={20} />
+                <div className="w-8 h-8 rounded-full bg-stone-200 dark:bg-stone-800 flex items-center justify-center text-stone-400 dark:text-stone-500"><UserIcon size={16} /></div>
               )}
-            </button>
+              <div className="overflow-hidden flex-1">
+                <p className="font-bold text-xs truncate text-stone-900 dark:text-stone-100">
+                  {user.displayName}
+                </p>
+              </div>
+              <button onClick={handleLogout} className="p-2 text-stone-400 hover:text-red-500 transition-colors">
+                <LogOut size={16} />
+              </button>
+            </div>
           ) : (
             <button 
               onClick={handleLogin}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 transition-colors text-sm font-medium text-stone-900 dark:text-stone-100"
+              className={cn("w-full flex items-center justify-center gap-2 py-3 rounded-2xl text-white font-bold shadow-lg transition-all", config.bg, config.shadow)}
             >
-              <LogIn size={16} />
-              <span className="hidden sm:inline">{t.login}</span>
+              <LogIn size={18} />
+              <span>{t.login}</span>
             </button>
           )}
-          <button 
-            onClick={() => {
-              const newLang = lang === 'bn' ? 'en' : 'bn';
-              setLang(newLang);
-              if (user) saveUserSettings(newLang, dept, theme);
-            }}
-            className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 transition-colors text-sm font-medium text-stone-900 dark:text-stone-100"
-          >
-            <Languages size={16} />
-            {t.langToggle}
-          </button>
-          <button 
-            onClick={toggleMenu}
-            className="p-2.5 rounded-xl bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700 transition-all"
-          >
-            {isMenuOpen ? <X size={20} /> : <Menu size={20} />}
-          </button>
-        </div>
-      </header>
-
-      {/* More Menu Overlay */}
-      <AnimatePresence>
-        {isMenuOpen && (
-          <>
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={toggleMenu}
-              className="fixed inset-0 bg-stone-900/40 dark:bg-black/60 backdrop-blur-sm z-[60]"
-            />
-            <motion.div 
-              initial={{ x: '100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '100%' }}
-              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="fixed top-0 right-0 bottom-0 w-[280px] bg-white dark:bg-stone-900 z-[70] shadow-2xl p-6 flex flex-col transition-colors duration-300"
+          
+          <div className="flex items-center justify-between px-2">
+            <button 
+              onClick={() => {
+                const newLang = lang === 'bn' ? 'en' : 'bn';
+                setLang(newLang);
+                if (user) saveUserSettings(newLang, dept, theme);
+              }}
+              className="text-xs font-bold text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 transition-colors flex items-center gap-2"
             >
-              <div className="flex justify-between items-center mb-8">
-                <h2 className="text-xl font-bold text-stone-900 dark:text-stone-100">{t.more}</h2>
-                <button onClick={toggleMenu} className="p-2 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-800 text-stone-600 dark:text-stone-400"><X size={20} /></button>
-              </div>
+              <Languages size={14} />
+              {lang === 'bn' ? 'English' : 'বাংলা'}
+            </button>
+            <div className="flex bg-stone-100 dark:bg-stone-800 p-1 rounded-lg">
+              <button 
+                onClick={() => { setTheme('light'); if (user) saveUserSettings(lang, dept, 'light'); }}
+                className={cn("p-1.5 rounded-md transition-all", theme === 'light' ? "bg-white text-amber-500 shadow-sm" : "text-stone-400")}
+              >
+                <Sun size={14} />
+              </button>
+              <button 
+                onClick={() => { setTheme('dark'); if (user) saveUserSettings(lang, dept, 'dark'); }}
+                className={cn("p-1.5 rounded-md transition-all", theme === 'dark' ? "bg-stone-900 text-indigo-400 shadow-sm" : "text-stone-400")}
+              >
+                <Moon size={14} />
+              </button>
+            </div>
+          </div>
+        </div>
+      </aside>
 
-              <div className="flex-1 overflow-y-auto no-scrollbar">
-                {user && (
-                  <div className="mb-6 p-4 bg-stone-50 dark:bg-stone-950 rounded-2xl flex items-center gap-3 border border-stone-100 dark:border-stone-800/50">
-                    {user.photoURL ? (
-                      <img src={user.photoURL} alt="Profile" className="w-10 h-10 rounded-full" referrerPolicy="no-referrer" />
-                    ) : (
-                      <div className="w-10 h-10 rounded-full bg-stone-200 dark:bg-stone-800 flex items-center justify-center text-stone-400 dark:text-stone-500"><UserIcon size={20} /></div>
-                    )}
-                    <div className="overflow-hidden">
-                      <p className="font-bold text-sm truncate text-stone-900 dark:text-stone-100">
-                        {user.displayName && user.displayName.length > 15 
-                          ? `${user.displayName.substring(0, 15)}...` 
-                          : user.displayName}
-                      </p>
+      <div className="flex-1 flex flex-col h-screen overflow-hidden">
+        {/* Mobile Header */}
+        <header className="lg:hidden sticky top-0 z-50 bg-white/80 dark:bg-stone-900/80 backdrop-blur-md border-b border-stone-200 dark:border-stone-800 px-4 py-3 flex items-center justify-between transition-colors duration-300">
+          <div className="flex items-center gap-3">
+            <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-lg shadow-md", config.bg)}>
+              {config.logo}
+            </div>
+            <h1 className="text-lg font-bold tracking-tight text-stone-900 dark:text-stone-100 leading-none">Engix</h1>
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={toggleMenu}
+              className="p-2 rounded-xl bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700 transition-all"
+            >
+              {isMenuOpen ? <X size={20} /> : <Menu size={20} />}
+            </button>
+          </div>
+        </header>
+
+        {/* Mobile Menu Overlay (Drawer) */}
+        <AnimatePresence>
+          {isMenuOpen && (
+            <>
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={toggleMenu}
+                className="fixed inset-0 bg-stone-900/40 dark:bg-black/60 backdrop-blur-sm z-[60] lg:hidden"
+              />
+              <motion.div 
+                initial={{ x: '-100%' }}
+                animate={{ x: 0 }}
+                exit={{ x: '-100%' }}
+                transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+                className="fixed top-0 left-0 bottom-0 w-[280px] bg-white dark:bg-stone-900 z-[70] shadow-2xl p-6 flex flex-col transition-colors duration-300 lg:hidden"
+              >
+                <div className="flex justify-between items-center mb-8">
+                  <div className="flex items-center gap-3">
+                    <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-lg shadow-md", config.bg)}>
+                      {config.logo}
                     </div>
+                    <h2 className="text-xl font-bold text-stone-900 dark:text-stone-100">Engix</h2>
                   </div>
-                )}
-                
-                <div className="grid grid-cols-2 gap-2 mb-4">
-                  {DEPT_TABS[dept].map(tabId => (
+                  <button onClick={toggleMenu} className="p-2 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-800 text-stone-600 dark:text-stone-400"><X size={20} /></button>
+                </div>
+
+                <div className="flex-1 overflow-y-auto no-scrollbar">
+                  <div className="grid grid-cols-2 gap-2 mb-6">
+                    {DEPT_TABS[dept].map(tabId => (
+                      <MenuLink 
+                        key={tabId}
+                        active={activeTab === tabId} 
+                        onClick={() => { setActiveTab(tabId); toggleMenu(); }} 
+                        icon={TAB_ICONS[tabId]} 
+                        label={t[tabId]} 
+                        color={config.text} 
+                        isGrid
+                      />
+                    ))}
                     <MenuLink 
-                      key={tabId}
-                      active={activeTab === tabId} 
-                      onClick={() => { setActiveTab(tabId); toggleMenu(); }} 
-                      icon={TAB_ICONS[tabId]} 
-                      label={t[tabId]} 
+                      active={activeTab === 'settings'} 
+                      onClick={() => { setActiveTab('settings'); toggleMenu(); }} 
+                      icon={TAB_ICONS.settings} 
+                      label={t.settings} 
                       color={config.text} 
                       isGrid
                     />
-                  ))}
-                  <MenuLink 
-                    active={activeTab === 'settings'} 
-                    onClick={() => { setActiveTab('settings'); toggleMenu(); }} 
-                    icon={TAB_ICONS.settings} 
-                    label={t.settings} 
-                    color={config.text} 
-                    isGrid
-                  />
+                  </div>
+
+                  <div className="space-y-4 pt-6 border-t border-stone-100 dark:border-stone-800">
+                    <p className="text-xs font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest mb-2">{t.deptSelect}</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <DeptButton active={dept === 'civil'} onClick={() => setDept('civil')} icon={<HardHat size={16} />} label={t.civil} color="emerald" />
+                      <DeptButton active={dept === 'mechanical'} onClick={() => setDept('mechanical')} icon={<Settings size={16} />} label={t.mechanical} color="orange" />
+                      <DeptButton active={dept === 'electrical'} onClick={() => setDept('electrical')} icon={<Zap size={16} />} label={t.electrical} color="blue" />
+                      <DeptButton active={dept === 'computer'} onClick={() => setDept('computer')} icon={<Code size={16} />} label={t.computer} color="purple" />
+                    </div>
+                  </div>
                 </div>
 
-                <div className="space-y-2">
+                <div className="mt-auto pt-6 border-t border-stone-100 dark:border-stone-800">
                   {user ? (
                     <button 
                       onClick={() => { handleLogout(); toggleMenu(); }}
@@ -338,56 +403,48 @@ export default function App() {
                   ) : (
                     <button 
                       onClick={() => { handleLogin(); toggleMenu(); }}
-                      className="w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all font-medium text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+                      className={cn("w-full flex items-center justify-center gap-3 py-3.5 rounded-2xl text-white font-bold shadow-lg", config.bg)}
                     >
                       <LogIn size={20} />
                       <span>{t.login}</span>
                     </button>
                   )}
                 </div>
-              </div>
-
-              <div className="mt-8 pt-8 border-t border-stone-100 dark:border-stone-800">
-                <p className="text-xs font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest mb-4">{t.deptSelect}</p>
-                <div className="grid grid-cols-2 gap-2">
-                  <DeptButton active={dept === 'civil'} onClick={() => setDept('civil')} icon={<HardHat size={16} />} label={t.civil} color="emerald" />
-                  <DeptButton active={dept === 'mechanical'} onClick={() => setDept('mechanical')} icon={<Settings size={16} />} label={t.mechanical} color="orange" />
-                  <DeptButton active={dept === 'electrical'} onClick={() => setDept('electrical')} icon={<Zap size={16} />} label={t.electrical} color="blue" />
-                  <DeptButton active={dept === 'computer'} onClick={() => setDept('computer')} icon={<Code size={16} />} label={t.computer} color="purple" />
-                </div>
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
-
-      {/* Main Content */}
-      <main className="max-w-4xl mx-auto px-4 pt-6 pb-12">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={`${activeTab}-${dept}`}
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            transition={{ duration: 0.3 }}
-          >
-            {activeTab === 'home' && <HomeTab t={t} lang={lang} dept={dept} config={config} setActiveTab={setActiveTab} />}
-            {activeTab === 'survey' && <SurveyTab t={t} config={config} />}
-            {activeTab === 'land' && <LandTab t={t} config={config} />}
-            {activeTab === 'plot_planner' && <PlotPlannerTab t={t} config={config} />}
-            {activeTab === 'slab_design' && <SlabDesignTab t={t} lang={lang} config={config} />}
-            {activeTab === 'unit_converter' && <UnitConverterTab t={t} config={config} />}
-            {activeTab === 'estimating' && <EstimatingTab t={t} config={config} />}
-            {activeTab === 'materials' && <MaterialsTab t={t} lang={lang} config={config} />}
-            {activeTab === 'quiz' && <QuizTab t={t} lang={lang} config={config} dept={dept} />}
-            {activeTab === 'chat' && <ChatTab t={t} lang={lang} config={config} />}
-            {activeTab === 'settings' && <SettingsTab t={t} lang={lang} setLang={setLang} dept={dept} setDept={setDept} theme={theme} setTheme={setTheme} user={user} handleLogin={handleLogin} handleLogout={handleLogout} saveUserSettings={saveUserSettings} config={config} />}
-            {['mech_design', 'thermo', 'fluids', 'circuits', 'power', 'control', 'software', 'data', 'network'].includes(activeTab) && (
-              <ComingSoonTab t={t} config={config} tabId={activeTab} />
-            )}
-          </motion.div>
+              </motion.div>
+            </>
+          )}
         </AnimatePresence>
-      </main>
+
+        {/* Main Content Area */}
+        <main className="flex-1 overflow-y-auto no-scrollbar">
+          <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-12">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={`${activeTab}-${dept}`}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.2 }}
+              >
+                {activeTab === 'home' && <HomeTab t={t} lang={lang} dept={dept} config={config} setActiveTab={setActiveTab} />}
+                {activeTab === 'survey' && <SurveyTab t={t} config={config} />}
+                {activeTab === 'land' && <LandTab t={t} config={config} />}
+                {activeTab === 'plot_planner' && <PlotPlannerTab t={t} config={config} />}
+                {activeTab === 'slab_design' && <SlabDesignTab t={t} lang={lang} config={config} />}
+                {activeTab === 'unit_converter' && <UnitConverterTab t={t} config={config} />}
+                {activeTab === 'estimating' && <EstimatingTab t={t} config={config} />}
+                {activeTab === 'materials' && <MaterialsTab t={t} lang={lang} config={config} />}
+                {activeTab === 'quiz' && <QuizTab t={t} lang={lang} config={config} dept={dept} />}
+                {activeTab === 'chat' && <ChatTab t={t} lang={lang} config={config} />}
+                {activeTab === 'settings' && <SettingsTab t={t} lang={lang} setLang={setLang} dept={dept} setDept={setDept} theme={theme} setTheme={setTheme} user={user} handleLogin={handleLogin} handleLogout={handleLogout} saveUserSettings={saveUserSettings} config={config} />}
+                {['mech_design', 'thermo', 'fluids', 'circuits', 'power', 'control', 'software', 'data', 'network'].includes(activeTab) && (
+                  <ComingSoonTab t={t} config={config} tabId={activeTab} />
+                )}
+              </motion.div>
+            </AnimatePresence>
+          </div>
+        </main>
+      </div>
     </div>
   );
 }
@@ -397,35 +454,42 @@ function MenuLink({ active, onClick, icon, label, color, isGrid }: { active: boo
     <button 
       onClick={onClick}
       className={cn(
-        "flex items-center gap-4 rounded-2xl transition-all font-medium",
-        isGrid ? "flex-col justify-center gap-2 p-4 text-center" : "w-full px-4 py-3.5",
-        active ? cn("bg-stone-100 dark:bg-stone-800", color) : "text-stone-600 dark:text-stone-400 hover:bg-stone-50 dark:hover:bg-stone-800/50"
+        "flex items-center gap-4 rounded-2xl transition-all font-medium group",
+        isGrid ? "flex-col justify-center p-4 text-center text-xs" : "px-4 py-3 text-sm w-full",
+        active 
+          ? cn("bg-stone-100 dark:bg-stone-800 shadow-sm", color) 
+          : "text-stone-500 dark:text-stone-400 hover:bg-stone-50 dark:hover:bg-stone-800/50 hover:text-stone-900 dark:hover:text-stone-100"
       )}
     >
-      <div className={cn(active ? color : "text-stone-400 dark:text-stone-500")}>{icon}</div>
-      <span className={cn(isGrid ? "text-xs" : "text-base")}>{label}</span>
+      <div className={cn(
+        "transition-transform group-hover:scale-110",
+        active ? color : "text-stone-400 dark:text-stone-500"
+      )}>
+        {icon}
+      </div>
+      <span className="truncate">{label}</span>
     </button>
   );
 }
 
 function DeptButton({ active, onClick, icon, label, color }: { active: boolean, onClick: () => void, icon: React.ReactNode, label: string, color: string }) {
   const colors: any = {
-    emerald: active ? 'bg-emerald-600 text-white' : 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400',
-    orange: active ? 'bg-orange-600 text-white' : 'bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400',
-    blue: active ? 'bg-blue-600 text-white' : 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400',
-    purple: active ? 'bg-purple-600 text-white' : 'bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400',
+    emerald: active ? 'bg-emerald-600 text-white shadow-emerald-200 dark:shadow-none' : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border-emerald-100 dark:border-emerald-900/30',
+    orange: active ? 'bg-orange-600 text-white shadow-orange-200 dark:shadow-none' : 'bg-orange-50 dark:bg-orange-950/40 text-orange-600 dark:text-orange-400 border-orange-100 dark:border-orange-900/30',
+    blue: active ? 'bg-blue-600 text-white shadow-blue-200 dark:shadow-none' : 'bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 border-blue-100 dark:border-blue-900/30',
+    purple: active ? 'bg-purple-600 text-white shadow-purple-200 dark:shadow-none' : 'bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 border-purple-100 dark:border-purple-900/30',
   };
 
   return (
     <button 
       onClick={onClick}
       className={cn(
-        "flex items-center justify-center gap-2 p-2.5 rounded-xl text-xs font-bold transition-all",
+        "flex items-center justify-center gap-2 p-3 rounded-2xl text-xs font-bold transition-all border shadow-sm",
         colors[color]
       )}
     >
-      {icon}
-      {label}
+      <span className="shrink-0">{icon}</span>
+      <span className="truncate">{label}</span>
     </button>
   );
 }
@@ -443,25 +507,8 @@ function SettingsTab({ t, lang, setLang, dept, setDept, theme, setTheme, user, h
           <h2 className="text-2xl font-black text-stone-900 dark:text-stone-100">{t.settings}</h2>
         </div>
 
-        {!user ? (
-          <div className="text-center py-12 space-y-6">
-            <div className="w-20 h-20 bg-stone-50 dark:bg-stone-950 rounded-full flex items-center justify-center mx-auto text-stone-300 dark:text-stone-600">
-              <UserIcon size={40} />
-            </div>
-            <div>
-              <h3 className="text-xl font-bold text-stone-900 dark:text-stone-100">{t.authRequired}</h3>
-              <p className="text-stone-500 dark:text-stone-400 mt-2">Login to save your preferences across devices.</p>
-            </div>
-            <button 
-              onClick={handleLogin}
-              className={cn("px-8 py-4 rounded-2xl text-white font-bold shadow-xl flex items-center gap-3 mx-auto", config.bg, config.shadow)}
-            >
-              <LogIn size={20} />
-              {t.googleLogin}
-            </button>
-          </div>
-        ) : (
-          <div className="space-y-8">
+        <div className="space-y-8">
+          {user ? (
             <div className="flex items-center gap-4 p-6 bg-stone-50 dark:bg-stone-950 rounded-3xl border border-stone-100 dark:border-stone-800/50">
               {user.photoURL ? (
                 <img src={user.photoURL} alt="Profile" className="w-16 h-16 rounded-full border-4 border-white dark:border-stone-800 shadow-md" referrerPolicy="no-referrer" />
@@ -477,55 +524,84 @@ function SettingsTab({ t, lang, setLang, dept, setDept, theme, setTheme, user, h
                 <p className="text-stone-400 dark:text-stone-500 text-xs font-medium uppercase tracking-widest">{t.profile}</p>
               </div>
             </div>
-
-            <div className="space-y-4">
-              <p className="text-xs font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest">{t.language}</p>
-              <div className="grid grid-cols-2 gap-3">
-                <button 
-                  onClick={() => { setLang('bn'); saveUserSettings('bn', dept, theme); }}
-                  className={cn("py-4 rounded-2xl font-bold border transition-all", lang === 'bn' ? cn("border-transparent text-white", config.bg) : "bg-white dark:bg-stone-900 border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-700")}
-                >
-                  বাংলা
-                </button>
-                <button 
-                  onClick={() => { setLang('en'); saveUserSettings('en', dept, theme); }}
-                  className={cn("py-4 rounded-2xl font-bold border transition-all", lang === 'en' ? cn("border-transparent text-white", config.bg) : "bg-white dark:bg-stone-900 border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-700")}
-                >
-                  English
-                </button>
+          ) : (
+            <div className="p-6 bg-stone-50 dark:bg-stone-950 rounded-3xl border border-dashed border-stone-200 dark:border-stone-800 text-center space-y-4">
+              <div className="w-12 h-12 bg-white dark:bg-stone-900 rounded-full flex items-center justify-center mx-auto text-stone-300 dark:text-stone-600">
+                <UserIcon size={24} />
               </div>
-            </div>
-
-            <div className="space-y-4">
-              <p className="text-xs font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest">Theme</p>
-              <div className="grid grid-cols-2 gap-3">
-                <button 
-                  onClick={() => { setTheme('light'); saveUserSettings(lang, dept, 'light'); }}
-                  className={cn("py-4 rounded-2xl font-bold border transition-all flex items-center justify-center gap-2", theme === 'light' ? cn("border-transparent text-white", config.bg) : "bg-white dark:bg-stone-900 border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-700")}
-                >
-                  <Sun size={18} />
-                  Light
-                </button>
-                <button 
-                  onClick={() => { setTheme('dark'); saveUserSettings(lang, dept, 'dark'); }}
-                  className={cn("py-4 rounded-2xl font-bold border transition-all flex items-center justify-center gap-2", theme === 'dark' ? cn("border-transparent text-white", config.bg) : "bg-white dark:bg-stone-900 border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-700")}
-                >
-                  <Moon size={18} />
-                  Dark
-                </button>
+              <div>
+                <h3 className="text-sm font-bold text-stone-900 dark:text-stone-100">{t.authRequired}</h3>
+                <p className="text-xs text-stone-500 dark:text-stone-400 mt-1">Login to sync settings across devices.</p>
               </div>
+              <button 
+                onClick={handleLogin}
+                className={cn("px-6 py-2.5 rounded-xl text-white text-sm font-bold shadow-lg flex items-center gap-2 mx-auto", config.bg)}
+              >
+                <LogIn size={16} />
+                {t.googleLogin}
+              </button>
             </div>
+          )}
 
-            <div className="space-y-4">
-              <p className="text-xs font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest">{t.deptSelect}</p>
-              <div className="grid grid-cols-2 gap-3">
-                <DeptButton active={dept === 'civil'} onClick={() => { setDept('civil'); saveUserSettings(lang, 'civil', theme); }} icon={<HardHat size={16} />} label={t.civil} color="emerald" />
-                <DeptButton active={dept === 'mechanical'} onClick={() => { setDept('mechanical'); saveUserSettings(lang, 'mechanical', theme); }} icon={<Settings size={16} />} label={t.mechanical} color="orange" />
-                <DeptButton active={dept === 'electrical'} onClick={() => { setDept('electrical'); saveUserSettings(lang, 'electrical', theme); }} icon={<Zap size={16} />} label={t.electrical} color="blue" />
-                <DeptButton active={dept === 'computer'} onClick={() => { setDept('computer'); saveUserSettings(lang, 'computer', theme); }} icon={<Code size={16} />} label={t.computer} color="purple" />
-              </div>
+          <div className="space-y-4">
+            <p className="text-xs font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest">{t.language}</p>
+            <div className="grid grid-cols-2 gap-3">
+              <button 
+                onClick={() => { setLang('bn'); saveUserSettings('bn', dept, theme); }}
+                className={cn("py-4 rounded-2xl font-bold border transition-all", lang === 'bn' ? cn("border-transparent text-white", config.bg) : "bg-white dark:bg-stone-900 border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-700")}
+              >
+                বাংলা
+              </button>
+              <button 
+                onClick={() => { setLang('en'); saveUserSettings('en', dept, theme); }}
+                className={cn("py-4 rounded-2xl font-bold border transition-all", lang === 'en' ? cn("border-transparent text-white", config.bg) : "bg-white dark:bg-stone-900 border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-700")}
+              >
+                English
+              </button>
             </div>
+          </div>
 
+          <div className="space-y-4">
+            <p className="text-xs font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest">Theme</p>
+            <div className="flex bg-stone-100 dark:bg-stone-800 p-1.5 rounded-2xl border border-stone-200 dark:border-stone-700">
+              <button 
+                onClick={() => { setTheme('light'); saveUserSettings(lang, dept, 'light'); }}
+                className={cn(
+                  "flex-1 py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2", 
+                  theme === 'light' 
+                    ? "bg-white text-amber-600 shadow-md ring-1 ring-stone-200" 
+                    : "text-stone-500 hover:text-stone-700 dark:text-stone-400 dark:hover:text-stone-200"
+                )}
+              >
+                <Sun size={20} />
+                Light
+              </button>
+              <button 
+                onClick={() => { setTheme('dark'); saveUserSettings(lang, dept, 'dark'); }}
+                className={cn(
+                  "flex-1 py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2", 
+                  theme === 'dark' 
+                    ? "bg-stone-900 text-indigo-400 shadow-md ring-1 ring-stone-700" 
+                    : "text-stone-500 hover:text-stone-700 dark:text-stone-400 dark:hover:text-stone-200"
+                )}
+              >
+                <Moon size={20} />
+                Dark
+              </button>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <p className="text-xs font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest">{t.deptSelect}</p>
+            <div className="grid grid-cols-2 gap-3">
+              <DeptButton active={dept === 'civil'} onClick={() => { setDept('civil'); saveUserSettings(lang, 'civil', theme); }} icon={<HardHat size={16} />} label={t.civil} color="emerald" />
+              <DeptButton active={dept === 'mechanical'} onClick={() => { setDept('mechanical'); saveUserSettings(lang, 'mechanical', theme); }} icon={<Settings size={16} />} label={t.mechanical} color="orange" />
+              <DeptButton active={dept === 'electrical'} onClick={() => { setDept('electrical'); saveUserSettings(lang, 'electrical', theme); }} icon={<Zap size={16} />} label={t.electrical} color="blue" />
+              <DeptButton active={dept === 'computer'} onClick={() => { setDept('computer'); saveUserSettings(lang, 'computer', theme); }} icon={<Code size={16} />} label={t.computer} color="purple" />
+            </div>
+          </div>
+
+          {user && (
             <button 
               onClick={handleLogout}
               className="w-full py-4 rounded-2xl border border-red-200 dark:border-red-900/50 text-red-500 dark:text-red-400 font-bold hover:bg-red-50 dark:hover:bg-red-950/30 transition-all flex items-center justify-center gap-2"
@@ -533,8 +609,8 @@ function SettingsTab({ t, lang, setLang, dept, setDept, theme, setTheme, user, h
               <LogOut size={20} />
               {t.logout}
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );
