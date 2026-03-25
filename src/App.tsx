@@ -1593,9 +1593,10 @@ function LandTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: any }
   const [isProcessing, setIsProcessing] = useState(false);
   const [landAnalysis, setLandAnalysis] = useState<string | null>(null);
   const [visualOverlays, setVisualOverlays] = useState<any[]>([]);
-  const [calcMode, setCalcMode] = useState<'general' | 'coordinates'>('general');
+  const [calcMode, setCalcMode] = useState<'general' | 'coordinates' | 'station'>('general');
   const [manualLat, setManualLat] = useState("");
   const [manualLng, setManualLng] = useState("");
+  const [isLocating, setIsLocating] = useState(false);
 
   useEffect(() => {
     if (navigator.geolocation) {
@@ -1659,6 +1660,27 @@ function LandTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: any }
       setManualLng("");
       // Center map on the new point
       setCenter([lat, lng]);
+    }
+  };
+
+  const addStationPoint = () => {
+    if (navigator.geolocation) {
+      setIsLocating(true);
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const lat = pos.coords.latitude;
+          const lng = pos.coords.longitude;
+          setPoints(prev => [...prev, [lat, lng]]);
+          setCenter([lat, lng]);
+          setIsLocating(false);
+        },
+        (err) => {
+          console.error(err);
+          setIsLocating(false);
+          alert(lang === 'bn' ? "লোকেশন পাওয়া যায়নি। দয়া করে জিপিএস চালু করুন।" : "Could not get location. Please enable GPS.");
+        },
+        { enableHighAccuracy: true }
+      );
     }
   };
 
@@ -1764,18 +1786,24 @@ function LandTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: any }
         </div>
 
         {/* Mode Selector */}
-        <div className="flex gap-2 mb-6 p-1 bg-stone-50 dark:bg-stone-800 rounded-2xl border border-stone-100 dark:border-stone-700 w-fit">
+        <div className="grid grid-cols-3 gap-1 sm:gap-2 mb-6 p-1 bg-stone-50 dark:bg-stone-800 rounded-2xl border border-stone-100 dark:border-stone-700 w-full sm:w-fit">
           <button 
             onClick={() => setCalcMode('general')}
-            className={cn("px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all", calcMode === 'general' ? "bg-white dark:bg-stone-700 shadow-sm text-stone-900 dark:text-white" : "text-stone-400")}
+            className={cn("px-2 sm:px-4 py-2 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all w-full", calcMode === 'general' ? "bg-white dark:bg-stone-700 shadow-sm text-stone-900 dark:text-white" : "text-stone-400")}
           >
             {lang === 'bn' ? "সাধারণ" : "General"}
           </button>
           <button 
-            onClick={() => setCalcMode('coordinates')}
-            className={cn("px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all", calcMode === 'coordinates' ? "bg-white dark:bg-stone-700 shadow-sm text-stone-900 dark:text-white" : "text-stone-400")}
+            onClick={() => setCalcMode('station')}
+            className={cn("px-2 sm:px-4 py-2 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all w-full", calcMode === 'station' ? "bg-white dark:bg-stone-700 shadow-sm text-stone-900 dark:text-white" : "text-stone-400")}
           >
-            {lang === 'bn' ? "স্থানাঙ্ক (Coordinates)" : "Coordinates"}
+            {lang === 'bn' ? "স্টেশন (GPS)" : "Station (GPS)"}
+          </button>
+          <button 
+            onClick={() => setCalcMode('coordinates')}
+            className={cn("px-2 sm:px-4 py-2 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all w-full", calcMode === 'coordinates' ? "bg-white dark:bg-stone-700 shadow-sm text-stone-900 dark:text-white" : "text-stone-400")}
+          >
+            {lang === 'bn' ? "স্থানাঙ্ক" : "Coordinates"}
           </button>
         </div>
 
@@ -1819,6 +1847,37 @@ function LandTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: any }
                 >
                   {lang === 'bn' ? "বিন্দু যোগ করুন" : "Add Point"}
                 </button>
+              </div>
+            )}
+
+            {calcMode === 'station' && (
+              <div className="p-4 bg-stone-50 dark:bg-stone-800 rounded-2xl border border-stone-100 dark:border-stone-700 space-y-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] font-black text-stone-500 uppercase tracking-widest">
+                    {lang === 'bn' ? "আপনার বর্তমান অবস্থান ব্যবহার করুন" : "Use your current location"}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                    <span className="text-[9px] font-bold text-stone-400 uppercase">GPS ACTIVE</span>
+                  </div>
+                </div>
+                <button 
+                  onClick={addStationPoint}
+                  disabled={isLocating}
+                  className={cn("w-full py-4 rounded-xl text-white text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2", config.bg)}
+                >
+                  {isLocating ? (
+                    <Loader2 size={16} className="animate-spin" />
+                  ) : (
+                    <Navigation size={16} />
+                  )}
+                  {lang === 'bn' ? `${points.length + 1} নং বিন্দু হিসাবে বর্তমান লোকেশন নিন` : `Take Current Location as Point ${points.length + 1}`}
+                </button>
+                <p className="text-[9px] text-stone-400 text-center italic">
+                  {lang === 'bn' 
+                    ? "* জমির এক কোণায় দাঁড়িয়ে বাটনে ক্লিক করুন, তারপর অন্য কোণায় গিয়ে আবার ক্লিক করুন।" 
+                    : "* Stand at one corner of the land and click, then move to the next corner and click again."}
+                </p>
               </div>
             )}
             <div className="flex items-center justify-between gap-2">
@@ -2346,70 +2405,140 @@ function QuizTab({ t, lang, config, dept }: { t: any, lang: 'bn' | 'en', config:
   const [timeLeft, setTimeLeft] = useState(100);
   const [finished, setFinished] = useState(false);
   const [questions, setQuestions] = useState<any[]>([]);
-  const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
-  const [showFeedback, setShowFeedback] = useState(false);
+  const [userAnswers, setUserAnswers] = useState<(number | null)[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [showAnswers, setShowAnswers] = useState(false);
 
   const [selectedDept, setSelectedDept] = useState(dept);
   const quizConfig = DEPT_CONFIG[selectedDept as keyof typeof DEPT_CONFIG] || config;
 
   useEffect(() => {
-    if (started && timeLeft > 0 && !finished && !showFeedback) {
+    if (started && timeLeft > 0 && !finished) {
       const timer = setInterval(() => setTimeLeft(prev => prev - 1), 1000);
       return () => clearInterval(timer);
     } else if (timeLeft === 0) {
       setFinished(true);
     }
-  }, [started, timeLeft, finished, showFeedback]);
+  }, [started, timeLeft, finished]);
 
   const startQuiz = async () => {
     setIsLoading(true);
     const generatedQuestions = await generateQuizQuestions(selectedDept, lang);
     
-    if (generatedQuestions && generatedQuestions.length > 0) {
-      setQuestions(generatedQuestions);
-      setStarted(true);
-      setCurrentIdx(0);
-      setScore(0);
-      setTimeLeft(100);
-      setFinished(false);
-      setSelectedAnswer(null);
-      setShowFeedback(false);
-    } else {
-      // Fallback to static questions if generation fails
-      const shuffled = [...quizQuestions].sort(() => Math.random() - 0.5).slice(0, 10);
-      setQuestions(shuffled);
-      setStarted(true);
-      setCurrentIdx(0);
-      setScore(0);
-      setTimeLeft(100);
-      setFinished(false);
-      setSelectedAnswer(null);
-      setShowFeedback(false);
-    }
+    const finalQuestions = (generatedQuestions && generatedQuestions.length > 0) 
+      ? generatedQuestions 
+      : [...quizQuestions].sort(() => Math.random() - 0.5).slice(0, 10);
+
+    setQuestions(finalQuestions);
+    setUserAnswers(new Array(finalQuestions.length).fill(null));
+    setStarted(true);
+    setCurrentIdx(0);
+    setScore(0);
+    setTimeLeft(100);
+    setFinished(false);
+    setShowAnswers(false);
     setIsLoading(false);
   };
 
   const handleAnswer = (idx: number) => {
-    if (showFeedback) return;
-    setSelectedAnswer(idx);
-    setShowFeedback(true);
+    if (finished) return;
+    
+    const newUserAnswers = [...userAnswers];
+    newUserAnswers[currentIdx] = idx;
+    setUserAnswers(newUserAnswers);
+
+    // Calculate score incrementally
     if (idx === questions[currentIdx].answer) {
       setScore(prev => prev + 10);
     }
-  };
 
-  const nextQuestion = () => {
-    if (currentIdx + 1 < questions.length) {
-      setCurrentIdx(prev => prev + 1);
-      setSelectedAnswer(null);
-      setShowFeedback(false);
-    } else {
-      setFinished(true);
-    }
+    // Auto advance after a short delay
+    setTimeout(() => {
+      if (currentIdx + 1 < questions.length) {
+        setCurrentIdx(prev => prev + 1);
+      } else {
+        setFinished(true);
+      }
+    }, 300);
   };
 
   if (finished) {
+    if (showAnswers) {
+      return (
+        <div className="space-y-6">
+          <div className="flex justify-between items-center bg-white dark:bg-stone-900 p-6 rounded-3xl border border-stone-200 dark:border-stone-800 shadow-sm transition-colors duration-300">
+            <h2 className="text-2xl font-black text-stone-900 dark:text-stone-100">{lang === 'bn' ? "উত্তরপত্র" : "Answer Sheet"}</h2>
+            <button 
+              onClick={() => setShowAnswers(false)}
+              className="p-2 rounded-xl bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400"
+            >
+              <X size={24} />
+            </button>
+          </div>
+
+          <div className="space-y-4">
+            {questions.map((q, qIdx) => {
+              const userPick = userAnswers[qIdx];
+              const correctIdx = q.answer;
+              const isCorrect = userPick === correctIdx;
+
+              return (
+                <div key={qIdx} className="bg-white dark:bg-stone-900 p-6 rounded-3xl border border-stone-200 dark:border-stone-800 space-y-4 shadow-sm transition-colors duration-300">
+                  <div className="flex gap-3">
+                    <span className={cn("flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-black text-sm", isCorrect ? "bg-emerald-100 text-emerald-600" : "bg-red-100 text-red-600")}>
+                      {qIdx + 1}
+                    </span>
+                    <h4 className="font-bold text-stone-900 dark:text-stone-100 leading-tight">{q.question[lang]}</h4>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-2 ml-11">
+                    {q.options[lang].map((opt: string, oIdx: number) => {
+                      const isUserChoice = oIdx === userPick;
+                      const isCorrectChoice = oIdx === correctIdx;
+                      
+                      let borderClass = "border-stone-100 dark:border-stone-800";
+                      let bgClass = "bg-stone-50/50 dark:bg-stone-800/30";
+                      let textClass = "text-stone-600 dark:text-stone-400";
+
+                      if (isCorrectChoice) {
+                        borderClass = "border-emerald-500 dark:border-emerald-600";
+                        bgClass = "bg-emerald-50 dark:bg-emerald-900/20";
+                        textClass = "text-emerald-700 dark:text-emerald-400 font-bold";
+                      } else if (isUserChoice && !isCorrectChoice) {
+                        borderClass = "border-red-500 dark:border-red-600";
+                        bgClass = "bg-red-50 dark:bg-red-900/20";
+                        textClass = "text-red-700 dark:text-red-400 font-bold";
+                      }
+
+                      return (
+                        <div key={oIdx} className={cn("p-3 rounded-xl border text-sm flex justify-between items-center", borderClass, bgClass, textClass)}>
+                          <span>{opt}</span>
+                          {isCorrectChoice && <Trophy size={14} />}
+                          {isUserChoice && !isCorrectChoice && <X size={14} />}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="ml-11 p-4 rounded-2xl bg-stone-50 dark:bg-stone-800/50 border border-stone-100 dark:border-stone-800">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-stone-400 dark:text-stone-500 mb-1">{t.explanation}</p>
+                    <p className="text-xs text-stone-600 dark:text-stone-400 leading-relaxed">{q.explanation[lang]}</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <button 
+            onClick={() => setFinished(false)}
+            className={cn("w-full py-5 rounded-2xl text-white font-black text-lg shadow-xl", quizConfig.bg)}
+          >
+            {lang === 'bn' ? "ফিরে যান" : "Go Back"}
+          </button>
+        </div>
+      );
+    }
+
     return (
       <div className="bg-white dark:bg-stone-900 p-10 rounded-[3rem] border border-stone-200 dark:border-stone-800 text-center space-y-8 shadow-xl transition-colors duration-300">
         <motion.div 
@@ -2423,13 +2552,22 @@ function QuizTab({ t, lang, config, dept }: { t: any, lang: 'bn' | 'en', config:
           <p className="text-stone-400 dark:text-stone-500 font-black uppercase tracking-widest mb-2">{t.score}</p>
           <p className={cn("text-7xl font-black", quizConfig.text)}>{score}</p>
         </div>
-        <button 
-          onClick={startQuiz} 
-          disabled={isLoading}
-          className={cn("w-full text-white py-5 rounded-2xl font-black text-lg shadow-xl flex items-center justify-center gap-2", quizConfig.bg, quizConfig.shadow, isLoading && "opacity-70 cursor-not-allowed")}
-        >
-          {isLoading ? <Loader2 size={24} className="animate-spin" /> : "Try Again"}
-        </button>
+        
+        <div className="grid grid-cols-1 gap-4">
+          <button 
+            onClick={() => setShowAnswers(true)}
+            className="w-full py-5 rounded-2xl bg-stone-100 dark:bg-stone-800 text-stone-900 dark:text-stone-100 font-black text-lg border border-stone-200 dark:border-stone-700 transition-all hover:bg-stone-200 dark:hover:bg-stone-700"
+          >
+            {lang === 'bn' ? "উত্তর দেখুন" : "View Answers"}
+          </button>
+          <button 
+            onClick={startQuiz} 
+            disabled={isLoading}
+            className={cn("w-full text-white py-5 rounded-2xl font-black text-lg shadow-xl flex items-center justify-center gap-2", quizConfig.bg, quizConfig.shadow, isLoading && "opacity-70 cursor-not-allowed")}
+          >
+            {isLoading ? <Loader2 size={24} className="animate-spin" /> : "Try Again"}
+          </button>
+        </div>
       </div>
     );
   }
@@ -2498,64 +2636,27 @@ function QuizTab({ t, lang, config, dept }: { t: any, lang: 'bn' | 'en', config:
         <h3 className="text-2xl font-black mb-10 leading-tight text-stone-900 dark:text-stone-100">{currentQuestion.question[lang]}</h3>
         <div className="grid grid-cols-1 gap-4">
           {currentQuestion.options[lang].map((opt: string, i: number) => {
-            const isCorrect = i === currentQuestion.answer;
-            const isSelected = i === selectedAnswer;
+            const isSelected = i === userAnswers[currentIdx];
             
-            let btnClass = "bg-stone-50 dark:bg-stone-800 border-stone-200 dark:border-stone-700 text-stone-700 dark:text-stone-300";
-            if (showFeedback) {
-              if (isCorrect) btnClass = "bg-emerald-50 dark:bg-emerald-900/30 border-emerald-500 dark:border-emerald-600 text-emerald-700 dark:text-emerald-400";
-              else if (isSelected) btnClass = "bg-red-50 dark:bg-red-900/30 border-red-500 dark:border-red-600 text-red-700 dark:text-red-400";
-              else btnClass = "bg-stone-50 dark:bg-stone-800 border-stone-100 dark:border-stone-800 text-stone-300 dark:text-stone-600";
-            } else {
-              btnClass = "bg-stone-50 dark:bg-stone-800 border-stone-200 dark:border-stone-700 text-stone-700 dark:text-stone-300 hover:border-stone-400 dark:hover:border-stone-500 hover:bg-white dark:hover:bg-stone-700";
-            }
-
             return (
               <motion.button 
                 key={i}
-                whileTap={!showFeedback ? { scale: 0.98 } : {}}
+                whileTap={{ scale: 0.98 }}
                 onClick={() => handleAnswer(i)}
-                disabled={showFeedback}
-                className={cn("w-full text-left p-5 rounded-2xl border transition-all font-bold text-lg", btnClass)}
+                className={cn(
+                  "w-full text-left p-5 rounded-2xl border transition-all font-bold text-lg",
+                  isSelected 
+                    ? cn(quizConfig.bg, "text-white border-transparent shadow-lg")
+                    : "bg-stone-50 dark:bg-stone-800 border-stone-200 dark:border-stone-700 text-stone-700 dark:text-stone-300 hover:border-stone-400 dark:hover:border-stone-500 hover:bg-white dark:hover:bg-stone-700"
+                )}
               >
                 <div className="flex justify-between items-center">
                   <span>{opt}</span>
-                  {showFeedback && isCorrect && <Trophy size={20} className="text-emerald-500 dark:text-emerald-400" />}
-                  {showFeedback && isSelected && !isCorrect && <X size={20} className="text-red-500 dark:text-red-400" />}
                 </div>
               </motion.button>
             );
           })}
         </div>
-
-        <AnimatePresence>
-          {showFeedback && (
-            <motion.div 
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              className="mt-8 pt-8 border-t border-stone-100 dark:border-stone-800"
-            >
-              <div className={cn("p-6 rounded-3xl", selectedAnswer === currentQuestion.answer ? "bg-emerald-50 dark:bg-emerald-900/20" : "bg-red-50 dark:bg-red-900/20")}>
-                <p className={cn("font-black text-xl mb-2", selectedAnswer === currentQuestion.answer ? "text-emerald-700 dark:text-emerald-400" : "text-red-700 dark:text-red-400")}>
-                  {selectedAnswer === currentQuestion.answer ? t.correct : t.incorrect}
-                </p>
-                <div className="space-y-2">
-                  <p className="text-xs font-black uppercase tracking-widest text-stone-400 dark:text-stone-500">{t.explanation}</p>
-                  <p className="text-stone-700 dark:text-stone-300 font-medium leading-relaxed">
-                    {currentQuestion.explanation[lang]}
-                  </p>
-                </div>
-              </div>
-              <button 
-                onClick={nextQuestion}
-                className={cn("w-full mt-6 py-5 rounded-2xl text-white font-black text-lg shadow-xl flex items-center justify-center gap-2", quizConfig.bg)}
-              >
-                {t.next}
-                <ChevronRight size={24} />
-              </button>
-            </motion.div>
-          )}
-        </AnimatePresence>
       </div>
     </div>
   );
