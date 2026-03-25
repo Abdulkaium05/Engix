@@ -1593,6 +1593,9 @@ function LandTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: any }
   const [isProcessing, setIsProcessing] = useState(false);
   const [landAnalysis, setLandAnalysis] = useState<string | null>(null);
   const [visualOverlays, setVisualOverlays] = useState<any[]>([]);
+  const [calcMode, setCalcMode] = useState<'general' | 'coordinates'>('general');
+  const [manualLat, setManualLat] = useState("");
+  const [manualLng, setManualLng] = useState("");
 
   useEffect(() => {
     if (navigator.geolocation) {
@@ -1645,6 +1648,18 @@ function LandTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: any }
 
   const undoLastPoint = () => {
     setPoints(prev => prev.slice(0, -1));
+  };
+
+  const addManualPoint = () => {
+    const lat = parseFloat(manualLat);
+    const lng = parseFloat(manualLng);
+    if (!isNaN(lat) && !isNaN(lng)) {
+      setPoints(prev => [...prev, [lat, lng]]);
+      setManualLat("");
+      setManualLng("");
+      // Center map on the new point
+      setCenter([lat, lng]);
+    }
   };
 
   const handleAiCommand = async () => {
@@ -1709,22 +1724,22 @@ function LandTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: any }
             <h2 className="text-xl sm:text-3xl font-black text-stone-900 dark:text-stone-100">{t.land}</h2>
           </div>
           
-          <div className="flex items-center gap-1 sm:gap-2 bg-stone-50 dark:bg-stone-800 p-1 rounded-2xl border border-stone-100 dark:border-stone-700 overflow-x-auto no-scrollbar">
+          <div className="grid grid-cols-3 gap-1 sm:gap-2 bg-stone-50 dark:bg-stone-800 p-1 rounded-2xl border border-stone-100 dark:border-stone-700 w-full md:w-auto">
             <button 
               onClick={() => setMapType('roadmap')}
-              className={cn("px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap", mapType === 'roadmap' ? "bg-white dark:bg-stone-700 shadow-sm text-stone-900 dark:text-white" : "text-stone-400")}
+              className={cn("px-2 py-1.5 sm:px-4 sm:py-2 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap w-full", mapType === 'roadmap' ? "bg-white dark:bg-stone-700 shadow-sm text-stone-900 dark:text-white" : "text-stone-400")}
             >
               Roadmap
             </button>
             <button 
               onClick={() => setMapType('satellite')}
-              className={cn("px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap", mapType === 'satellite' ? "bg-white dark:bg-stone-700 shadow-sm text-stone-900 dark:text-white" : "text-stone-400")}
+              className={cn("px-2 py-1.5 sm:px-4 sm:py-2 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap w-full", mapType === 'satellite' ? "bg-white dark:bg-stone-700 shadow-sm text-stone-900 dark:text-white" : "text-stone-400")}
             >
               Satellite
             </button>
             <button 
               onClick={() => setMapType('hybrid')}
-              className={cn("px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap", mapType === 'hybrid' ? "bg-white dark:bg-stone-700 shadow-sm text-stone-900 dark:text-white" : "text-stone-400")}
+              className={cn("px-2 py-1.5 sm:px-4 sm:py-2 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap w-full", mapType === 'hybrid' ? "bg-white dark:bg-stone-700 shadow-sm text-stone-900 dark:text-white" : "text-stone-400")}
             >
               Hybrid
             </button>
@@ -1748,9 +1763,64 @@ function LandTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: any }
           </div>
         </div>
 
+        {/* Mode Selector */}
+        <div className="flex gap-2 mb-6 p-1 bg-stone-50 dark:bg-stone-800 rounded-2xl border border-stone-100 dark:border-stone-700 w-fit">
+          <button 
+            onClick={() => setCalcMode('general')}
+            className={cn("px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all", calcMode === 'general' ? "bg-white dark:bg-stone-700 shadow-sm text-stone-900 dark:text-white" : "text-stone-400")}
+          >
+            {lang === 'bn' ? "সাধারণ" : "General"}
+          </button>
+          <button 
+            onClick={() => setCalcMode('coordinates')}
+            className={cn("px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all", calcMode === 'coordinates' ? "bg-white dark:bg-stone-700 shadow-sm text-stone-900 dark:text-white" : "text-stone-400")}
+          >
+            {lang === 'bn' ? "স্থানাঙ্ক (Coordinates)" : "Coordinates"}
+          </button>
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
           {/* Map View */}
           <div className="lg:col-span-2 space-y-4">
+            {calcMode === 'coordinates' && (
+              <div className="p-4 bg-stone-50 dark:bg-stone-800 rounded-2xl border border-stone-100 dark:border-stone-700 space-y-4">
+                <p className="text-[10px] font-black text-stone-500 uppercase tracking-widest">
+                  {lang === 'bn' 
+                    ? `${points.length + 1} নং বিন্দুর অক্ষাংশ ও দ্রাঘিমাংশ দিন` 
+                    : `Enter coordinates for Point ${points.length + 1}`}
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-bold text-stone-400 uppercase ml-1">{lang === 'bn' ? "অক্ষাংশ (Latitude)" : "Latitude"}</label>
+                    <input 
+                      type="number" 
+                      step="any"
+                      placeholder="e.g. 23.8103"
+                      className="w-full bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-700 rounded-xl px-3 py-2 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-stone-200 dark:focus:ring-stone-700"
+                      value={manualLat}
+                      onChange={(e) => setManualLat(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-bold text-stone-400 uppercase ml-1">{lang === 'bn' ? "দ্রাঘিমাংশ (Longitude)" : "Longitude"}</label>
+                    <input 
+                      type="number" 
+                      step="any"
+                      placeholder="e.g. 90.4125"
+                      className="w-full bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-700 rounded-xl px-3 py-2 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-stone-200 dark:focus:ring-stone-700"
+                      value={manualLng}
+                      onChange={(e) => setManualLng(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <button 
+                  onClick={addManualPoint}
+                  className={cn("w-full py-3 rounded-xl text-white text-[10px] font-black uppercase tracking-widest transition-all", config.bg)}
+                >
+                  {lang === 'bn' ? "বিন্দু যোগ করুন" : "Add Point"}
+                </button>
+              </div>
+            )}
             <div className="flex items-center justify-between gap-2">
               <p className="text-[10px] sm:text-xs font-black text-stone-400 dark:text-stone-500 uppercase tracking-widest leading-tight">{t.clickOnMap}</p>
               <div className="flex items-center gap-2 shrink-0">
@@ -1764,7 +1834,9 @@ function LandTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: any }
                   center={center} 
                   zoom={18} 
                   style={{ height: '100%', width: '100%' }}
-                  zoomControl={false}
+                  zoomControl={true}
+                  scrollWheelZoom={true}
+                  touchZoom={true}
                 >
                   <TileLayer
                     attribution='&copy; Google Maps'
@@ -1852,7 +1924,7 @@ function LandTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: any }
               </AnimatePresence>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 sm:gap-4">
+            <div className="grid grid-cols-1 gap-3 sm:gap-4">
               <ResultCard label={t.sqft} value={areaInfo ? areaInfo.sqft.toLocaleString(undefined, { maximumFractionDigits: 1 }) : "---"} unit="ft²" config={config} />
               <ResultCard label={t.decimal} value={areaInfo ? areaInfo.decimal.toLocaleString(undefined, { maximumFractionDigits: 3 }) : "---"} unit="Dec" config={config} />
             </div>
