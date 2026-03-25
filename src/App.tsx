@@ -1713,8 +1713,8 @@ function LandTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: any }
   };
 
   // 2D Model Normalization
-  const getNormalizedPoints = () => {
-    if (points.length === 0) return "";
+  const getNormalizedPointsData = () => {
+    if (points.length === 0) return [];
     const lats = points.map(p => p[0]);
     const lngs = points.map(p => p[1]);
     const minLat = Math.min(...lats);
@@ -1726,14 +1726,40 @@ function LandTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: any }
     const lngRange = maxLng - minLng || 0.0001;
     
     // Maintain aspect ratio
-    const scale = 80 / Math.max(latRange, lngRange);
+    const scale = 60 / Math.max(latRange, lngRange);
     
-    return points.map(p => {
-      const x = 10 + (p[1] - minLng) * scale;
-      const y = 90 - (p[0] - minLat) * scale;
-      return `${x},${y}`;
-    }).join(" ");
+    return points.map((p, i) => {
+      const x = 20 + (p[1] - minLng) * scale;
+      const y = 80 - (p[0] - minLat) * scale;
+      return { 
+        x, 
+        y, 
+        label: String.fromCharCode(65 + (i % 26)) + (i >= 26 ? Math.floor(i/26) : ""),
+        lat: p[0],
+        lng: p[1]
+      };
+    });
   };
+
+  const normalizedPoints = getNormalizedPointsData();
+  const sideData = points.length > 2 ? normalizedPoints.map((p, i) => {
+    const nextP = normalizedPoints[(i + 1) % normalizedPoints.length];
+    const from = turf.point([p.lng, p.lat]);
+    const to = turf.point([nextP.lng, nextP.lat]);
+    const distKm = turf.distance(from, to);
+    const distFt = distKm * 3280.84;
+    
+    return {
+      x1: p.x,
+      y1: p.y,
+      x2: nextP.x,
+      y2: nextP.y,
+      midX: (p.x + nextP.x) / 2,
+      midY: (p.y + nextP.y) / 2,
+      label: `${p.label}${nextP.label}`,
+      length: distFt.toFixed(1) + " ft"
+    };
+  }) : [];
 
   return (
     <div className="space-y-6 sm:space-y-8">
@@ -1928,15 +1954,39 @@ function LandTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: any }
                 {points.length > 2 ? (
                   <svg viewBox="0 0 100 100" className="w-full h-full p-4">
                     <polygon 
-                      points={getNormalizedPoints()} 
-                      className={cn("fill-current opacity-20 stroke-[2px] stroke-current", config.text)}
+                      points={normalizedPoints.map(p => `${p.x},${p.y}`).join(" ")} 
+                      className={cn("fill-current opacity-10 stroke-[1px] stroke-current", config.text)}
                     />
-                    {getNormalizedPoints().split(" ").map((p, i) => {
-                      const [x, y] = p.split(",");
-                      return (
-                        <circle key={i} cx={x} cy={y} r="1.5" className={cn("fill-current", config.text)} />
-                      );
-                    })}
+                    
+                    {/* Side Labels */}
+                    {sideData.map((side, i) => (
+                      <g key={`side-${i}`}>
+                        <text 
+                          x={side.midX} 
+                          y={side.midY} 
+                          className="fill-stone-400 dark:fill-stone-600 font-black text-[3px] uppercase tracking-tighter"
+                          textAnchor="middle"
+                          dominantBaseline="middle"
+                        >
+                          {side.label}: {side.length}
+                        </text>
+                      </g>
+                    ))}
+
+                    {/* Vertex Points and Labels */}
+                    {normalizedPoints.map((p, i) => (
+                      <g key={`vertex-${i}`}>
+                        <circle cx={p.x} cy={p.y} r="1.2" className={cn("fill-current", config.text)} />
+                        <text 
+                          x={p.x} 
+                          y={p.y - 3} 
+                          className={cn("font-black text-[4px] fill-current", config.text)}
+                          textAnchor="middle"
+                        >
+                          {p.label}
+                        </text>
+                      </g>
+                    ))}
                   </svg>
                 ) : (
                   <div className="text-center p-6 sm:p-8">
