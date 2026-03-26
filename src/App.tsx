@@ -41,7 +41,8 @@ import {
   Moon,
   ArrowRightLeft,
   RefreshCw,
-  Trash2
+  Trash2,
+  Plus
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { translations, materialTests, quizQuestions, homeTopics } from './data/content';
@@ -66,6 +67,19 @@ import {
   User
 } from './firebase';
 
+import { 
+  LineChart, 
+  Line, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  ReferenceLine
+} from 'recharts';
+
 // Fix Leaflet default icon issue
 // @ts-ignore
 delete L.Icon.Default.prototype._getIconUrl;
@@ -83,7 +97,7 @@ function ChangeView({ center, zoom }: { center: [number, number], zoom: number }
 
 import { serverTimestamp } from 'firebase/firestore';
 
-type Tab = 'home' | 'survey' | 'land' | 'estimating' | 'materials' | 'quiz' | 'chat' | 'mech_design' | 'thermo' | 'fluids' | 'circuits' | 'power' | 'control' | 'software' | 'data' | 'network' | 'settings' | 'plot_planner' | 'slab_design' | 'unit_converter';
+type Tab = 'home' | 'survey' | 'land' | 'estimating' | 'materials' | 'quiz' | 'chat' | 'mech_design' | 'thermo' | 'fluids' | 'circuits' | 'power' | 'control' | 'software' | 'data' | 'network' | 'settings' | 'plot_planner' | 'slab_design' | 'unit_converter' | 'beam_design';
 type Dept = 'civil' | 'mechanical' | 'electrical' | 'computer';
 
 const DEPT_CONFIG = {
@@ -94,7 +108,7 @@ const DEPT_CONFIG = {
 };
 
 const DEPT_TABS: Record<Dept, Tab[]> = {
-  civil: ['home', 'chat', 'quiz', 'survey', 'land', 'plot_planner', 'estimating', 'materials', 'slab_design', 'unit_converter'],
+  civil: ['home', 'chat', 'quiz', 'survey', 'land', 'plot_planner', 'estimating', 'materials', 'slab_design', 'beam_design', 'unit_converter'],
   mechanical: ['home', 'chat', 'quiz', 'mech_design', 'thermo', 'fluids', 'unit_converter'],
   electrical: ['home', 'chat', 'quiz', 'circuits', 'power', 'control', 'unit_converter'],
   computer: ['home', 'chat', 'quiz', 'software', 'data', 'network', 'unit_converter'],
@@ -106,6 +120,7 @@ const TAB_ICONS: Record<string, any> = {
   land: <MapIcon size={20} />,
   plot_planner: <LayoutGrid size={20} />,
   slab_design: <Layers size={20} />,
+  beam_design: <Construction size={20} />,
   unit_converter: <ArrowRightLeft size={20} />,
   estimating: <Calculator size={20} />,
   materials: <FlaskConical size={20} />,
@@ -451,6 +466,7 @@ export default function App() {
                 {activeTab === 'land' && <LandTab t={t} lang={lang} config={config} />}
                 {activeTab === 'plot_planner' && <PlotPlannerTab t={t} config={config} />}
                 {activeTab === 'slab_design' && <SlabDesignTab t={t} lang={lang} config={config} />}
+                {activeTab === 'beam_design' && <BeamDesignTab t={t} lang={lang} config={config} />}
                 {activeTab === 'unit_converter' && <UnitConverterTab t={t} config={config} />}
                 {activeTab === 'estimating' && <EstimatingTab t={t} config={config} />}
                 {activeTab === 'materials' && <MaterialsTab t={t} lang={lang} config={config} />}
@@ -755,6 +771,416 @@ function InputGroup({ label, value, onChange }: { label: string, value: number, 
         onChange={(e) => onChange(Number(e.target.value))}
         className="w-full bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-stone-100 dark:focus:ring-stone-600 font-bold text-stone-900 dark:text-stone-100 transition-colors"
       />
+    </div>
+  );
+}
+
+function BeamDesignTab({ t, config, lang }: { t: any, config: any, lang: 'bn' | 'en' }) {
+  const [length, setLength] = useState<number>(10);
+  const [supportType, setSupportType] = useState<'simply' | 'cantilever'>('simply');
+  const [pointLoads, setPointLoads] = useState<{ id: string, pos: number, mag: number }[]>([
+    { id: '1', pos: 5, mag: 10 }
+  ]);
+  const [udls, setUdls] = useState<{ id: string, start: number, end: number, mag: number }[]>([
+    { id: '1', start: 0, end: 10, mag: 2 }
+  ]);
+
+  const addPointLoad = () => {
+    setPointLoads([...pointLoads, { id: Math.random().toString(36).substr(2, 9), pos: length / 2, mag: 5 }]);
+  };
+
+  const removePointLoad = (id: string) => {
+    setPointLoads(pointLoads.filter(p => p.id !== id));
+  };
+
+  const updatePointLoad = (id: string, field: 'pos' | 'mag', val: number) => {
+    setPointLoads(pointLoads.map(p => p.id === id ? { ...p, [field]: val } : p));
+  };
+
+  const addUDL = () => {
+    setUdls([...udls, { id: Math.random().toString(36).substr(2, 9), start: 0, end: length, mag: 1 }]);
+  };
+
+  const removeUDL = (id: string) => {
+    setUdls(udls.filter(u => u.id !== id));
+  };
+
+  const updateUDL = (id: string, field: 'start' | 'end' | 'mag', val: number) => {
+    setUdls(udls.map(u => u.id === id ? { ...u, [field]: val } : u));
+  };
+
+  // Calculations
+  const calculateDiagrams = () => {
+    const steps = 101;
+    const data = [];
+    const dx = length / (steps - 1);
+
+    let r1 = 0;
+    let r2 = 0;
+    let m1 = 0; // Moment at fixed end for cantilever
+
+    if (supportType === 'simply') {
+      // Reactions for simply supported
+      let totalMomentR1 = 0;
+      let totalLoad = 0;
+
+      pointLoads.forEach(p => {
+        totalMomentR1 += p.mag * p.pos;
+        totalLoad += p.mag;
+      });
+
+      udls.forEach(u => {
+        const w = u.mag * (u.end - u.start);
+        const center = (u.start + u.end) / 2;
+        totalMomentR1 += w * center;
+        totalLoad += w;
+      });
+
+      r2 = totalMomentR1 / length;
+      r1 = totalLoad - r2;
+    } else {
+      // Cantilever (fixed at x=0)
+      pointLoads.forEach(p => {
+        r1 += p.mag;
+        m1 += p.mag * p.pos;
+      });
+      udls.forEach(u => {
+        const w = u.mag * (u.end - u.start);
+        const center = (u.start + u.end) / 2;
+        r1 += w;
+        m1 += w * center;
+      });
+    }
+
+    for (let i = 0; i < steps; i++) {
+      const x = i * dx;
+      let shear = 0;
+      let moment = 0;
+
+      if (supportType === 'simply') {
+        shear = r1;
+        moment = r1 * x;
+
+        pointLoads.forEach(p => {
+          if (x >= p.pos) {
+            shear -= p.mag;
+            moment -= p.mag * (x - p.pos);
+          }
+        });
+
+        udls.forEach(u => {
+          if (x > u.start) {
+            const loadX = Math.min(x, u.end) - u.start;
+            const w = u.mag * loadX;
+            const center = u.start + loadX / 2;
+            shear -= w;
+            moment -= w * (x - center);
+          }
+        });
+      } else {
+        // Cantilever
+        shear = r1;
+        moment = -m1 + r1 * x;
+
+        pointLoads.forEach(p => {
+          if (x >= p.pos) {
+            shear -= p.mag;
+            moment -= p.mag * (x - p.pos);
+          }
+        });
+
+        udls.forEach(u => {
+          if (x > u.start) {
+            const loadX = Math.min(x, u.end) - u.start;
+            const w = u.mag * loadX;
+            const center = u.start + loadX / 2;
+            shear -= w;
+            moment -= w * (x - center);
+          }
+        });
+      }
+
+      data.push({
+        x: Number(x.toFixed(2)),
+        shear: Number(shear.toFixed(2)),
+        moment: Number(moment.toFixed(2))
+      });
+    }
+
+    return { data, r1, r2, m1 };
+  };
+
+  const { data, r1, r2, m1 } = calculateDiagrams();
+
+  return (
+    <div className="space-y-6">
+      <div className="bg-white dark:bg-stone-900 p-8 rounded-[2.5rem] border border-stone-200 dark:border-stone-800 shadow-sm transition-colors duration-300">
+        <h2 className="text-2xl font-black mb-6 flex items-center gap-3 text-stone-900 dark:text-stone-100">
+          <Construction className={config.text} size={28} />
+          {t.beam_design}
+        </h2>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="space-y-6">
+            <div className="bg-stone-50 dark:bg-stone-800 p-6 rounded-3xl border border-stone-100 dark:border-stone-700">
+              <h3 className="font-bold mb-4 text-stone-900 dark:text-stone-100 flex items-center gap-2">
+                <Ruler size={18} className={config.text} />
+                {lang === 'bn' ? 'বিম প্যারামিটার' : 'Beam Parameters'}
+              </h3>
+              <div className="space-y-4">
+                <InputGroup label={lang === 'bn' ? 'বিম দৈর্ঘ্য (ফুট)' : 'Beam Length (ft)'} value={length} onChange={setLength} />
+                <div className="space-y-2">
+                  <label className="text-xs font-black text-stone-400 dark:text-stone-500 uppercase tracking-widest ml-1">
+                    {lang === 'bn' ? 'সাপোর্ট টাইপ' : 'Support Type'}
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={() => setSupportType('simply')}
+                      className={cn(
+                        "py-2 px-4 rounded-xl text-sm font-bold border-2 transition-all",
+                        supportType === 'simply' 
+                          ? cn(config.bg, "text-white border-transparent") 
+                          : "bg-white dark:bg-stone-900 text-stone-600 dark:text-stone-400 border-stone-200 dark:border-stone-800"
+                      )}
+                    >
+                      {lang === 'bn' ? 'সিম্পলি সাপোর্টেড' : 'Simply Supported'}
+                    </button>
+                    <button
+                      onClick={() => setSupportType('cantilever')}
+                      className={cn(
+                        "py-2 px-4 rounded-xl text-sm font-bold border-2 transition-all",
+                        supportType === 'cantilever' 
+                          ? cn(config.bg, "text-white border-transparent") 
+                          : "bg-white dark:bg-stone-900 text-stone-600 dark:text-stone-400 border-stone-200 dark:border-stone-800"
+                      )}
+                    >
+                      {lang === 'bn' ? 'ক্যান্টিলিভার' : 'Cantilever'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-stone-50 dark:bg-stone-800 p-6 rounded-3xl border border-stone-100 dark:border-stone-700">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="font-bold text-stone-900 dark:text-stone-100 flex items-center gap-2">
+                  <Activity size={18} className={config.text} />
+                  {lang === 'bn' ? 'পয়েন্ট লোড' : 'Point Loads'}
+                </h3>
+                <button onClick={addPointLoad} className={cn("p-1.5 rounded-lg text-white shadow-sm", config.bg)}>
+                  <Plus size={16} />
+                </button>
+              </div>
+              <div className="space-y-3">
+                {pointLoads.map(p => (
+                  <div key={p.id} className="bg-white dark:bg-stone-900 p-3 rounded-2xl border border-stone-200 dark:border-stone-800 space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-[10px] font-black text-stone-400 uppercase tracking-widest">Load {p.id.substr(0, 3)}</span>
+                      <button onClick={() => removePointLoad(p.id)} className="text-red-500 hover:bg-red-50 p-1 rounded-md transition-colors">
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <label className="text-[10px] text-stone-400 uppercase">Pos (ft)</label>
+                        <input 
+                          type="number" 
+                          value={p.pos} 
+                          onChange={(e) => updatePointLoad(p.id, 'pos', Number(e.target.value))}
+                          className="w-full bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg px-2 py-1 text-sm font-bold"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] text-stone-400 uppercase">Mag (kip)</label>
+                        <input 
+                          type="number" 
+                          value={p.mag} 
+                          onChange={(e) => updatePointLoad(p.id, 'mag', Number(e.target.value))}
+                          className="w-full bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg px-2 py-1 text-sm font-bold"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="bg-stone-50 dark:bg-stone-800 p-6 rounded-3xl border border-stone-100 dark:border-stone-700">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="font-bold text-stone-900 dark:text-stone-100 flex items-center gap-2">
+                  <Layers size={18} className={config.text} />
+                  {lang === 'bn' ? 'UDL লোড' : 'UDL Loads'}
+                </h3>
+                <button onClick={addUDL} className={cn("p-1.5 rounded-lg text-white shadow-sm", config.bg)}>
+                  <Plus size={16} />
+                </button>
+              </div>
+              <div className="space-y-3">
+                {udls.map(u => (
+                  <div key={u.id} className="bg-white dark:bg-stone-900 p-3 rounded-2xl border border-stone-200 dark:border-stone-800 space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-[10px] font-black text-stone-400 uppercase tracking-widest">UDL {u.id.substr(0, 3)}</span>
+                      <button onClick={() => removeUDL(u.id)} className="text-red-500 hover:bg-red-50 p-1 rounded-md transition-colors">
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="space-y-1">
+                        <label className="text-[10px] text-stone-400 uppercase">Start</label>
+                        <input 
+                          type="number" 
+                          value={u.start} 
+                          onChange={(e) => updateUDL(u.id, 'start', Number(e.target.value))}
+                          className="w-full bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg px-2 py-1 text-sm font-bold"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] text-stone-400 uppercase">End</label>
+                        <input 
+                          type="number" 
+                          value={u.end} 
+                          onChange={(e) => updateUDL(u.id, 'end', Number(e.target.value))}
+                          className="w-full bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg px-2 py-1 text-sm font-bold"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] text-stone-400 uppercase">w (k/ft)</label>
+                        <input 
+                          type="number" 
+                          value={u.mag} 
+                          onChange={(e) => updateUDL(u.id, 'mag', Number(e.target.value))}
+                          className="w-full bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg px-2 py-1 text-sm font-bold"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="lg:col-span-2 space-y-8">
+            <div className="bg-white dark:bg-stone-950 p-6 rounded-3xl border-2 border-stone-200 dark:border-stone-800 shadow-inner overflow-hidden">
+              <h3 className="font-bold mb-6 flex items-center gap-2 text-stone-900 dark:text-stone-100">
+                <LayoutGrid size={18} className={config.text} />
+                {lang === 'bn' ? 'বিম এবং লোড ডায়াগ্রাম' : 'Beam & Load Diagram'}
+              </h3>
+              <div className="relative w-full h-[180px] bg-stone-50 dark:bg-stone-900/50 rounded-2xl border border-stone-100 dark:border-stone-800 flex items-center justify-center p-4">
+                <svg viewBox="0 0 100 40" className="w-full h-full overflow-visible">
+                  {/* Beam */}
+                  <rect x="10" y="18" width="80" height="2" fill="#444" rx="1" />
+                  
+                  {/* Supports */}
+                  {supportType === 'simply' ? (
+                    <>
+                      {/* Left Support (Pinned) */}
+                      <path d="M8 20 L12 20 L10 16 Z" fill="#666" />
+                      <rect x="8" y="20" width="4" height="1" fill="#666" />
+                      {/* Right Support (Roller) */}
+                      <circle cx="90" cy="21" r="1" fill="#666" />
+                      <rect x="88" y="22" width="4" height="0.5" fill="#666" />
+                    </>
+                  ) : (
+                    /* Fixed Support */
+                    <rect x="8" y="10" width="2" height="20" fill="#666" />
+                  )}
+
+                  {/* UDLs */}
+                  {udls.map(u => {
+                    const xStart = 10 + (u.start / length) * 80;
+                    const xEnd = 10 + (u.end / length) * 80;
+                    const width = xEnd - xStart;
+                    return (
+                      <g key={u.id}>
+                        <rect x={xStart} y="8" width={width} height="10" fill={config.color === 'emerald' ? '#10b981' : config.color === 'orange' ? '#f97316' : config.color === 'blue' ? '#2563eb' : '#9333ea'} fillOpacity={0.2} stroke={config.color === 'emerald' ? '#10b981' : config.color === 'orange' ? '#f97316' : config.color === 'blue' ? '#2563eb' : '#9333ea'} strokeWidth="0.2" />
+                        {/* Small arrows for UDL */}
+                        {Array.from({ length: 5 }).map((_, idx) => (
+                          <path key={idx} d={`M${xStart + (width/4)*idx} 8 L${xStart + (width/4)*idx} 16 M${xStart + (width/4)*idx - 0.5} 14.5 L${xStart + (width/4)*idx} 16 L${xStart + (width/4)*idx + 0.5} 14.5`} stroke={config.color === 'emerald' ? '#10b981' : config.color === 'orange' ? '#f97316' : config.color === 'blue' ? '#2563eb' : '#9333ea'} strokeWidth="0.3" fill="none" />
+                        ))}
+                        <text x={xStart + width/2} y="6" fontSize="2" textAnchor="middle" className="fill-stone-500 font-bold">{u.mag} k/ft</text>
+                      </g>
+                    );
+                  })}
+
+                  {/* Point Loads */}
+                  {pointLoads.map(p => {
+                    const x = 10 + (p.pos / length) * 80;
+                    return (
+                      <g key={p.id}>
+                        <path d={`M${x} 2 L${x} 16 M${x-1} 14 L${x} 16 L${x+1} 14`} stroke="#ef4444" strokeWidth="0.8" fill="none" />
+                        <text x={x} y="1" fontSize="2.5" textAnchor="middle" className="fill-red-600 font-black">{p.mag} kip</text>
+                      </g>
+                    );
+                  })}
+                </svg>
+              </div>
+            </div>
+
+            <div className="bg-white dark:bg-stone-950 p-6 rounded-3xl border-2 border-stone-200 dark:border-stone-800 shadow-inner">
+              <h3 className="font-bold mb-6 flex items-center gap-2 text-stone-900 dark:text-stone-100">
+                <Activity size={18} className={config.text} />
+                {lang === 'bn' ? 'Shear Force Diagram (SFD)' : 'Shear Force Diagram (SFD)'}
+              </h3>
+              <div className="h-[250px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={data}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                    <XAxis dataKey="x" hide />
+                    <YAxis />
+                    <Tooltip />
+                    <ReferenceLine y={0} stroke="#000" />
+                    <Area type="stepAfter" dataKey="shear" stroke={config.color === 'emerald' ? '#10b981' : config.color === 'orange' ? '#f97316' : config.color === 'blue' ? '#2563eb' : '#9333ea'} fill={config.color === 'emerald' ? '#10b981' : config.color === 'orange' ? '#f97316' : config.color === 'blue' ? '#2563eb' : '#9333ea'} fillOpacity={0.2} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            <div className="bg-white dark:bg-stone-950 p-6 rounded-3xl border-2 border-stone-200 dark:border-stone-800 shadow-inner">
+              <h3 className="font-bold mb-6 flex items-center gap-2 text-stone-900 dark:text-stone-100">
+                <Activity size={18} className={config.text} />
+                {lang === 'bn' ? 'Bending Moment Diagram (BMD)' : 'Bending Moment Diagram (BMD)'}
+              </h3>
+              <div className="h-[250px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={data}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                    <XAxis dataKey="x" />
+                    <YAxis />
+                    <Tooltip />
+                    <ReferenceLine y={0} stroke="#000" />
+                    <Area type="monotone" dataKey="moment" stroke="#ef4444" fill="#ef4444" fillOpacity={0.2} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+              <div className="bg-stone-50 dark:bg-stone-800 p-4 rounded-2xl border border-stone-100 dark:border-stone-700">
+                <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1">R1 (Left)</p>
+                <p className={cn("text-xl font-black", config.text)}>{r1.toFixed(2)} kip</p>
+              </div>
+              {supportType === 'simply' && (
+                <div className="bg-stone-50 dark:bg-stone-800 p-4 rounded-2xl border border-stone-100 dark:border-stone-700">
+                  <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1">R2 (Right)</p>
+                  <p className={cn("text-xl font-black", config.text)}>{r2.toFixed(2)} kip</p>
+                </div>
+              )}
+              {supportType === 'cantilever' && (
+                <div className="bg-stone-50 dark:bg-stone-800 p-4 rounded-2xl border border-stone-100 dark:border-stone-700">
+                  <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1">M1 (Fixed)</p>
+                  <p className="text-xl font-black text-red-600">{m1.toFixed(2)} k-ft</p>
+                </div>
+              )}
+              <div className="bg-stone-50 dark:bg-stone-800 p-4 rounded-2xl border border-stone-100 dark:border-stone-700">
+                <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1">Max Moment</p>
+                <p className="text-xl font-black text-red-600">
+                  {Math.max(...data.map(d => Math.abs(d.moment))).toFixed(2)} k-ft
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
