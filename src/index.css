@@ -34,7 +34,6 @@
     -webkit-backdrop-filter: blur(14px);
     border-radius: 20px;
     border: 1px solid rgba(255, 255, 255, 0.15);
-    box-shadow: 0 8px 32px rgba(0,0,0,0.25);
   }
 
   .glass-strong {
@@ -43,7 +42,6 @@
     -webkit-backdrop-filter: blur(22px);
     border-radius: 20px;
     border: 1px solid rgba(255,255,255,0.2);
-    box-shadow: 0 12px 40px rgba(0,0,0,0.3);
   }
 
   .glass-dark {
@@ -76,7 +74,6 @@
     backdrop-filter: blur(14px);
     -webkit-backdrop-filter: blur(14px);
     border: 1px solid rgba(255, 255, 255, 0.15);
-    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
   }
 
   .btn-glass {
@@ -89,7 +86,6 @@
 
   .btn-glass:hover {
     @apply -translate-y-0.5;
-    box-shadow: 0 0 15px var(--accent);
     border-color: var(--accent-glow);
   }
 
@@ -113,7 +109,6 @@
     position: absolute;
     top: 0;
     left: 0;
-    box-shadow: 0 0 10px var(--accent);
   }
 
   .blur-circle {

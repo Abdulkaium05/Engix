@@ -161,12 +161,6 @@ export default function App() {
       {/* Navbar */}
       <nav className="navbar px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <button 
-            onClick={toggleMenu}
-            className="btn-glass p-2.5"
-          >
-            <Menu size={20} className="text-white" />
-          </button>
           <motion.div 
             key={dept}
             initial={{ rotate: -90, scale: 0.8 }}
@@ -180,6 +174,12 @@ export default function App() {
             <p className={cn("text-[8px] font-bold uppercase tracking-widest mt-1", config.text)}>{t[dept]}</p>
           </div>
         </div>
+        <button 
+          onClick={toggleMenu}
+          className="btn-glass p-2.5"
+        >
+          <Menu size={20} className="text-white" />
+        </button>
       </nav>
 
       {/* Sidebar Menu */}
@@ -191,14 +191,14 @@ export default function App() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={toggleMenu}
-              className="absolute inset-0 z-40 bg-black/40 backdrop-blur-sm"
+              className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm"
             />
             <motion.div
               initial={{ x: '-100%' }}
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
               transition={{ type: 'spring', bounce: 0, duration: 0.4 }}
-              className="absolute inset-y-0 left-0 z-50 w-80 max-w-[80vw] glass border-r border-white/10 p-6 flex flex-col overflow-y-auto no-scrollbar"
+              className="fixed inset-y-0 left-0 z-50 w-80 max-w-[80vw] glass border-r border-white/10 p-6 flex flex-col overflow-y-auto no-scrollbar"
             >
               <div className="flex items-center justify-between mb-8">
                 <div className="flex items-center gap-3">
@@ -284,7 +284,7 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      <div className="flex-1 flex flex-col h-screen overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden">
 
 
         {/* Main Content */}
@@ -1680,9 +1680,9 @@ function SurveyTab({ t, config }: { t: any, config: any }) {
             </div>
 
             {/* Animated Compass */}
-            <div className="relative aspect-square max-w-[280px] mx-auto bg-black/40 rounded-full p-6 shadow-2xl border-8 border-white/5 overflow-hidden glass border-white/10">
+            <div className="relative aspect-square max-w-[280px] mx-auto bg-black/40 rounded-full p-6 border-8 border-white/5 overflow-hidden glass border-white/10">
               {/* Fixed Lubber Line (Needle) */}
-              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1.5 h-10 bg-red-500 z-20 rounded-b-full shadow-[0_0_15px_rgba(239,68,68,0.6)]" />
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1.5 h-10 bg-red-500 z-20 rounded-b-full" />
               
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="w-full h-full rounded-full border border-white/5" />
@@ -1729,7 +1729,7 @@ function SurveyTab({ t, config }: { t: any, config: any }) {
 
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                 <div className="text-center">
-                  <p className="text-4xl font-black text-white font-mono drop-shadow-lg">{Math.round(heading)}°</p>
+                  <p className="text-4xl font-black text-white font-mono">{Math.round(heading)}°</p>
                   <p className="text-[10px] text-white/40 font-black uppercase tracking-widest">{t.compass}</p>
                 </div>
               </div>
@@ -1744,7 +1744,7 @@ function SurveyTab({ t, config }: { t: any, config: any }) {
                 {t.mapView}
               </h3>
             </div>
-            <div className="aspect-square bg-white/5 rounded-[2rem] border border-white/10 overflow-hidden relative shadow-inner">
+            <div className="aspect-square bg-white/5 rounded-[2rem] border border-white/10 overflow-hidden relative">
               {coords ? (
                 <div className="w-full h-full relative">
                   <iframe 
@@ -1776,7 +1776,7 @@ function SurveyTab({ t, config }: { t: any, config: any }) {
                 </div>
               )}
               {coords && (
-                <div className="absolute top-4 right-4 p-2 glass rounded-xl shadow-lg">
+                <div className="absolute top-4 right-4 p-2 glass rounded-xl">
                   <Target size={20} className={config.text} />
                 </div>
               )}
@@ -2182,7 +2182,7 @@ function LandTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: any }
                 <span className="text-[9px] sm:text-[10px] font-bold text-white/40 uppercase whitespace-nowrap">{points.length} POINTS</span>
               </div>
             </div>
-            <div className="aspect-video lg:aspect-square bg-white/5 rounded-[1.5rem] sm:rounded-[2.5rem] border border-white/10 overflow-hidden relative shadow-inner z-0">
+            <div className="aspect-video lg:aspect-square bg-white/5 rounded-[1.5rem] sm:rounded-[2.5rem] border border-white/10 overflow-hidden relative z-0">
               {center && (
                 <MapContainer 
                   center={center} 
@@ -2219,7 +2219,7 @@ function LandTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: any }
           <div className="space-y-6">
             <div>
               <p className="text-[10px] sm:text-xs font-black text-white/40 uppercase tracking-widest mb-3 sm:mb-4">2D Model View</p>
-              <div className="aspect-square bg-white/5 rounded-[1.5rem] sm:rounded-[2rem] border border-white/10 relative flex items-center justify-center overflow-hidden shadow-inner">
+              <div className="aspect-square bg-white/5 rounded-[1.5rem] sm:rounded-[2rem] border border-white/10 relative flex items-center justify-center overflow-hidden">
                 {points.length > 2 ? (
                   <svg viewBox="0 0 100 100" className="w-full h-full p-4">
                     <polygon 
@@ -2472,7 +2472,7 @@ function EstimatingTab({ t, config }: { t: any, config: any }) {
           <motion.div 
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="col-span-2 card-glass p-8 shadow-2xl relative overflow-hidden mt-2"
+            className="col-span-2 card-glass p-8 relative overflow-hidden mt-2"
           >
             <div className="relative z-10">
               <p className="text-xs uppercase font-black text-slate-400 mb-2 tracking-widest">{t.cost}</p>
@@ -2575,7 +2575,7 @@ function MaterialsTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: 
               className="glass p-5 flex items-center justify-between cursor-pointer hover:bg-white/10 transition-all group border border-white/10"
             >
               <div className="flex items-center gap-4 flex-1">
-                <div className="w-14 h-14 rounded-2xl flex items-center justify-center font-black text-xl text-white shadow-lg shrink-0 glass border border-white/20">
+                <div className="w-14 h-14 rounded-2xl flex items-center justify-center font-black text-xl text-white shrink-0 glass border border-white/20">
                   {test.material === 'brick' ? '🧱' : 
                    test.material === 'sand' ? '⏳' :
                    test.material === 'cement' ? '🧪' :
@@ -2593,7 +2593,7 @@ function MaterialsTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: 
                       {t[test.material]?.split(' ')[0] || test.material}
                     </p>
                     <span className="w-1 h-1 rounded-full bg-white/20" />
-                    <div className={cn("px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest text-white shadow-sm", test.type === 'field' ? 'bg-emerald-500/80 backdrop-blur-sm' : 'bg-blue-500/80 backdrop-blur-sm')}>
+                    <div className={cn("px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest text-white", test.type === 'field' ? 'bg-emerald-500/80 backdrop-blur-sm' : 'bg-blue-500/80 backdrop-blur-sm')}>
                       {t[test.type]}
                     </div>
                   </div>
@@ -2626,7 +2626,7 @@ function MaterialsTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: 
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="relative card-glass w-full max-w-lg p-8 shadow-2xl overflow-y-auto max-h-[90vh] no-scrollbar border border-white/20"
+              className="relative card-glass w-full max-w-lg p-8 overflow-y-auto max-h-[90vh] no-scrollbar border border-white/20"
             >
               <div className={cn("absolute top-0 left-0 right-0 h-2", config.bg)} />
               <div className="flex justify-between items-start mb-8">
@@ -2636,7 +2636,7 @@ function MaterialsTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: 
                       {t[selectedTest.material] || selectedTest.material}
                     </p>
                     <span className="w-1 h-1 rounded-full bg-white/20" />
-                    <div className={cn("px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest text-white shadow-sm", selectedTest.type === 'field' ? 'bg-emerald-500/80 backdrop-blur-sm' : 'bg-blue-500/80 backdrop-blur-sm')}>
+                    <div className={cn("px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest text-white", selectedTest.type === 'field' ? 'bg-emerald-500/80 backdrop-blur-sm' : 'bg-blue-500/80 backdrop-blur-sm')}>
                       {t[selectedTest.type]}
                     </div>
                   </div>
@@ -2657,7 +2657,7 @@ function MaterialsTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: 
                     </div>
                     <div className="flex flex-wrap gap-2">
                       {selectedTest.tools[lang].map((tool: string, i: number) => (
-                        <span key={i} className="px-3 py-1.5 bg-stone-50 dark:bg-stone-800 border border-stone-100 dark:border-stone-700 rounded-xl text-stone-700 dark:text-stone-300 font-bold text-xs shadow-sm">
+                        <span key={i} className="px-3 py-1.5 bg-stone-50 dark:bg-stone-800 border border-stone-100 dark:border-stone-700 rounded-xl text-stone-700 dark:text-stone-300 font-bold text-xs">
                           {tool}
                         </span>
                       ))}
@@ -2674,7 +2674,7 @@ function MaterialsTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: 
                   <div className="space-y-4">
                     {selectedTest.steps[lang].map((step: string, i: number) => (
                       <div key={i} className="flex gap-4 group">
-                        <div className={cn("w-8 h-8 rounded-xl flex items-center justify-center font-black text-sm flex-shrink-0 shadow-sm transition-transform group-hover:scale-110", config.bg, "text-white")}>
+                        <div className={cn("w-8 h-8 rounded-xl flex items-center justify-center font-black text-sm flex-shrink-0 transition-transform group-hover:scale-110", config.bg, "text-white")}>
                           {i + 1}
                         </div>
                         <p className="text-stone-700 dark:text-stone-300 pt-1 font-medium leading-relaxed">{step}</p>
@@ -2685,7 +2685,7 @@ function MaterialsTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: 
 
                 {/* Formula Section */}
                 {selectedTest.formula && (
-                  <div className="bg-stone-900 dark:bg-black p-5 rounded-3xl shadow-xl border border-white/10 overflow-hidden">
+                  <div className="bg-stone-900 dark:bg-black p-5 rounded-3xl border border-white/10 overflow-hidden">
                     <p className="text-[10px] font-black uppercase tracking-widest text-white/40 mb-2">{t.formula}</p>
                     <p className="text-white font-mono text-lg font-bold break-words">{selectedTest.formula[lang]}</p>
                   </div>
@@ -2859,7 +2859,7 @@ function QuizTab({ t, lang, config, dept }: { t: any, lang: 'bn' | 'en', config:
     }
 
     return (
-      <div className="card-glass p-10 text-center space-y-8 shadow-xl transition-colors duration-300">
+      <div className="card-glass p-10 text-center space-y-8 transition-colors duration-300">
         <motion.div 
           animate={{ scale: [1, 1.2, 1], rotate: [0, 10, -10, 0] }}
           transition={{ duration: 0.5, repeat: 2 }}
@@ -2893,8 +2893,8 @@ function QuizTab({ t, lang, config, dept }: { t: any, lang: 'bn' | 'en', config:
 
   if (!started) {
     return (
-      <div className="card-glass p-10 text-center space-y-8 shadow-xl transition-colors duration-300">
-        <div className={cn("w-24 h-24 rounded-[2rem] flex items-center justify-center mx-auto shadow-2xl", quizConfig.bg, "text-white")}>
+      <div className="card-glass p-10 text-center space-y-8 transition-colors duration-300">
+        <div className={cn("w-24 h-24 rounded-[2rem] flex items-center justify-center mx-auto", quizConfig.bg, "text-white")}>
           <Trophy size={48} />
         </div>
         <div>
@@ -2965,7 +2965,7 @@ function QuizTab({ t, lang, config, dept }: { t: any, lang: 'bn' | 'en', config:
                 className={cn(
                   "w-full text-left p-5 rounded-2xl border transition-all font-bold text-lg",
                   isSelected 
-                    ? "bg-white/20 text-white border-white/30 shadow-lg"
+                    ? "bg-white/20 text-white border-white/30"
                     : "bg-white/5 border-white/10 text-slate-400 hover:border-white/20 hover:bg-white/10"
                 )}
               >
@@ -3017,7 +3017,7 @@ function ChatTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: any }
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-180px)]">
+    <div className="flex flex-col h-full min-h-[60vh]">
       <div className="flex-1 overflow-y-auto space-y-6 pr-2 no-scrollbar pb-4">
         {messages.length === 0 && (
           <div className="text-center py-20 text-white/40">
@@ -3035,7 +3035,7 @@ function ChatTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: any }
             className={cn("flex flex-col", m.role === 'user' ? "items-end" : "items-start")}
           >
             <div className={cn(
-              "max-w-[85%] p-5 rounded-3xl text-lg leading-relaxed shadow-sm",
+              "max-w-[85%] p-5 rounded-3xl text-lg leading-relaxed",
               m.role === 'user' ? "card-glass text-white rounded-tr-none" : "glass rounded-tl-none text-white"
             )}>
               <div className="markdown-body prose prose-invert max-w-none">
@@ -3046,7 +3046,7 @@ function ChatTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: any }
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
                   src={m.image} 
-                  className="mt-4 rounded-2xl w-full aspect-video object-cover shadow-lg border border-white/10" 
+                  className="mt-4 rounded-2xl w-full aspect-video object-cover border border-white/10" 
                   alt="Example" 
                   referrerPolicy="no-referrer" 
                 />
@@ -3056,7 +3056,7 @@ function ChatTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: any }
         ))}
         {loading && (
           <div className="flex items-start">
-            <div className="glass p-5 rounded-3xl rounded-tl-none shadow-sm">
+            <div className="glass p-5 rounded-3xl rounded-tl-none">
               <Loader2 className="animate-spin text-white" size={24} />
             </div>
           </div>
@@ -3071,7 +3071,7 @@ function ChatTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: any }
             className={cn(
               "px-4 py-1.5 text-xs font-bold rounded-full transition-all border", 
               responseLength === 'short' 
-                ? "bg-white/20 text-white border-white/30 shadow-md scale-105" 
+                ? "bg-white/20 text-white border-white/30 scale-105" 
                 : "glass text-white/40 border-white/10 hover:bg-white/10 hover:text-white"
             )}
           >
@@ -3082,7 +3082,7 @@ function ChatTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: any }
             className={cn(
               "px-4 py-1.5 text-xs font-bold rounded-full transition-all border", 
               responseLength === 'long' 
-                ? "bg-white/20 text-white border-white/30 shadow-md scale-105" 
+                ? "bg-white/20 text-white border-white/30 scale-105" 
                 : "glass text-white/40 border-white/10 hover:bg-white/10 hover:text-white"
             )}
           >
@@ -3091,7 +3091,7 @@ function ChatTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: any }
         </div>
         <div className="relative">
           <input 
-            className="w-full glass border border-white/10 rounded-[2rem] py-5 pl-6 pr-16 focus:outline-none focus:ring-4 focus:ring-white/5 shadow-xl text-lg font-medium text-white placeholder:text-white/20 transition-all"
+            className="w-full glass border border-white/10 rounded-[2rem] py-5 pl-6 pr-16 focus:outline-none focus:ring-4 focus:ring-white/5 text-lg font-medium text-white placeholder:text-white/20 transition-all"
             placeholder="Type your question..."
             value={input}
             onChange={(e) => setInput(e.target.value)}
