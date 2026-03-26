@@ -52,20 +52,6 @@ import ReactMarkdown from 'react-markdown';
 import { MapContainer, TileLayer, Marker, Polygon, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import * as turf from '@turf/turf';
-import { 
-  auth, 
-  db, 
-  signInWithPopup, 
-  signOut, 
-  onAuthStateChanged, 
-  googleProvider,
-  doc,
-  getDoc,
-  setDoc,
-  handleFirestoreError,
-  OperationType,
-  User
-} from './firebase';
 
 import { 
   LineChart, 
@@ -95,16 +81,14 @@ function ChangeView({ center, zoom }: { center: [number, number], zoom: number }
   return null;
 }
 
-import { serverTimestamp } from 'firebase/firestore';
-
 type Tab = 'home' | 'survey' | 'land' | 'estimating' | 'materials' | 'quiz' | 'chat' | 'mech_design' | 'thermo' | 'fluids' | 'circuits' | 'power' | 'control' | 'software' | 'data' | 'network' | 'settings' | 'plot_planner' | 'slab_design' | 'unit_converter' | 'beam_design';
 type Dept = 'civil' | 'mechanical' | 'electrical' | 'computer';
 
 const DEPT_CONFIG = {
-  civil: { color: 'emerald', icon: <HardHat />, logo: 'E', bg: 'bg-emerald-600', text: 'text-emerald-600', border: 'border-emerald-200', shadow: 'shadow-emerald-100' },
-  mechanical: { color: 'orange', icon: <Settings />, logo: 'E', bg: 'bg-orange-600', text: 'text-orange-600', border: 'border-orange-200', shadow: 'shadow-orange-100' },
-  electrical: { color: 'blue', icon: <Zap />, logo: 'E', bg: 'bg-blue-600', text: 'text-blue-600', border: 'border-blue-200', shadow: 'shadow-blue-100' },
-  computer: { color: 'purple', icon: <Code />, logo: 'E', bg: 'bg-purple-600', text: 'text-purple-600', border: 'border-purple-200', shadow: 'shadow-purple-100' },
+  civil: { color: 'emerald', icon: <HardHat />, logo: 'E', bg: 'bg-emerald-600', text: 'text-emerald-600', border: 'border-emerald-200', theme: 'civil-theme' },
+  mechanical: { color: 'orange', icon: <Settings />, logo: 'E', bg: 'bg-orange-600', text: 'text-orange-600', border: 'border-orange-200', theme: 'mechanical-theme' },
+  electrical: { color: 'blue', icon: <Zap />, logo: 'E', bg: 'bg-blue-600', text: 'text-blue-600', border: 'border-blue-200', theme: 'electrical-theme' },
+  computer: { color: 'purple', icon: <Code />, logo: 'E', bg: 'bg-purple-600', text: 'text-purple-600', border: 'border-purple-200', theme: 'computer-theme' },
 };
 
 const DEPT_TABS: Record<Dept, Tab[]> = {
@@ -142,97 +126,22 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>('home');
   const [lang, setLang] = useState<'bn' | 'en'>(() => (localStorage.getItem('engix_lang') as 'bn' | 'en') || 'bn');
   const [dept, setDept] = useState<Dept>(() => (localStorage.getItem('engix_dept') as Dept) || 'civil');
-  const [theme, setTheme] = useState<'light' | 'dark'>(() => (localStorage.getItem('engix_theme') as 'light' | 'dark') || 'light');
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => (localStorage.getItem('engix_theme') as 'light' | 'dark') || 'dark');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [user, setUser] = useState<User | null>(null);
-  const [isAuthReady, setIsAuthReady] = useState(false);
-  const [isLoadingSettings, setIsLoadingSettings] = useState(false);
 
   const t = translations[lang];
   const config = DEPT_CONFIG[dept];
 
   useEffect(() => {
-    if (theme === 'dark') {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  }, [theme]);
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      setUser(currentUser);
-      setIsAuthReady(true);
-      if (currentUser) {
-        await loadUserSettings(currentUser.uid);
-      }
-    });
-    return () => unsubscribe();
+    // Force dark mode for Glass Engineering UI
+    document.documentElement.classList.add('dark');
   }, []);
 
-  const loadUserSettings = async (uid: string) => {
-    setIsLoadingSettings(true);
-    try {
-      const userDoc = await getDoc(doc(db, 'users', uid));
-      if (userDoc.exists()) {
-        const data = userDoc.data();
-        if (data.lang) setLang(data.lang as 'bn' | 'en');
-        if (data.dept) setDept(data.dept as Dept);
-        if (data.theme) setTheme(data.theme as 'light' | 'dark');
-      }
-    } catch (error) {
-      handleFirestoreError(error, OperationType.GET, `users/${uid}`);
-    } finally {
-      setIsLoadingSettings(false);
-    }
-  };
-
-  const saveUserSettings = async (newLang: 'bn' | 'en', newDept: Dept, newTheme: 'light' | 'dark' = theme) => {
+  const saveUserSettings = (newLang: 'bn' | 'en', newDept: Dept, newTheme: 'light' | 'dark' = theme) => {
     // Always save to localStorage for guest persistence
     localStorage.setItem('engix_lang', newLang);
     localStorage.setItem('engix_dept', newDept);
     localStorage.setItem('engix_theme', newTheme);
-
-    if (!user) return;
-    try {
-      const userRef = doc(db, 'users', user.uid);
-      const userDoc = await getDoc(userRef);
-      
-      const data: any = {
-        uid: user.uid,
-        displayName: user.displayName,
-        email: user.email,
-        photoURL: user.photoURL,
-        lang: newLang,
-        dept: newDept,
-        theme: newTheme,
-      };
-
-      if (!userDoc.exists()) {
-        data.createdAt = serverTimestamp();
-      }
-
-      await setDoc(userRef, data, { merge: true });
-    } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, `users/${user.uid}`);
-    }
-  };
-
-  const handleLogin = async () => {
-    try {
-      await signInWithPopup(auth, googleProvider);
-    } catch (error) {
-      console.error("Login Error:", error);
-    }
-  };
-
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      setActiveTab('home');
-    } catch (error) {
-      console.error("Logout Error:", error);
-    }
   };
 
   useEffect(() => {
@@ -244,215 +153,143 @@ export default function App() {
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
 
   return (
-    <div className="min-h-screen bg-stone-50 dark:bg-stone-950 text-stone-900 dark:text-stone-100 font-sans transition-colors duration-300 flex overflow-hidden">
-      {/* Desktop Sidebar */}
-      <aside className="hidden lg:flex flex-col w-72 h-screen border-r border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 transition-colors duration-300 shrink-0">
-        <div className="p-6 flex items-center gap-3 border-b border-stone-100 dark:border-stone-800/50">
+    <div className={cn("min-h-screen relative flex flex-col overflow-hidden", config.theme)}>
+      {/* Floating Blur Blobs */}
+      <div className="blur-circle top-[10%] left-[10%]" />
+      <div className="blur-circle top-[60%] right-[10%] opacity-10" />
+      <div className="blur-circle bottom-[10%] left-[30%] opacity-5" />
+      {/* Navbar */}
+      <nav className="navbar px-6 py-4 flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <button 
+            onClick={toggleMenu}
+            className="btn-glass p-2.5"
+          >
+            <Menu size={20} className="text-white" />
+          </button>
           <motion.div 
             key={dept}
             initial={{ rotate: -90, scale: 0.8 }}
             animate={{ rotate: 0, scale: 1 }}
-            className={cn("w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold text-xl shadow-lg", config.bg, config.shadow)}
+            className={cn("w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold text-xl", config.bg)}
           >
             {config.logo}
           </motion.div>
           <div>
-            <h1 className="text-xl font-bold tracking-tight text-stone-900 dark:text-stone-100 leading-none">Engix</h1>
-            <p className={cn("text-[10px] font-bold uppercase tracking-widest mt-1", config.text)}>{t[dept]}</p>
+            <h1 className="text-xl font-black text-white leading-none tracking-tight">Engix</h1>
+            <p className={cn("text-[8px] font-bold uppercase tracking-widest mt-1", config.text)}>{t[dept]}</p>
           </div>
         </div>
+      </nav>
 
-        <nav className="flex-1 overflow-y-auto p-4 space-y-1 no-scrollbar">
-          <p className="text-[10px] font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest px-4 mb-2 mt-4">{t.navigation || 'Navigation'}</p>
-          {DEPT_TABS[dept].map(tabId => (
-            <MenuLink 
-              key={tabId}
-              active={activeTab === tabId} 
-              onClick={() => setActiveTab(tabId)} 
-              icon={TAB_ICONS[tabId]} 
-              label={t[tabId]} 
-              color={config.text} 
+      {/* Sidebar Menu */}
+      <AnimatePresence>
+        {isMenuOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={toggleMenu}
+              className="absolute inset-0 z-40 bg-black/40 backdrop-blur-sm"
             />
-          ))}
-          
-          <div className="pt-4 mt-4 border-t border-stone-100 dark:border-stone-800">
-            <p className="text-[10px] font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest px-4 mb-2">{t.settings}</p>
-            <MenuLink 
-              active={activeTab === 'settings'} 
-              onClick={() => setActiveTab('settings')} 
-              icon={TAB_ICONS.settings} 
-              label={t.settings} 
-              color={config.text} 
-            />
-          </div>
-        </nav>
-
-        <div className="p-4 border-t border-stone-100 dark:border-stone-800 space-y-4">
-          {user ? (
-            <div className="flex items-center gap-3 p-3 rounded-2xl bg-stone-50 dark:bg-stone-950 border border-stone-100 dark:border-stone-800/50">
-              {user.photoURL ? (
-                <img src={user.photoURL} alt="Profile" className="w-8 h-8 rounded-full" referrerPolicy="no-referrer" />
-              ) : (
-                <div className="w-8 h-8 rounded-full bg-stone-200 dark:bg-stone-800 flex items-center justify-center text-stone-400 dark:text-stone-500"><UserIcon size={16} /></div>
-              )}
-              <div className="overflow-hidden flex-1">
-                <p className="font-bold text-xs truncate text-stone-900 dark:text-stone-100">
-                  {user.displayName}
-                </p>
+            <motion.div
+              initial={{ x: '-100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '-100%' }}
+              transition={{ type: 'spring', bounce: 0, duration: 0.4 }}
+              className="absolute inset-y-0 left-0 z-50 w-80 max-w-[80vw] glass border-r border-white/10 p-6 flex flex-col overflow-y-auto no-scrollbar"
+            >
+              <div className="flex items-center justify-between mb-8">
+                <div className="flex items-center gap-3">
+                  <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold text-xl", config.bg)}>
+                    {config.logo}
+                  </div>
+                  <h2 className="text-2xl font-black text-white tracking-tight">Engix</h2>
+                </div>
+                <button onClick={toggleMenu} className="btn-glass p-2 rounded-full">
+                  <X size={20} className="text-white" />
+                </button>
               </div>
-              <button onClick={handleLogout} className="p-2 text-stone-400 hover:text-red-500 transition-colors">
-                <LogOut size={16} />
-              </button>
-            </div>
-          ) : (
-            <button 
-              onClick={handleLogin}
-              className={cn("w-full flex items-center justify-center gap-2 py-3 rounded-2xl text-white font-bold shadow-lg transition-all", config.bg, config.shadow)}
-            >
-              <LogIn size={18} />
-              <span>{t.login}</span>
-            </button>
-          )}
-          
-          <div className="flex items-center justify-between px-2">
-            <button 
-              onClick={() => {
-                const newLang = lang === 'bn' ? 'en' : 'bn';
-                setLang(newLang);
-                if (user) saveUserSettings(newLang, dept, theme);
-              }}
-              className="text-xs font-bold text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 transition-colors flex items-center gap-2"
-            >
-              <Languages size={14} />
-              {lang === 'bn' ? 'English' : 'বাংলা'}
-            </button>
-            <div className="flex bg-stone-100 dark:bg-stone-800 p-1 rounded-lg">
-              <button 
-                onClick={() => { setTheme('light'); if (user) saveUserSettings(lang, dept, 'light'); }}
-                className={cn("p-1.5 rounded-md transition-all", theme === 'light' ? "bg-white text-amber-500 shadow-sm" : "text-stone-400")}
-              >
-                <Sun size={14} />
-              </button>
-              <button 
-                onClick={() => { setTheme('dark'); if (user) saveUserSettings(lang, dept, 'dark'); }}
-                className={cn("p-1.5 rounded-md transition-all", theme === 'dark' ? "bg-stone-900 text-indigo-400 shadow-sm" : "text-stone-400")}
-              >
-                <Moon size={14} />
-              </button>
-            </div>
-          </div>
-        </div>
-      </aside>
+
+              <div className="space-y-8 flex-1">
+                {/* Navigation Links */}
+                <div className="space-y-3">
+                  <p className="text-xs font-bold text-white/40 uppercase tracking-widest ml-1">{lang === 'bn' ? 'মেনু' : 'Menu'}</p>
+                  <div className="space-y-1">
+                    {DEPT_TABS[dept].map((tab) => (
+                      <button
+                        key={tab}
+                        onClick={() => { setActiveTab(tab); setIsMenuOpen(false); }}
+                        className={cn(
+                          "w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all",
+                          activeTab === tab ? "bg-white/20 text-white border border-white/10" : "text-white/60 hover:bg-white/10 hover:text-white"
+                        )}
+                      >
+                        <div className={cn(activeTab === tab ? config.text : "text-white/40")}>
+                          {TAB_ICONS[tab]}
+                        </div>
+                        {t[tab]}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Department Selection */}
+                <div className="space-y-3">
+                  <p className="text-xs font-bold text-white/40 uppercase tracking-widest ml-1">{lang === 'bn' ? 'বিভাগ' : 'Department'}</p>
+                  <div className="grid grid-cols-1 gap-2">
+                    <DeptButton active={dept === 'civil'} onClick={() => { setDept('civil'); saveUserSettings(lang, 'civil', theme); setIsMenuOpen(false); }} icon={<HardHat size={16} />} label={t.civil} color="emerald" />
+                    <DeptButton active={dept === 'mechanical'} onClick={() => { setDept('mechanical'); saveUserSettings(lang, 'mechanical', theme); setIsMenuOpen(false); }} icon={<Settings size={16} />} label={t.mechanical} color="orange" />
+                    <DeptButton active={dept === 'electrical'} onClick={() => { setDept('electrical'); saveUserSettings(lang, 'electrical', theme); setIsMenuOpen(false); }} icon={<Zap size={16} />} label={t.electrical} color="blue" />
+                    <DeptButton active={dept === 'computer'} onClick={() => { setDept('computer'); saveUserSettings(lang, 'computer', theme); setIsMenuOpen(false); }} icon={<Code size={16} />} label={t.computer} color="purple" />
+                  </div>
+                </div>
+
+                {/* Language Selection */}
+                <div className="space-y-3">
+                  <p className="text-xs font-bold text-white/40 uppercase tracking-widest ml-1">{lang === 'bn' ? 'ভাষা' : 'Language'}</p>
+                  <div className="flex bg-white/5 p-1 rounded-xl border border-white/10">
+                    <button 
+                      onClick={() => { setLang('bn'); saveUserSettings('bn', dept, theme); }}
+                      className={cn("flex-1 py-2 rounded-lg font-bold text-sm transition-all", lang === 'bn' ? "bg-white/20 text-white" : "text-white/40 hover:text-white")}
+                    >
+                      বাংলা
+                    </button>
+                    <button 
+                      onClick={() => { setLang('en'); saveUserSettings('en', dept, theme); }}
+                      className={cn("flex-1 py-2 rounded-lg font-bold text-sm transition-all", lang === 'en' ? "bg-white/20 text-white" : "text-white/40 hover:text-white")}
+                    >
+                      English
+                    </button>
+                  </div>
+                </div>
+              </div>
+              
+              {/* User / Settings at bottom */}
+              <div className="mt-8 pt-6 border-t border-white/10 space-y-4">
+                <button
+                  onClick={() => { setActiveTab('settings'); setIsMenuOpen(false); }}
+                  className={cn(
+                    "w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all",
+                    activeTab === 'settings' ? "bg-white/20 text-white border border-white/10" : "text-white/60 hover:bg-white/10 hover:text-white"
+                  )}
+                >
+                  <Settings size={18} className={activeTab === 'settings' ? config.text : "text-white/40"} />
+                  {t.settings}
+                </button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
 
       <div className="flex-1 flex flex-col h-screen overflow-hidden">
-        {/* Mobile Header */}
-        <header className="lg:hidden sticky top-0 z-50 bg-white/80 dark:bg-stone-900/80 backdrop-blur-md border-b border-stone-200 dark:border-stone-800 px-4 py-3 flex items-center justify-between transition-colors duration-300">
-          <div className="flex items-center gap-3">
-            <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-lg shadow-md", config.bg)}>
-              {config.logo}
-            </div>
-            <h1 className="text-lg font-bold tracking-tight text-stone-900 dark:text-stone-100 leading-none">Engix</h1>
-          </div>
-          
-          <div className="flex items-center gap-2">
-            <button 
-              onClick={toggleMenu}
-              className="p-2 rounded-xl bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700 transition-all"
-            >
-              {isMenuOpen ? <X size={20} /> : <Menu size={20} />}
-            </button>
-          </div>
-        </header>
 
-        {/* Mobile Menu Overlay (Drawer) */}
-        <AnimatePresence>
-          {isMenuOpen && (
-            <>
-              <motion.div 
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                onClick={toggleMenu}
-                className="fixed inset-0 bg-stone-900/40 dark:bg-black/60 backdrop-blur-sm z-[60] lg:hidden"
-              />
-              <motion.div 
-                initial={{ x: '-100%' }}
-                animate={{ x: 0 }}
-                exit={{ x: '-100%' }}
-                transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                className="fixed top-0 left-0 bottom-0 w-[280px] bg-white dark:bg-stone-900 z-[70] shadow-2xl p-6 flex flex-col transition-colors duration-300 lg:hidden"
-              >
-                <div className="flex justify-between items-center mb-8">
-                  <div className="flex items-center gap-3">
-                    <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-lg shadow-md", config.bg)}>
-                      {config.logo}
-                    </div>
-                    <h2 className="text-xl font-bold text-stone-900 dark:text-stone-100">Engix</h2>
-                  </div>
-                  <button onClick={toggleMenu} className="p-2 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-800 text-stone-600 dark:text-stone-400"><X size={20} /></button>
-                </div>
 
-                <div className="flex-1 overflow-y-auto no-scrollbar">
-                  <div className="grid grid-cols-2 gap-2 mb-6">
-                    {DEPT_TABS[dept].map(tabId => (
-                      <MenuLink 
-                        key={tabId}
-                        active={activeTab === tabId} 
-                        onClick={() => { setActiveTab(tabId); toggleMenu(); }} 
-                        icon={TAB_ICONS[tabId]} 
-                        label={t[tabId]} 
-                        color={config.text} 
-                        isGrid
-                      />
-                    ))}
-                    <MenuLink 
-                      active={activeTab === 'settings'} 
-                      onClick={() => { setActiveTab('settings'); toggleMenu(); }} 
-                      icon={TAB_ICONS.settings} 
-                      label={t.settings} 
-                      color={config.text} 
-                      isGrid
-                    />
-                  </div>
-
-                  <div className="space-y-4 pt-6 border-t border-stone-100 dark:border-stone-800">
-                    <p className="text-xs font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest mb-2">{t.deptSelect}</p>
-                    <div className="grid grid-cols-2 gap-2">
-                      <DeptButton active={dept === 'civil'} onClick={() => setDept('civil')} icon={<HardHat size={16} />} label={t.civil} color="emerald" />
-                      <DeptButton active={dept === 'mechanical'} onClick={() => setDept('mechanical')} icon={<Settings size={16} />} label={t.mechanical} color="orange" />
-                      <DeptButton active={dept === 'electrical'} onClick={() => setDept('electrical')} icon={<Zap size={16} />} label={t.electrical} color="blue" />
-                      <DeptButton active={dept === 'computer'} onClick={() => setDept('computer')} icon={<Code size={16} />} label={t.computer} color="purple" />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-auto pt-6 border-t border-stone-100 dark:border-stone-800">
-                  {user ? (
-                    <button 
-                      onClick={() => { handleLogout(); toggleMenu(); }}
-                      className="w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all font-medium text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30"
-                    >
-                      <LogOut size={20} />
-                      <span>{t.logout}</span>
-                    </button>
-                  ) : (
-                    <button 
-                      onClick={() => { handleLogin(); toggleMenu(); }}
-                      className={cn("w-full flex items-center justify-center gap-3 py-3.5 rounded-2xl text-white font-bold shadow-lg", config.bg)}
-                    >
-                      <LogIn size={20} />
-                      <span>{t.login}</span>
-                    </button>
-                  )}
-                </div>
-              </motion.div>
-            </>
-          )}
-        </AnimatePresence>
-
-        {/* Main Content Area */}
-        <main className="flex-1 overflow-y-auto no-scrollbar">
-          <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-12">
+        {/* Main Content */}
+        <main className="flex-1 overflow-y-auto pb-32 pt-8 px-6 no-scrollbar">
+          <div className="max-w-7xl mx-auto">
             <AnimatePresence mode="wait">
               <motion.div
                 key={`${activeTab}-${dept}`}
@@ -472,7 +309,7 @@ export default function App() {
                 {activeTab === 'materials' && <MaterialsTab t={t} lang={lang} config={config} />}
                 {activeTab === 'quiz' && <QuizTab t={t} lang={lang} config={config} dept={dept} />}
                 {activeTab === 'chat' && <ChatTab t={t} lang={lang} config={config} />}
-                {activeTab === 'settings' && <SettingsTab t={t} lang={lang} setLang={setLang} dept={dept} setDept={setDept} theme={theme} setTheme={setTheme} user={user} handleLogin={handleLogin} handleLogout={handleLogout} saveUserSettings={saveUserSettings} config={config} />}
+                {activeTab === 'settings' && <SettingsTab t={t} lang={lang} setLang={setLang} dept={dept} setDept={setDept} theme={theme} setTheme={setTheme} saveUserSettings={saveUserSettings} config={config} />}
                 {['mech_design', 'thermo', 'fluids', 'circuits', 'power', 'control', 'software', 'data', 'network'].includes(activeTab) && (
                   <ComingSoonTab t={t} config={config} tabId={activeTab} />
                 )}
@@ -493,7 +330,7 @@ function MenuLink({ active, onClick, icon, label, color, isGrid }: { active: boo
         "flex items-center gap-4 rounded-2xl transition-all font-medium group",
         isGrid ? "flex-col justify-center p-4 text-center text-xs" : "px-4 py-3 text-sm w-full",
         active 
-          ? cn("bg-stone-100 dark:bg-stone-800 shadow-sm", color) 
+          ? cn("bg-stone-100 dark:bg-stone-800", color) 
           : "text-stone-500 dark:text-stone-400 hover:bg-stone-50 dark:hover:bg-stone-800/50 hover:text-stone-900 dark:hover:text-stone-100"
       )}
     >
@@ -510,17 +347,17 @@ function MenuLink({ active, onClick, icon, label, color, isGrid }: { active: boo
 
 function DeptButton({ active, onClick, icon, label, color }: { active: boolean, onClick: () => void, icon: React.ReactNode, label: string, color: string }) {
   const colors: any = {
-    emerald: active ? 'bg-emerald-600 text-white shadow-emerald-200 dark:shadow-none' : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border-emerald-100 dark:border-emerald-900/30',
-    orange: active ? 'bg-orange-600 text-white shadow-orange-200 dark:shadow-none' : 'bg-orange-50 dark:bg-orange-950/40 text-orange-600 dark:text-orange-400 border-orange-100 dark:border-orange-900/30',
-    blue: active ? 'bg-blue-600 text-white shadow-blue-200 dark:shadow-none' : 'bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 border-blue-100 dark:border-blue-900/30',
-    purple: active ? 'bg-purple-600 text-white shadow-purple-200 dark:shadow-none' : 'bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 border-purple-100 dark:border-purple-900/30',
+    emerald: active ? 'bg-emerald-600 text-white' : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border-emerald-100 dark:border-emerald-900/30',
+    orange: active ? 'bg-orange-600 text-white' : 'bg-orange-50 dark:bg-orange-950/40 text-orange-600 dark:text-orange-400 border-orange-100 dark:border-orange-900/30',
+    blue: active ? 'bg-blue-600 text-white' : 'bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 border-blue-100 dark:border-blue-900/30',
+    purple: active ? 'bg-purple-600 text-white' : 'bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 border-purple-100 dark:border-purple-900/30',
   };
 
   return (
     <button 
       onClick={onClick}
       className={cn(
-        "flex items-center justify-center gap-2 p-3 rounded-2xl text-xs font-bold transition-all border shadow-sm",
+        "flex items-center justify-center gap-2 p-3 rounded-2xl text-xs font-bold transition-all border",
         colors[color]
       )}
     >
@@ -532,65 +369,40 @@ function DeptButton({ active, onClick, icon, label, color }: { active: boolean, 
 
 // --- Tab Components ---
 
-function SettingsTab({ t, lang, setLang, dept, setDept, theme, setTheme, user, handleLogin, handleLogout, saveUserSettings, config }: any) {
+function SettingsTab({ t, lang, setLang, dept, setDept, theme, setTheme, saveUserSettings, config }: any) {
   return (
     <div className="space-y-6">
-      <div className="bg-white dark:bg-stone-900 p-8 rounded-[2.5rem] border border-stone-200 dark:border-stone-800 shadow-sm transition-colors duration-300">
+      <div className="card-glass transition-colors duration-300">
         <div className="flex items-center gap-4 mb-8">
-          <div className={cn("p-4 rounded-2xl bg-stone-50 dark:bg-stone-950", config.text)}>
+          <div className="p-4 rounded-2xl bg-white/5 text-white">
             <Settings size={28} />
           </div>
-          <h2 className="text-2xl font-black text-stone-900 dark:text-stone-100">{t.settings}</h2>
+          <h2 className="text-2xl font-black text-white">{t.settings}</h2>
         </div>
 
         <div className="space-y-8">
-          {user ? (
-            <div className="flex items-center gap-4 p-6 bg-stone-50 dark:bg-stone-950 rounded-3xl border border-stone-100 dark:border-stone-800/50">
-              {user.photoURL ? (
-                <img src={user.photoURL} alt="Profile" className="w-16 h-16 rounded-full border-4 border-white dark:border-stone-800 shadow-md" referrerPolicy="no-referrer" />
-              ) : (
-                <div className="w-16 h-16 rounded-full bg-stone-200 dark:bg-stone-800 flex items-center justify-center text-stone-400 dark:text-stone-500"><UserIcon size={32} /></div>
-              )}
-              <div>
-                <h3 className="text-xl font-bold text-stone-900 dark:text-stone-100">
-                  {user.displayName && user.displayName.length > 15 
-                    ? `${user.displayName.substring(0, 15)}...` 
-                    : user.displayName}
-                </h3>
-                <p className="text-stone-400 dark:text-stone-500 text-xs font-medium uppercase tracking-widest">{t.profile}</p>
-              </div>
-            </div>
-          ) : (
-            <div className="p-6 bg-stone-50 dark:bg-stone-950 rounded-3xl border border-dashed border-stone-200 dark:border-stone-800 text-center space-y-4">
-              <div className="w-12 h-12 bg-white dark:bg-stone-900 rounded-full flex items-center justify-center mx-auto text-stone-300 dark:text-stone-600">
-                <UserIcon size={24} />
-              </div>
-              <div>
-                <h3 className="text-sm font-bold text-stone-900 dark:text-stone-100">{t.authRequired}</h3>
-                <p className="text-xs text-stone-500 dark:text-stone-400 mt-1">Login to sync settings across devices.</p>
-              </div>
-              <button 
-                onClick={handleLogin}
-                className={cn("px-6 py-2.5 rounded-xl text-white text-sm font-bold shadow-lg flex items-center gap-2 mx-auto", config.bg)}
-              >
-                <LogIn size={16} />
-                {t.googleLogin}
-              </button>
-            </div>
-          )}
-
           <div className="space-y-4">
-            <p className="text-xs font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest">{t.language}</p>
+            <p className="text-xs font-bold text-white/40 uppercase tracking-widest ml-1">{t.language}</p>
             <div className="grid grid-cols-2 gap-3">
               <button 
                 onClick={() => { setLang('bn'); saveUserSettings('bn', dept, theme); }}
-                className={cn("py-4 rounded-2xl font-bold border transition-all", lang === 'bn' ? cn("border-transparent text-white", config.bg) : "bg-white dark:bg-stone-900 border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-700")}
+                className={cn(
+                  "py-4 rounded-2xl font-bold border transition-all", 
+                  lang === 'bn' 
+                    ? "bg-white/20 text-white border-white/30 scale-105" 
+                    : "glass border-white/10 text-white/40 hover:bg-white/10 hover:text-white"
+                )}
               >
                 বাংলা
               </button>
               <button 
                 onClick={() => { setLang('en'); saveUserSettings('en', dept, theme); }}
-                className={cn("py-4 rounded-2xl font-bold border transition-all", lang === 'en' ? cn("border-transparent text-white", config.bg) : "bg-white dark:bg-stone-900 border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-700")}
+                className={cn(
+                  "py-4 rounded-2xl font-bold border transition-all", 
+                  lang === 'en' 
+                    ? "bg-white/20 text-white border-white/30 scale-105" 
+                    : "glass border-white/10 text-white/40 hover:bg-white/10 hover:text-white"
+                )}
               >
                 English
               </button>
@@ -598,15 +410,15 @@ function SettingsTab({ t, lang, setLang, dept, setDept, theme, setTheme, user, h
           </div>
 
           <div className="space-y-4">
-            <p className="text-xs font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest">Theme</p>
-            <div className="flex bg-stone-100 dark:bg-stone-800 p-1.5 rounded-2xl border border-stone-200 dark:border-stone-700">
+            <p className="text-xs font-bold text-white/40 uppercase tracking-widest ml-1">Theme</p>
+            <div className="flex glass p-1.5 rounded-2xl border border-white/10">
               <button 
                 onClick={() => { setTheme('light'); saveUserSettings(lang, dept, 'light'); }}
                 className={cn(
                   "flex-1 py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2", 
                   theme === 'light' 
-                    ? "bg-white text-amber-600 shadow-md ring-1 ring-stone-200" 
-                    : "text-stone-500 hover:text-stone-700 dark:text-stone-400 dark:hover:text-stone-200"
+                    ? "bg-white/20 text-white border border-white/30" 
+                    : "text-white/40 hover:text-white/60 hover:bg-white/5"
                 )}
               >
                 <Sun size={20} />
@@ -617,8 +429,8 @@ function SettingsTab({ t, lang, setLang, dept, setDept, theme, setTheme, user, h
                 className={cn(
                   "flex-1 py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2", 
                   theme === 'dark' 
-                    ? "bg-stone-900 text-indigo-400 shadow-md ring-1 ring-stone-700" 
-                    : "text-stone-500 hover:text-stone-700 dark:text-stone-400 dark:hover:text-stone-200"
+                    ? "bg-white/20 text-white border border-white/30" 
+                    : "text-white/40 hover:text-white/60 hover:bg-white/5"
                 )}
               >
                 <Moon size={20} />
@@ -628,7 +440,7 @@ function SettingsTab({ t, lang, setLang, dept, setDept, theme, setTheme, user, h
           </div>
 
           <div className="space-y-4">
-            <p className="text-xs font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest">{t.deptSelect}</p>
+            <p className="text-xs font-bold text-white/40 uppercase tracking-widest">{t.deptSelect}</p>
             <div className="grid grid-cols-2 gap-3">
               <DeptButton active={dept === 'civil'} onClick={() => { setDept('civil'); saveUserSettings(lang, 'civil', theme); }} icon={<HardHat size={16} />} label={t.civil} color="emerald" />
               <DeptButton active={dept === 'mechanical'} onClick={() => { setDept('mechanical'); saveUserSettings(lang, 'mechanical', theme); }} icon={<Settings size={16} />} label={t.mechanical} color="orange" />
@@ -636,16 +448,6 @@ function SettingsTab({ t, lang, setLang, dept, setDept, theme, setTheme, user, h
               <DeptButton active={dept === 'computer'} onClick={() => { setDept('computer'); saveUserSettings(lang, 'computer', theme); }} icon={<Code size={16} />} label={t.computer} color="purple" />
             </div>
           </div>
-
-          {user && (
-            <button 
-              onClick={handleLogout}
-              className="w-full py-4 rounded-2xl border border-red-200 dark:border-red-900/50 text-red-500 dark:text-red-400 font-bold hover:bg-red-50 dark:hover:bg-red-950/30 transition-all flex items-center justify-center gap-2"
-            >
-              <LogOut size={20} />
-              {t.logout}
-            </button>
-          )}
         </div>
       </div>
     </div>
@@ -683,8 +485,8 @@ function PlotPlannerTab({ t, config }: { t: any, config: any }) {
 
   return (
     <div className="space-y-6">
-      <div className="bg-white dark:bg-stone-900 p-8 rounded-[2.5rem] border border-stone-200 dark:border-stone-800 shadow-sm transition-colors duration-300">
-        <h2 className="text-2xl font-black mb-6 text-stone-900 dark:text-stone-100">{t.plot_planner}</h2>
+      <div className="card-glass transition-colors duration-300">
+        <h2 className="text-2xl font-black mb-6 text-white">{t.plot_planner}</h2>
         
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
           <InputGroup label={t.length} value={length} onChange={setLength} />
@@ -694,33 +496,33 @@ function PlotPlannerTab({ t, config }: { t: any, config: any }) {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           <div className="space-y-6">
-            <div className="bg-stone-50 dark:bg-stone-800 p-6 rounded-3xl border border-stone-100 dark:border-stone-700">
-              <h3 className="font-bold mb-4 flex items-center gap-2 text-stone-900 dark:text-stone-100">
-                <Info size={18} className={config.text} />
+            <div className="glass p-6 border border-white/10">
+              <h3 className="font-bold mb-4 flex items-center gap-2 text-white">
+                <Info size={18} className="text-white" />
                 {t.setback}
               </h3>
               <div className="grid grid-cols-2 gap-4 text-sm">
-                <div><p className="text-stone-400 dark:text-stone-500">{t.front}</p><p className="font-bold text-stone-900 dark:text-stone-100">{setbacks.front} ft</p></div>
-                <div><p className="text-stone-400 dark:text-stone-500">{t.back}</p><p className="font-bold text-stone-900 dark:text-stone-100">{setbacks.back} ft</p></div>
-                <div><p className="text-stone-400 dark:text-stone-500">{t.side}</p><p className="font-bold text-stone-900 dark:text-stone-100">{setbacks.side} ft</p></div>
+                <div><p className="text-white/40 font-medium uppercase tracking-widest text-[10px]">{t.front}</p><p className="font-bold text-white text-lg">{setbacks.front} ft</p></div>
+                <div><p className="text-white/40 font-medium uppercase tracking-widest text-[10px]">{t.back}</p><p className="font-bold text-white text-lg">{setbacks.back} ft</p></div>
+                <div><p className="text-white/40 font-medium uppercase tracking-widest text-[10px]">{t.side}</p><p className="font-bold text-white text-lg">{setbacks.side} ft</p></div>
               </div>
             </div>
 
-            <div className="bg-stone-50 dark:bg-stone-800 p-6 rounded-3xl border border-stone-100 dark:border-stone-700">
-              <h3 className="font-bold mb-4 flex items-center gap-2 text-stone-900 dark:text-stone-100">
-                <Calculator size={18} className={config.text} />
+            <div className="glass p-6 border border-white/10">
+              <h3 className="font-bold mb-4 flex items-center gap-2 text-white">
+                <Calculator size={18} className="text-white" />
                 {t.mgc}
               </h3>
-              <p className="text-3xl font-black mb-1 text-stone-900 dark:text-stone-100">{mgc.toFixed(1)}%</p>
-              <p className="text-xs text-stone-400 dark:text-stone-500 font-medium uppercase tracking-widest">{t.buildableArea}: {buildableArea} sq ft</p>
+              <p className="text-4xl font-black mb-1 text-white tracking-tighter">{mgc.toFixed(1)}%</p>
+              <p className="text-[10px] text-white/40 font-bold uppercase tracking-widest">{t.buildableArea}: {buildableArea} sq ft</p>
             </div>
 
-            <div className={cn("p-6 rounded-3xl border bg-stone-50 dark:bg-stone-800/50", config.border)}>
-              <h3 className={cn("font-bold mb-2 flex items-center gap-2", config.text)}>
-                <Zap size={18} />
+            <div className="glass p-6 border border-white/10">
+              <h3 className="font-bold mb-2 flex items-center gap-2 text-white">
+                <Zap size={18} className="text-amber-400" />
                 {t.advice}
               </h3>
-              <p className="text-sm text-stone-700 dark:text-stone-300 leading-relaxed">
+              <p className="text-sm text-white/60 leading-relaxed italic">
                 {mgc > 65 
                   ? "আপনার গ্রাউন্ড কভারেজ অনেক বেশি। পর্যাপ্ত আলো-বাতাসের জন্য সেটব্যাক বাড়ানো উচিত।" 
                   : "আপনার প্ল্যানটি স্ট্যান্ডার্ড রুলস অনুযায়ী সঠিক আছে।"}
@@ -730,15 +532,15 @@ function PlotPlannerTab({ t, config }: { t: any, config: any }) {
           </div>
 
           <div className="flex flex-col items-center justify-center">
-            <p className="text-xs font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest mb-4">{t.plotMap}</p>
-            <div className="relative border-2 border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 rounded-xl overflow-hidden" style={{ width: '200px', height: '250px' }}>
+            <p className="text-xs font-bold text-white/40 uppercase tracking-widest mb-4 ml-1">{t.plotMap}</p>
+            <div className="relative border-2 border-white/10 glass rounded-xl overflow-hidden" style={{ width: '200px', height: '250px' }}>
               {/* Plot Boundary */}
-              <div className="absolute inset-0 border-4 border-stone-300 dark:border-stone-600 opacity-20 dark:opacity-40" />
+              <div className="absolute inset-0 border-4 border-white/10 opacity-20" />
               
               {/* Buildable Area */}
               <motion.div 
                 layout
-                className={cn("absolute border-2 border-dashed shadow-inner", config.border, config.bg.replace('600', '200').replace('500', '200'), "dark:bg-opacity-30")}
+                className={cn("absolute border-2 border-dashed bg-white/10 backdrop-blur-md", config.border)}
                 style={{
                   top: `${(setbacks.front / length) * 100}%`,
                   bottom: `${(setbacks.back / length) * 100}%`,
@@ -747,12 +549,12 @@ function PlotPlannerTab({ t, config }: { t: any, config: any }) {
                 }}
               >
                 <div className="w-full h-full flex items-center justify-center">
-                  <span className={cn("text-[10px] font-black uppercase tracking-tighter", config.text)}>Building</span>
+                  <span className="text-[10px] font-black uppercase tracking-tighter text-white opacity-40">Building</span>
                 </div>
               </motion.div>
 
               {/* Labels */}
-              <div className="absolute top-1 left-1/2 -translate-x-1/2 text-[8px] font-bold text-stone-400 dark:text-stone-500">ROAD</div>
+              <div className="absolute top-1 left-1/2 -translate-x-1/2 text-[8px] font-bold text-white/40 uppercase tracking-widest">ROAD</div>
             </div>
           </div>
         </div>
@@ -764,12 +566,12 @@ function PlotPlannerTab({ t, config }: { t: any, config: any }) {
 function InputGroup({ label, value, onChange }: { label: string, value: number, onChange: (v: number) => void }) {
   return (
     <div className="space-y-2">
-      <label className="text-xs font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest">{label}</label>
+      <label className="text-xs font-bold text-white/40 uppercase tracking-widest ml-1">{label}</label>
       <input 
         type="number" 
         value={value} 
         onChange={(e) => onChange(Number(e.target.value))}
-        className="w-full bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-stone-100 dark:focus:ring-stone-600 font-bold text-stone-900 dark:text-stone-100 transition-colors"
+        className="w-full glass border border-white/10 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-white/20 font-bold text-white transition-all"
       />
     </div>
   );
@@ -914,33 +716,33 @@ function BeamDesignTab({ t, config, lang }: { t: any, config: any, lang: 'bn' | 
 
   return (
     <div className="space-y-6">
-      <div className="bg-white dark:bg-stone-900 p-8 rounded-[2.5rem] border border-stone-200 dark:border-stone-800 shadow-sm transition-colors duration-300">
-        <h2 className="text-2xl font-black mb-6 flex items-center gap-3 text-stone-900 dark:text-stone-100">
-          <Construction className={config.text} size={28} />
+      <div className="card-glass transition-colors duration-300">
+        <h2 className="text-2xl font-black mb-6 flex items-center gap-3 text-white">
+          <Construction className="text-white" size={28} />
           {t.beam_design}
         </h2>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="space-y-6">
-            <div className="bg-stone-50 dark:bg-stone-800 p-6 rounded-3xl border border-stone-100 dark:border-stone-700">
-              <h3 className="font-bold mb-4 text-stone-900 dark:text-stone-100 flex items-center gap-2">
-                <Ruler size={18} className={config.text} />
+            <div className="glass p-6 border border-white/10">
+              <h3 className="font-bold mb-4 text-white flex items-center gap-2">
+                <Ruler size={18} className="text-white" />
                 {lang === 'bn' ? 'বিম প্যারামিটার' : 'Beam Parameters'}
               </h3>
               <div className="space-y-4">
                 <InputGroup label={lang === 'bn' ? 'বিম দৈর্ঘ্য (ফুট)' : 'Beam Length (ft)'} value={length} onChange={setLength} />
                 <div className="space-y-2">
-                  <label className="text-xs font-black text-stone-400 dark:text-stone-500 uppercase tracking-widest ml-1">
+                  <label className="text-xs font-black text-white/40 uppercase tracking-widest ml-1">
                     {lang === 'bn' ? 'সাপোর্ট টাইপ' : 'Support Type'}
                   </label>
                   <div className="grid grid-cols-2 gap-2">
                     <button
                       onClick={() => setSupportType('simply')}
                       className={cn(
-                        "py-2 px-4 rounded-xl text-sm font-bold border-2 transition-all",
+                        "py-2 px-4 rounded-xl text-sm font-bold border transition-all",
                         supportType === 'simply' 
-                          ? cn(config.bg, "text-white border-transparent") 
-                          : "bg-white dark:bg-stone-900 text-stone-600 dark:text-stone-400 border-stone-200 dark:border-stone-800"
+                          ? "bg-white/20 text-white border-white/30" 
+                          : "glass text-white/40 border-white/10 hover:bg-white/10 hover:text-white"
                       )}
                     >
                       {lang === 'bn' ? 'সিম্পলি সাপোর্টেড' : 'Simply Supported'}
@@ -948,10 +750,10 @@ function BeamDesignTab({ t, config, lang }: { t: any, config: any, lang: 'bn' | 
                     <button
                       onClick={() => setSupportType('cantilever')}
                       className={cn(
-                        "py-2 px-4 rounded-xl text-sm font-bold border-2 transition-all",
+                        "py-2 px-4 rounded-xl text-sm font-bold border transition-all",
                         supportType === 'cantilever' 
-                          ? cn(config.bg, "text-white border-transparent") 
-                          : "bg-white dark:bg-stone-900 text-stone-600 dark:text-stone-400 border-stone-200 dark:border-stone-800"
+                          ? "bg-white/20 text-white border-white/30" 
+                          : "glass text-white/40 border-white/10 hover:bg-white/10 hover:text-white"
                       )}
                     >
                       {lang === 'bn' ? 'ক্যান্টিলিভার' : 'Cantilever'}
@@ -961,42 +763,42 @@ function BeamDesignTab({ t, config, lang }: { t: any, config: any, lang: 'bn' | 
               </div>
             </div>
 
-            <div className="bg-stone-50 dark:bg-stone-800 p-6 rounded-3xl border border-stone-100 dark:border-stone-700">
+            <div className="glass p-6 border border-white/10">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="font-bold text-stone-900 dark:text-stone-100 flex items-center gap-2">
-                  <Activity size={18} className={config.text} />
+                <h3 className="font-bold text-white flex items-center gap-2">
+                  <Activity size={18} className="text-white" />
                   {lang === 'bn' ? 'পয়েন্ট লোড' : 'Point Loads'}
                 </h3>
-                <button onClick={addPointLoad} className={cn("p-1.5 rounded-lg text-white shadow-sm", config.bg)}>
+                <button onClick={addPointLoad} className="p-1.5 rounded-lg glass text-white border border-white/20 hover:bg-white/20 transition-all">
                   <Plus size={16} />
                 </button>
               </div>
               <div className="space-y-3">
                 {pointLoads.map(p => (
-                  <div key={p.id} className="bg-white dark:bg-stone-900 p-3 rounded-2xl border border-stone-200 dark:border-stone-800 space-y-2">
+                  <div key={p.id} className="glass p-3 space-y-2 border border-white/10">
                     <div className="flex justify-between items-center">
-                      <span className="text-[10px] font-black text-stone-400 uppercase tracking-widest">Load {p.id.substr(0, 3)}</span>
-                      <button onClick={() => removePointLoad(p.id)} className="text-red-500 hover:bg-red-50 p-1 rounded-md transition-colors">
+                      <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">Load {p.id.substr(0, 3)}</span>
+                      <button onClick={() => removePointLoad(p.id)} className="text-white/40 hover:text-white transition-colors">
                         <Trash2 size={14} />
                       </button>
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       <div className="space-y-1">
-                        <label className="text-[10px] text-stone-400 uppercase">Pos (ft)</label>
+                        <label className="text-[10px] text-white/40 uppercase">Pos (ft)</label>
                         <input 
                           type="number" 
                           value={p.pos} 
                           onChange={(e) => updatePointLoad(p.id, 'pos', Number(e.target.value))}
-                          className="w-full bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg px-2 py-1 text-sm font-bold"
+                          className="w-full glass border border-white/10 rounded-lg px-2 py-1 text-sm font-bold text-white focus:outline-none focus:ring-1 focus:ring-white/20"
                         />
                       </div>
                       <div className="space-y-1">
-                        <label className="text-[10px] text-stone-400 uppercase">Mag (kip)</label>
+                        <label className="text-[10px] text-white/40 uppercase">Mag (kip)</label>
                         <input 
                           type="number" 
                           value={p.mag} 
                           onChange={(e) => updatePointLoad(p.id, 'mag', Number(e.target.value))}
-                          className="w-full bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg px-2 py-1 text-sm font-bold"
+                          className="w-full glass border border-white/10 rounded-lg px-2 py-1 text-sm font-bold text-white focus:outline-none focus:ring-1 focus:ring-white/20"
                         />
                       </div>
                     </div>
@@ -1005,51 +807,51 @@ function BeamDesignTab({ t, config, lang }: { t: any, config: any, lang: 'bn' | 
               </div>
             </div>
 
-            <div className="bg-stone-50 dark:bg-stone-800 p-6 rounded-3xl border border-stone-100 dark:border-stone-700">
+            <div className="glass p-6 border border-white/10">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="font-bold text-stone-900 dark:text-stone-100 flex items-center gap-2">
-                  <Layers size={18} className={config.text} />
+                <h3 className="font-bold text-white flex items-center gap-2">
+                  <Layers size={18} className="text-white" />
                   {lang === 'bn' ? 'UDL লোড' : 'UDL Loads'}
                 </h3>
-                <button onClick={addUDL} className={cn("p-1.5 rounded-lg text-white shadow-sm", config.bg)}>
+                <button onClick={addUDL} className="p-1.5 rounded-lg glass text-white border border-white/20 hover:bg-white/20 transition-all">
                   <Plus size={16} />
                 </button>
               </div>
               <div className="space-y-3">
                 {udls.map(u => (
-                  <div key={u.id} className="bg-white dark:bg-stone-900 p-3 rounded-2xl border border-stone-200 dark:border-stone-800 space-y-2">
+                  <div key={u.id} className="glass p-3 space-y-2 border border-white/10">
                     <div className="flex justify-between items-center">
-                      <span className="text-[10px] font-black text-stone-400 uppercase tracking-widest">UDL {u.id.substr(0, 3)}</span>
-                      <button onClick={() => removeUDL(u.id)} className="text-red-500 hover:bg-red-50 p-1 rounded-md transition-colors">
+                      <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">UDL {u.id.substr(0, 3)}</span>
+                      <button onClick={() => removeUDL(u.id)} className="text-white/40 hover:text-white transition-colors">
                         <Trash2 size={14} />
                       </button>
                     </div>
                     <div className="grid grid-cols-3 gap-2">
                       <div className="space-y-1">
-                        <label className="text-[10px] text-stone-400 uppercase">Start</label>
+                        <label className="text-[10px] text-white/40 uppercase">Start</label>
                         <input 
                           type="number" 
                           value={u.start} 
                           onChange={(e) => updateUDL(u.id, 'start', Number(e.target.value))}
-                          className="w-full bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg px-2 py-1 text-sm font-bold"
+                          className="w-full glass border border-white/10 rounded-lg px-2 py-1 text-sm font-bold text-white focus:outline-none focus:ring-1 focus:ring-white/20"
                         />
                       </div>
                       <div className="space-y-1">
-                        <label className="text-[10px] text-stone-400 uppercase">End</label>
+                        <label className="text-[10px] text-white/40 uppercase">End</label>
                         <input 
                           type="number" 
                           value={u.end} 
                           onChange={(e) => updateUDL(u.id, 'end', Number(e.target.value))}
-                          className="w-full bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg px-2 py-1 text-sm font-bold"
+                          className="w-full glass border border-white/10 rounded-lg px-2 py-1 text-sm font-bold text-white focus:outline-none focus:ring-1 focus:ring-white/20"
                         />
                       </div>
                       <div className="space-y-1">
-                        <label className="text-[10px] text-stone-400 uppercase">w (k/ft)</label>
+                        <label className="text-[10px] text-white/40 uppercase">w (k/ft)</label>
                         <input 
                           type="number" 
                           value={u.mag} 
                           onChange={(e) => updateUDL(u.id, 'mag', Number(e.target.value))}
-                          className="w-full bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg px-2 py-1 text-sm font-bold"
+                          className="w-full glass border border-white/10 rounded-lg px-2 py-1 text-sm font-bold text-white focus:outline-none focus:ring-1 focus:ring-white/20"
                         />
                       </div>
                     </div>
@@ -1060,12 +862,12 @@ function BeamDesignTab({ t, config, lang }: { t: any, config: any, lang: 'bn' | 
           </div>
 
           <div className="lg:col-span-2 space-y-8">
-            <div className="bg-white dark:bg-stone-950 p-6 rounded-3xl border-2 border-stone-200 dark:border-stone-800 shadow-inner overflow-hidden">
-              <h3 className="font-bold mb-6 flex items-center gap-2 text-stone-900 dark:text-stone-100">
-                <LayoutGrid size={18} className={config.text} />
+            <div className="glass p-6 overflow-hidden">
+              <h3 className="font-bold mb-6 flex items-center gap-2 text-white">
+                <LayoutGrid size={18} className="text-white" />
                 {lang === 'bn' ? 'বিম এবং লোড ডায়াগ্রাম' : 'Beam & Load Diagram'}
               </h3>
-              <div className="relative w-full h-[180px] bg-stone-50 dark:bg-stone-900/50 rounded-2xl border border-stone-100 dark:border-stone-800 flex items-center justify-center p-4">
+              <div className="relative w-full h-[180px] bg-white/5 rounded-2xl border border-white/10 flex items-center justify-center p-4">
                 <svg viewBox="0 0 100 40" className="w-full h-full overflow-visible">
                   {/* Beam */}
                   <rect x="10" y="18" width="80" height="2" fill="#444" rx="1" />
@@ -1116,64 +918,64 @@ function BeamDesignTab({ t, config, lang }: { t: any, config: any, lang: 'bn' | 
               </div>
             </div>
 
-            <div className="bg-white dark:bg-stone-950 p-6 rounded-3xl border-2 border-stone-200 dark:border-stone-800 shadow-inner">
-              <h3 className="font-bold mb-6 flex items-center gap-2 text-stone-900 dark:text-stone-100">
-                <Activity size={18} className={config.text} />
+            <div className="glass p-6 border border-white/10">
+              <h3 className="font-bold mb-6 flex items-center gap-2 text-white">
+                <Activity size={18} className="text-white" />
                 {lang === 'bn' ? 'Shear Force Diagram (SFD)' : 'Shear Force Diagram (SFD)'}
               </h3>
-              <div className="h-[250px] w-full">
+              <div className="h-[250px] w-full glass border border-white/10 rounded-2xl p-4">
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={data}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
                     <XAxis dataKey="x" hide />
-                    <YAxis />
-                    <Tooltip />
-                    <ReferenceLine y={0} stroke="#000" />
-                    <Area type="stepAfter" dataKey="shear" stroke={config.color === 'emerald' ? '#10b981' : config.color === 'orange' ? '#f97316' : config.color === 'blue' ? '#2563eb' : '#9333ea'} fill={config.color === 'emerald' ? '#10b981' : config.color === 'orange' ? '#f97316' : config.color === 'blue' ? '#2563eb' : '#9333ea'} fillOpacity={0.2} />
+                    <YAxis stroke="rgba(255,255,255,0.3)" fontSize={10} />
+                    <Tooltip contentStyle={{ backgroundColor: 'rgba(0,0,0,0.8)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '12px', backdropFilter: 'blur(10px)' }} />
+                    <ReferenceLine y={0} stroke="rgba(255,255,255,0.2)" />
+                    <Area type="stepAfter" dataKey="shear" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.1} />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
             </div>
 
-            <div className="bg-white dark:bg-stone-950 p-6 rounded-3xl border-2 border-stone-200 dark:border-stone-800 shadow-inner">
-              <h3 className="font-bold mb-6 flex items-center gap-2 text-stone-900 dark:text-stone-100">
-                <Activity size={18} className={config.text} />
+            <div className="glass p-6 border border-white/10">
+              <h3 className="font-bold mb-6 flex items-center gap-2 text-white">
+                <Activity size={18} className="text-white" />
                 {lang === 'bn' ? 'Bending Moment Diagram (BMD)' : 'Bending Moment Diagram (BMD)'}
               </h3>
-              <div className="h-[250px] w-full">
+              <div className="h-[250px] w-full glass border border-white/10 rounded-2xl p-4">
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={data}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                    <XAxis dataKey="x" />
-                    <YAxis />
-                    <Tooltip />
-                    <ReferenceLine y={0} stroke="#000" />
-                    <Area type="monotone" dataKey="moment" stroke="#ef4444" fill="#ef4444" fillOpacity={0.2} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                    <XAxis dataKey="x" stroke="rgba(255,255,255,0.3)" fontSize={10} />
+                    <YAxis stroke="rgba(255,255,255,0.3)" fontSize={10} />
+                    <Tooltip contentStyle={{ backgroundColor: 'rgba(0,0,0,0.8)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '12px', backdropFilter: 'blur(10px)' }} />
+                    <ReferenceLine y={0} stroke="rgba(255,255,255,0.2)" />
+                    <Area type="monotone" dataKey="moment" stroke="#ef4444" fill="#ef4444" fillOpacity={0.1} />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-              <div className="bg-stone-50 dark:bg-stone-800 p-4 rounded-2xl border border-stone-100 dark:border-stone-700">
-                <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1">R1 (Left)</p>
-                <p className={cn("text-xl font-black", config.text)}>{r1.toFixed(2)} kip</p>
+              <div className="glass p-4 border border-white/10">
+                <p className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-1">R1 (Left)</p>
+                <p className="text-xl font-black text-white">{r1.toFixed(2)} kip</p>
               </div>
               {supportType === 'simply' && (
-                <div className="bg-stone-50 dark:bg-stone-800 p-4 rounded-2xl border border-stone-100 dark:border-stone-700">
-                  <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1">R2 (Right)</p>
-                  <p className={cn("text-xl font-black", config.text)}>{r2.toFixed(2)} kip</p>
+                <div className="glass p-4 border border-white/10">
+                  <p className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-1">R2 (Right)</p>
+                  <p className="text-xl font-black text-white">{r2.toFixed(2)} kip</p>
                 </div>
               )}
               {supportType === 'cantilever' && (
-                <div className="bg-stone-50 dark:bg-stone-800 p-4 rounded-2xl border border-stone-100 dark:border-stone-700">
-                  <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1">M1 (Fixed)</p>
-                  <p className="text-xl font-black text-red-600">{m1.toFixed(2)} k-ft</p>
+                <div className="glass p-4 border border-white/10">
+                  <p className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-1">M1 (Fixed)</p>
+                  <p className="text-xl font-black text-red-500">{m1.toFixed(2)} k-ft</p>
                 </div>
               )}
-              <div className="bg-stone-50 dark:bg-stone-800 p-4 rounded-2xl border border-stone-100 dark:border-stone-700">
-                <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1">Max Moment</p>
-                <p className="text-xl font-black text-red-600">
+              <div className="glass p-4 border border-white/10">
+                <p className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-1">Max Moment</p>
+                <p className="text-xl font-black text-red-500">
                   {Math.max(...data.map(d => Math.abs(d.moment))).toFixed(2)} k-ft
                 </p>
               </div>
@@ -1204,9 +1006,9 @@ function SlabDesignTab({ t, config, lang }: { t: any, config: any, lang: 'bn' | 
 
   return (
     <div className="space-y-6">
-      <div className="bg-white dark:bg-stone-900 p-8 rounded-[2.5rem] border border-stone-200 dark:border-stone-800 shadow-sm transition-colors duration-300">
-        <h2 className="text-2xl font-black mb-6 flex items-center gap-3 text-stone-900 dark:text-stone-100">
-          <Layers className={config.text} size={28} />
+      <div className="card-glass transition-colors duration-300">
+        <h2 className="text-2xl font-black mb-6 flex items-center gap-3 text-white">
+          <Layers className="text-white" size={28} />
           {t.slab_design}
         </h2>
         
@@ -1226,26 +1028,26 @@ function SlabDesignTab({ t, config, lang }: { t: any, config: any, lang: 'bn' | 
             </div>
           </div>
           
-          <div className="bg-white dark:bg-stone-950 p-6 rounded-3xl border-2 border-stone-200 dark:border-stone-800 flex flex-col items-center justify-between overflow-hidden relative min-h-[400px] shadow-inner">
-            {/* Blueprint Background */}
-            <div className="absolute inset-0 opacity-10 dark:opacity-[0.05] bg-[linear-gradient(to_right,#000_1px,transparent_1px),linear-gradient(to_bottom,#000_1px,transparent_1px)] dark:bg-[linear-gradient(to_right,#fff_1px,transparent_1px),linear-gradient(to_bottom,#fff_1px,transparent_1px)] bg-[size:1rem_1rem]" />
-            
-            <div className="w-full flex justify-between items-center relative z-10 mb-4">
-              <h3 className="font-bold flex items-center gap-2 bg-white dark:bg-stone-900 px-3 py-1.5 rounded-xl shadow-sm border border-stone-100 dark:border-stone-800 text-stone-900 dark:text-stone-100">
-                <LayoutGrid size={18} className={config.text} />
-                {lang === 'bn' ? 'ইন্টারেক্টিভ মডেল' : 'Interactive Model'}
-              </h3>
-              <div className="flex gap-2">
-                <span className="text-[10px] font-bold bg-stone-100 dark:bg-stone-800 text-stone-500 dark:text-stone-400 px-2 py-1 rounded-md uppercase tracking-wider">Plan</span>
-                <span className="text-[10px] font-bold bg-stone-100 dark:bg-stone-800 text-stone-500 dark:text-stone-400 px-2 py-1 rounded-md uppercase tracking-wider">Section</span>
+            <div className="glass p-6 flex flex-col items-center justify-between overflow-hidden relative min-h-[400px] border border-white/10">
+              {/* Blueprint Background */}
+              <div className="absolute inset-0 opacity-10 bg-[linear-gradient(to_right,#fff_1px,transparent_1px),linear-gradient(to_bottom,#fff_1px,transparent_1px)] bg-[size:1rem_1rem]" />
+              
+              <div className="w-full flex justify-between items-center relative z-10 mb-4">
+                <h3 className="font-bold flex items-center gap-2 glass px-3 py-1.5 rounded-xl border border-white/10 text-white">
+                  <LayoutGrid size={18} className="text-white" />
+                  {lang === 'bn' ? 'ইন্টারেক্টিভ মডেল' : 'Interactive Model'}
+                </h3>
+                <div className="flex gap-2">
+                  <span className="text-[10px] font-bold glass text-white/60 px-2 py-1 rounded-md uppercase tracking-wider border border-white/10">Plan</span>
+                  <span className="text-[10px] font-bold glass text-white/60 px-2 py-1 rounded-md uppercase tracking-wider border border-white/10">Section</span>
+                </div>
               </div>
-            </div>
 
             {/* Plan View */}
             <div className="relative w-full flex-1 flex items-center justify-center z-10 p-8">
               <motion.div
                 layout
-                className={cn("relative border-4 flex items-center justify-center shadow-2xl", config.border, config.bg.replace('600', '100').replace('500', '100'), "dark:bg-opacity-20")}
+                className={cn("relative border-4 flex items-center justify-center bg-white/10", config.border)}
                 animate={{
                   width: `${(lx / maxSpan) * 100}%`,
                   height: `${(ly / maxSpan) * 100}%`,
@@ -1253,44 +1055,44 @@ function SlabDesignTab({ t, config, lang }: { t: any, config: any, lang: 'bn' | 
                 transition={{ type: "spring", bounce: 0.4, duration: 0.8 }}
               >
                 {/* Reinforcement Mesh */}
-                <div className="absolute inset-2 opacity-30 dark:opacity-20 bg-[linear-gradient(to_right,#000_1px,transparent_1px),linear-gradient(to_bottom,#000_1px,transparent_1px)] dark:bg-[linear-gradient(to_right,#fff_1px,transparent_1px),linear-gradient(to_bottom,#fff_1px,transparent_1px)] bg-[size:0.5rem_0.5rem]" />
+                <div className="absolute inset-2 opacity-20 bg-[linear-gradient(to_right,#fff_1px,transparent_1px),linear-gradient(to_bottom,#fff_1px,transparent_1px)] bg-[size:0.5rem_0.5rem]" />
                 
                 {/* Columns */}
-                <div className="absolute -top-3 -left-3 w-6 h-6 bg-stone-800 dark:bg-stone-200 rounded-sm shadow-md" />
-                <div className="absolute -top-3 -right-3 w-6 h-6 bg-stone-800 dark:bg-stone-200 rounded-sm shadow-md" />
-                <div className="absolute -bottom-3 -left-3 w-6 h-6 bg-stone-800 dark:bg-stone-200 rounded-sm shadow-md" />
-                <div className="absolute -bottom-3 -right-3 w-6 h-6 bg-stone-800 dark:bg-stone-200 rounded-sm shadow-md" />
+                <div className="absolute -top-3 -left-3 w-6 h-6 bg-white/20 rounded-sm" />
+                <div className="absolute -top-3 -right-3 w-6 h-6 bg-white/20 rounded-sm" />
+                <div className="absolute -bottom-3 -left-3 w-6 h-6 bg-white/20 rounded-sm" />
+                <div className="absolute -bottom-3 -right-3 w-6 h-6 bg-white/20 rounded-sm" />
 
                 {/* Load Distribution Arrows */}
                 {isTwoWay ? (
-                  <div className="absolute inset-0 flex items-center justify-center opacity-70 text-stone-900 dark:text-stone-100 drop-shadow-md">
+                  <div className="absolute inset-0 flex items-center justify-center opacity-70 text-white">
                     <ArrowRightLeft size={36} className="absolute rotate-90" />
                     <ArrowRightLeft size={36} className="absolute" />
                   </div>
                 ) : (
-                  <div className="absolute inset-0 flex items-center justify-center opacity-70 text-stone-900 dark:text-stone-100 drop-shadow-md">
+                  <div className="absolute inset-0 flex items-center justify-center opacity-70 text-white">
                     <ArrowRightLeft size={36} className={lx < ly ? "" : "rotate-90"} />
                   </div>
                 )}
 
                 {/* Dimension Ly */}
                 <div className="absolute -right-10 top-0 bottom-0 flex items-center">
-                  <div className="w-px h-full bg-stone-400 dark:bg-stone-600 relative">
-                    <div className="absolute top-0 -left-1.5 w-3 h-px bg-stone-400 dark:bg-stone-600" />
-                    <div className="absolute bottom-0 -left-1.5 w-3 h-px bg-stone-400 dark:bg-stone-600" />
+                  <div className="w-px h-full bg-white/30 relative">
+                    <div className="absolute top-0 -left-1.5 w-3 h-px bg-white/30" />
+                    <div className="absolute bottom-0 -left-1.5 w-3 h-px bg-white/30" />
                   </div>
-                  <div className="absolute left-2 bg-white dark:bg-stone-800 px-1 py-0.5 rounded text-[10px] font-black text-stone-700 dark:text-stone-300 whitespace-nowrap rotate-90 origin-left translate-y-1/2">
+                  <div className="absolute left-2 bg-white/10 backdrop-blur-md px-1 py-0.5 rounded text-[10px] font-black text-white whitespace-nowrap rotate-90 origin-left translate-y-1/2">
                     Ly = {ly}'
                   </div>
                 </div>
 
                 {/* Dimension Lx */}
                 <div className="absolute -bottom-10 left-0 right-0 flex justify-center">
-                  <div className="h-px w-full bg-stone-400 dark:bg-stone-600 relative">
-                    <div className="absolute left-0 -top-1.5 h-3 w-px bg-stone-400 dark:bg-stone-600" />
-                    <div className="absolute right-0 -top-1.5 h-3 w-px bg-stone-400 dark:bg-stone-600" />
+                  <div className="h-px w-full bg-white/30 relative">
+                    <div className="absolute left-0 -top-1.5 h-3 w-px bg-white/30" />
+                    <div className="absolute right-0 -top-1.5 h-3 w-px bg-white/30" />
                   </div>
-                  <div className="absolute top-2 bg-white dark:bg-stone-800 px-1.5 py-0.5 rounded text-[10px] font-black text-stone-700 dark:text-stone-300 whitespace-nowrap">
+                  <div className="absolute top-2 bg-white/10 backdrop-blur-md px-1.5 py-0.5 rounded text-[10px] font-black text-white whitespace-nowrap">
                     Lx = {lx}'
                   </div>
                 </div>
@@ -1298,35 +1100,35 @@ function SlabDesignTab({ t, config, lang }: { t: any, config: any, lang: 'bn' | 
             </div>
 
             {/* Cross Section View */}
-            <div className="w-full mt-8 z-10 bg-white/80 dark:bg-stone-900/80 p-4 rounded-2xl border border-stone-100 dark:border-stone-800 shadow-sm backdrop-blur-md">
-              <div className="relative w-full flex items-end justify-center h-24 border-b-2 border-stone-300 dark:border-stone-700 pb-2 px-12">
+            <div className="w-full mt-8 z-10 glass p-4 backdrop-blur-md border border-white/10">
+              <div className="relative w-full flex items-end justify-center h-24 border-b-2 border-white/10 pb-2 px-12">
                 
                 {/* Supports */}
-                <div className="w-6 h-16 bg-stone-200 dark:bg-stone-700 border-2 border-stone-400 dark:border-stone-600 border-b-0 absolute left-8 bottom-2 rounded-t-sm" />
-                <div className="w-6 h-16 bg-stone-200 dark:bg-stone-700 border-2 border-stone-400 dark:border-stone-600 border-b-0 absolute right-8 bottom-2 rounded-t-sm" />
+                <div className="w-6 h-16 glass border-2 border-white/20 border-b-0 absolute left-8 bottom-2 rounded-t-sm" />
+                <div className="w-6 h-16 glass border-2 border-white/20 border-b-0 absolute right-8 bottom-2 rounded-t-sm" />
 
                 <motion.div
                   layout
-                  className={cn("w-full border-2 shadow-md relative overflow-hidden z-10", config.border, config.bg.replace('600', '300').replace('500', '300'), "dark:bg-opacity-40")}
+                  className={cn("w-full border-2 relative overflow-hidden z-10 bg-white/20", config.border)}
                   animate={{
                     height: `${Math.max(16, Math.min(72, (thickness / 12) * 72))}px`
                   }}
                   transition={{ type: "spring", bounce: 0.4, duration: 0.8 }}
                 >
                   {/* Concrete Texture */}
-                  <div className="absolute inset-0 opacity-20 dark:opacity-40 bg-[radial-gradient(#000_1px,transparent_1px)] dark:bg-[radial-gradient(#fff_1px,transparent_1px)] bg-[size:4px_4px]" />
+                  <div className="absolute inset-0 opacity-20 bg-[radial-gradient(#fff_1px,transparent_1px)] bg-[size:4px_4px]" />
                   {/* Rebar */}
-                  <div className="absolute bottom-1.5 left-0 right-0 h-1.5 border-b-2 border-dashed border-stone-700 dark:border-stone-300 opacity-60" />
-                  <div className="absolute top-1.5 left-0 right-0 h-1.5 border-t-2 border-dashed border-stone-700 dark:border-stone-300 opacity-30" />
+                  <div className="absolute bottom-1.5 left-0 right-0 h-1.5 border-b-2 border-dashed border-white/40 opacity-60" />
+                  <div className="absolute top-1.5 left-0 right-0 h-1.5 border-t-2 border-dashed border-white/40 opacity-30" />
                 </motion.div>
                 
                 {/* Thickness Dimension */}
                 <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center">
-                  <div className="h-full w-px bg-stone-400 dark:bg-stone-600 relative">
-                    <div className="absolute top-0 -left-1.5 w-3 h-px bg-stone-400 dark:bg-stone-600" />
-                    <div className="absolute bottom-0 -left-1.5 w-3 h-px bg-stone-400 dark:bg-stone-600" />
+                  <div className="h-full w-px bg-white/30 relative">
+                    <div className="absolute top-0 -left-1.5 w-3 h-px bg-white/30" />
+                    <div className="absolute bottom-0 -left-1.5 w-3 h-px bg-white/30" />
                   </div>
-                  <div className="bg-white dark:bg-stone-800 px-1 rounded text-[10px] font-black text-stone-700 dark:text-stone-300 ml-1 shadow-sm border border-stone-100 dark:border-stone-700">
+                  <div className="bg-white/10 backdrop-blur-md px-1 rounded text-[10px] font-black text-white ml-1 border border-white/10">
                     {thickness}"
                   </div>
                 </div>
@@ -1335,50 +1137,50 @@ function SlabDesignTab({ t, config, lang }: { t: any, config: any, lang: 'bn' | 
           </div>
 
           <div className="space-y-6">
-            <div className="bg-stone-50 dark:bg-stone-800 p-6 rounded-3xl border border-stone-100 dark:border-stone-700">
-              <h3 className="font-bold mb-4 flex items-center gap-2 text-stone-900 dark:text-stone-100">
-                <Info size={18} className={config.text} />
+            <div className="glass p-6 border border-white/10">
+              <h3 className="font-bold mb-4 flex items-center gap-2 text-white">
+                <Info size={18} className="text-white" />
                 {t.slabType}
               </h3>
-              <p className="text-3xl font-black mb-1 text-stone-900 dark:text-stone-100">
+              <p className="text-4xl font-black mb-1 text-white tracking-tighter">
                 {isTwoWay ? t.twoWaySlab : t.oneWaySlab}
               </p>
-              <p className="text-xs text-stone-400 dark:text-stone-500 font-medium uppercase tracking-widest">
+              <p className="text-[10px] text-white/40 font-bold uppercase tracking-widest">
                 Ratio = {(maxSpan / minSpan).toFixed(2)}
               </p>
             </div>
 
-            <div className="bg-stone-50 dark:bg-stone-800 p-6 rounded-3xl border border-stone-100 dark:border-stone-700">
-              <h3 className="font-bold mb-4 flex items-center gap-2 text-stone-900 dark:text-stone-100">
-                <Calculator size={18} className={config.text} />
+            <div className="glass p-6 border border-white/10">
+              <h3 className="font-bold mb-4 flex items-center gap-2 text-white">
+                <Calculator size={18} className="text-white" />
                 {t.loadAnalysis}
               </h3>
               <div className="space-y-3 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-stone-500 dark:text-stone-400">{t.selfWeight}:</span>
-                  <span className="font-bold text-stone-900 dark:text-stone-100">{selfWeight.toFixed(1)} psf</span>
+                <div className="flex justify-between items-center">
+                  <span className="text-white/40 font-medium uppercase tracking-widest text-[10px]">{t.selfWeight}</span>
+                  <span className="font-bold text-white glass px-2 py-0.5 rounded-md border border-white/10">{selfWeight.toFixed(1)} psf</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-stone-500 dark:text-stone-400">{t.floorFinish}:</span>
-                  <span className="font-bold text-stone-900 dark:text-stone-100">{floorFinish.toFixed(1)} psf</span>
+                <div className="flex justify-between items-center">
+                  <span className="text-white/40 font-medium uppercase tracking-widest text-[10px]">{t.floorFinish}</span>
+                  <span className="font-bold text-white glass px-2 py-0.5 rounded-md border border-white/10">{floorFinish.toFixed(1)} psf</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-stone-500 dark:text-stone-400">{t.partitionWall}:</span>
-                  <span className="font-bold text-stone-900 dark:text-stone-100">{partitionWall.toFixed(1)} psf</span>
+                <div className="flex justify-between items-center">
+                  <span className="text-white/40 font-medium uppercase tracking-widest text-[10px]">{t.partitionWall}</span>
+                  <span className="font-bold text-white glass px-2 py-0.5 rounded-md border border-white/10">{partitionWall.toFixed(1)} psf</span>
                 </div>
-                <div className="flex justify-between pt-2 border-t border-stone-200 dark:border-stone-700">
-                  <span className="text-stone-500 dark:text-stone-400 font-bold">{t.totalDeadLoad}:</span>
-                  <span className="font-bold text-stone-900 dark:text-stone-100">{totalDeadLoad.toFixed(1)} psf</span>
+                <div className="flex justify-between items-center pt-2 border-t border-white/10">
+                  <span className="text-white/60 font-bold uppercase tracking-widest text-[10px]">{t.totalDeadLoad}</span>
+                  <span className="font-bold text-white glass px-2 py-0.5 rounded-md border border-white/10">{totalDeadLoad.toFixed(1)} psf</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-stone-500 dark:text-stone-400 font-bold">{t.liveLoad}:</span>
-                  <span className="font-bold text-stone-900 dark:text-stone-100">{liveLoad.toFixed(1)} psf</span>
+                <div className="flex justify-between items-center">
+                  <span className="text-white/60 font-bold uppercase tracking-widest text-[10px]">{t.liveLoad}</span>
+                  <span className="font-bold text-white glass px-2 py-0.5 rounded-md border border-white/10">{liveLoad.toFixed(1)} psf</span>
                 </div>
-                <div className="pt-3 border-t border-stone-200 dark:border-stone-700 flex justify-between text-base">
-                  <span className="font-black text-stone-900 dark:text-stone-100">{t.factoredLoad}:</span>
-                  <span className={cn("font-black", config.text)}>{factoredLoad.toFixed(1)} psf</span>
+                <div className="pt-3 border-t border-white/10 flex justify-between items-center text-base">
+                  <span className="font-black text-white uppercase tracking-widest text-xs">{t.factoredLoad}</span>
+                  <span className="font-black text-xl text-white tracking-tighter">{factoredLoad.toFixed(1)} psf</span>
                 </div>
-                <div className="text-[10px] text-stone-400 dark:text-stone-500 text-right mt-2">
+                <div className="text-[10px] text-white/40 text-right mt-2 font-medium">
                   * Wu = 1.2 DL + 1.6 LL (ACI Code)
                 </div>
               </div>
@@ -1392,15 +1194,15 @@ function SlabDesignTab({ t, config, lang }: { t: any, config: any, lang: 'bn' | 
 
 function ComingSoonTab({ t, config, tabId }: { t: any, config: any, tabId: string }) {
   return (
-    <div className="bg-white p-12 rounded-[3rem] border border-stone-200 text-center space-y-8 shadow-xl">
-      <div className={cn("w-24 h-24 rounded-[2.5rem] flex items-center justify-center mx-auto shadow-2xl", config.bg, "text-white")}>
+    <div className="glass p-12 text-center space-y-8">
+      <div className={cn("w-24 h-24 rounded-[2.5rem] flex items-center justify-center mx-auto", config.bg, "text-white")}>
         {TAB_ICONS[tabId]}
       </div>
       <div>
-        <h2 className="text-3xl font-black mb-2">{t[tabId]}</h2>
-        <p className="text-stone-500 font-medium text-lg">{t.comingSoon}</p>
+        <h2 className="text-3xl font-black mb-2 text-white">{t[tabId]}</h2>
+        <p className="text-white/60 font-medium text-lg">{t.comingSoon}</p>
       </div>
-      <div className="p-6 bg-stone-50 rounded-2xl border border-stone-100 text-stone-400 text-sm">
+      <div className="p-6 bg-white/5 rounded-2xl border border-white/10 text-white/40 text-sm">
         Stay tuned for the next major update!
       </div>
     </div>
@@ -1468,9 +1270,9 @@ function UnitConverterTab({ t, config }: { t: any, config: any }) {
 
   return (
     <div className="space-y-6">
-      <div className="bg-white dark:bg-stone-900 p-8 rounded-[2.5rem] border border-stone-200 dark:border-stone-800 shadow-sm transition-colors duration-300">
-        <h2 className="text-2xl font-black mb-6 flex items-center gap-3 text-stone-900 dark:text-stone-100">
-          <ArrowRightLeft className={config.text} size={28} />
+      <div className="card-glass transition-colors duration-300">
+        <h2 className="text-2xl font-black mb-6 flex items-center gap-3 text-white">
+          <ArrowRightLeft className="text-white" size={28} />
           {t.unit_converter}
         </h2>
 
@@ -1480,46 +1282,51 @@ function UnitConverterTab({ t, config }: { t: any, config: any }) {
               <button
                 key={cat}
                 onClick={() => setCategory(cat)}
-                className={cn("px-4 py-2 rounded-xl font-bold text-sm whitespace-nowrap transition-all", category === cat ? cn("text-white", config.bg) : "bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700")}
+                className={cn(
+                  "px-4 py-2 rounded-xl font-bold text-sm whitespace-nowrap transition-all border", 
+                  category === cat 
+                    ? "bg-white/20 text-white border-white/30 scale-105" 
+                    : "glass text-white/40 border-white/10 hover:bg-white/10 hover:text-white"
+                )}
               >
                 {t[cat] || cat}
               </button>
             ))}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] gap-4 items-center bg-stone-50 dark:bg-stone-800 p-6 rounded-3xl border border-stone-100 dark:border-stone-700">
+          <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] gap-4 items-center glass p-6 border border-white/10">
             <div className="space-y-2">
-              <label className="text-xs font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest">{t.from}</label>
+              <label className="text-xs font-bold text-white/40 uppercase tracking-widest ml-1">{t.from}</label>
               <input
                 type="number"
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value === '' ? '' : Number(e.target.value))}
-                className="w-full bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-700 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-stone-100 dark:focus:ring-stone-600 font-bold text-lg text-stone-900 dark:text-stone-100 transition-colors"
+                className="w-full glass border border-white/10 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-white/20 font-bold text-lg text-white transition-all"
               />
               <select
                 value={fromUnit}
                 onChange={(e) => setFromUnit(e.target.value)}
-                className="w-full bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-700 rounded-xl p-3 focus:outline-none font-medium text-stone-600 dark:text-stone-300 transition-colors"
+                className="w-full glass border border-white/10 rounded-xl p-3 focus:outline-none font-medium text-white transition-all appearance-none"
               >
-                {Object.keys(rates).map(u => <option key={u} value={u}>{u}</option>)}
+                {Object.keys(rates).map(u => <option key={u} value={u} className="bg-stone-900">{u}</option>)}
               </select>
             </div>
 
-            <button onClick={handleSwap} className={cn("p-4 rounded-full text-white shadow-md hover:scale-110 transition-transform mx-auto mt-6 md:mt-0", config.bg)}>
+            <button onClick={handleSwap} className="p-4 rounded-full glass text-white border border-white/20 hover:scale-110 transition-all mx-auto mt-6 md:mt-0">
               <ArrowRightLeft size={20} />
             </button>
 
             <div className="space-y-2">
-              <label className="text-xs font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest">{t.to}</label>
-              <div className="w-full bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-700 rounded-xl p-3 font-black text-lg text-stone-900 dark:text-stone-100 overflow-hidden text-ellipsis transition-colors">
+              <label className="text-xs font-bold text-white/40 uppercase tracking-widest ml-1">{t.to}</label>
+              <div className="w-full glass border border-white/10 rounded-xl p-3 font-black text-lg text-white overflow-hidden text-ellipsis transition-all min-h-[52px] flex items-center">
                 {(result || 0).toLocaleString(undefined, { maximumFractionDigits: 6 })}
               </div>
               <select
                 value={toUnit}
                 onChange={(e) => setToUnit(e.target.value)}
-                className="w-full bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-700 rounded-xl p-3 focus:outline-none font-medium text-stone-600 dark:text-stone-300 transition-colors"
+                className="w-full glass border border-white/10 rounded-xl p-3 focus:outline-none font-medium text-white transition-all appearance-none"
               >
-                {Object.keys(rates).map(u => <option key={u} value={u}>{u}</option>)}
+                {Object.keys(rates).map(u => <option key={u} value={u} className="bg-stone-900">{u}</option>)}
               </select>
             </div>
           </div>
@@ -1555,7 +1362,7 @@ function HomeTab({ t, lang, dept, config, setActiveTab }: { t: any, lang: 'bn' |
       <motion.div 
         initial={{ scale: 0.95, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        className={cn("text-white p-10 rounded-[3rem] shadow-2xl relative overflow-hidden", config.bg)}
+        className="card-glass text-white p-10 relative overflow-hidden"
       >
         {/* Abstract Background Elements */}
         <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-white via-transparent to-transparent" />
@@ -1595,14 +1402,14 @@ function HomeTab({ t, lang, dept, config, setActiveTab }: { t: any, lang: 'bn' |
           <div className="mt-10 flex flex-wrap gap-4">
             <button 
               onClick={() => setActiveTab('chat')}
-              className="px-6 py-3 bg-white text-stone-900 rounded-2xl font-black shadow-xl hover:scale-105 transition-transform flex items-center gap-2"
+              className="px-6 py-3 bg-white text-stone-900 rounded-2xl font-black hover:scale-105 transition-all flex items-center gap-2"
             >
               <MessageSquare size={20} className={config.text} />
               {lang === 'bn' ? 'এআই চ্যাট শুরু করুন' : 'Start AI Chat'}
             </button>
             <button 
               onClick={() => setActiveTab('quiz')}
-              className="px-6 py-3 bg-white/20 backdrop-blur-md border border-white/30 text-white rounded-2xl font-bold hover:bg-white/30 transition-colors flex items-center gap-2"
+              className="px-6 py-3 glass text-white rounded-2xl font-bold hover:bg-white/20 transition-all flex items-center gap-2 border border-white/20"
             >
               <Trophy size={20} />
               {t.quiz}
@@ -1620,21 +1427,21 @@ function HomeTab({ t, lang, dept, config, setActiveTab }: { t: any, lang: 'bn' |
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3 }}
-        className="bg-amber-50 dark:bg-amber-900/20 p-6 rounded-[2rem] border border-amber-200 dark:border-amber-800/30 flex items-start gap-4 shadow-sm"
+        className="glass p-6 flex items-start gap-4 border border-white/10"
       >
-        <div className="p-3 bg-amber-100 dark:bg-amber-800/50 rounded-xl text-amber-600 dark:text-amber-400 shrink-0">
-          <Zap size={24} />
+        <div className="p-3 bg-white/10 rounded-xl text-white shrink-0 border border-white/10">
+          <Zap size={24} className="text-amber-400" />
         </div>
         <div>
-          <h4 className="font-black text-amber-900 dark:text-amber-100 mb-1">{lang === 'bn' ? 'আজকের টিপস' : 'Daily Tip'}</h4>
-          <p className="text-amber-800 dark:text-amber-200/80 font-medium leading-relaxed">{dailyTip[lang]}</p>
+          <h4 className="font-black text-white mb-1 uppercase tracking-widest text-xs opacity-40">{lang === 'bn' ? 'আজকের টিপস' : 'Daily Tip'}</h4>
+          <p className="text-white/80 font-medium leading-relaxed italic">"{dailyTip[lang]}"</p>
         </div>
       </motion.div>
 
       {/* Quick Actions Grid */}
       <div className="space-y-4">
-        <h3 className="text-xl font-black text-stone-800 dark:text-stone-100 px-2 flex items-center gap-2">
-          <LayoutGrid size={20} className={config.text} />
+        <h3 className="text-xl font-black text-white px-2 flex items-center gap-2">
+          <LayoutGrid size={20} className="text-white" />
           {lang === 'bn' ? 'কুইক এক্সেস' : 'Quick Access'}
         </h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -1645,12 +1452,12 @@ function HomeTab({ t, lang, dept, config, setActiveTab }: { t: any, lang: 'bn' |
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.1 }}
               onClick={() => setActiveTab(tab)}
-              className="bg-white dark:bg-stone-900 p-6 rounded-[2rem] border border-stone-200 dark:border-stone-800 hover:border-stone-300 dark:hover:border-stone-700 hover:shadow-xl dark:hover:shadow-stone-900/50 transition-all flex flex-col items-center justify-center gap-4 group"
+              className="glass p-6 hover:bg-white/10 transition-all flex flex-col items-center justify-center gap-4 group border border-white/10"
             >
-              <div className={cn("w-14 h-14 rounded-2xl flex items-center justify-center transition-transform group-hover:scale-110", config.bg, "text-white shadow-md")}>
+              <div className="w-14 h-14 rounded-2xl flex items-center justify-center transition-transform group-hover:scale-110 glass text-white border border-white/20">
                 {TAB_ICONS[tab]}
               </div>
-              <span className="font-bold text-stone-700 dark:text-stone-300 text-sm text-center">{t[tab]}</span>
+              <span className="font-bold text-white/40 text-xs uppercase tracking-widest text-center group-hover:text-white transition-colors">{t[tab]}</span>
             </motion.button>
           ))}
         </div>
@@ -1659,13 +1466,13 @@ function HomeTab({ t, lang, dept, config, setActiveTab }: { t: any, lang: 'bn' |
       {/* Q&A Section */}
       <div className="space-y-6">
         <div className="flex items-center justify-between px-2">
-          <h3 className="text-2xl font-black text-stone-800 dark:text-stone-100 flex items-center gap-3">
-            <div className={cn("w-2 h-8 rounded-full", config.bg)} />
+          <h3 className="text-2xl font-black text-white flex items-center gap-3">
+            <div className="w-2 h-8 rounded-full bg-white/20" />
             {t.qna}
           </h3>
           <button 
             onClick={refreshTopics}
-            className="p-2 rounded-full hover:bg-stone-100 dark:hover:bg-stone-800 text-stone-500 dark:text-stone-400 transition-colors flex items-center gap-2 text-sm font-bold"
+            className="p-2 px-4 rounded-xl glass hover:bg-white/10 text-white/60 transition-all flex items-center gap-2 text-sm font-bold"
             title="Refresh QnA"
           >
             <RefreshCw size={16} />
@@ -1681,19 +1488,19 @@ function HomeTab({ t, lang, dept, config, setActiveTab }: { t: any, lang: 'bn' |
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: i * 0.05 }}
               onClick={() => setSelectedTopic(topic)}
-              className="group bg-white dark:bg-stone-900 p-6 rounded-[2rem] border border-stone-200 dark:border-stone-800 hover:border-stone-400 dark:hover:border-stone-600 hover:shadow-2xl dark:hover:shadow-stone-900/50 transition-all cursor-pointer flex flex-col h-full"
+              className="group glass p-6 hover:bg-white/10 transition-all cursor-pointer flex flex-col h-full border border-white/10"
             >
               <div className="flex items-start justify-between mb-4">
-                <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 transition-transform group-hover:scale-110", config.bg, "text-white shadow-md")}>
+                <div className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 transition-transform group-hover:scale-110 glass text-white border border-white/20">
                   <MessageSquare size={20} />
                 </div>
-                <div className="w-8 h-8 rounded-full bg-stone-50 dark:bg-stone-800 flex items-center justify-center text-stone-300 dark:text-stone-600 group-hover:text-stone-600 dark:group-hover:text-stone-300 group-hover:bg-stone-100 dark:group-hover:bg-stone-700 transition-all">
+                <div className="w-8 h-8 rounded-full glass flex items-center justify-center text-white/30 group-hover:text-white group-hover:bg-white/10 transition-all border border-white/10">
                   <ChevronRight size={16} />
                 </div>
               </div>
               <div className="flex-1">
-                <h4 className="font-bold text-lg text-stone-900 dark:text-stone-100 group-hover:text-stone-700 dark:group-hover:text-stone-300 transition-colors mb-2 line-clamp-2">{topic.title[lang]}</h4>
-                <p className="text-stone-500 dark:text-stone-400 text-sm line-clamp-2 leading-relaxed">{topic.desc[lang]}</p>
+                <h4 className="font-bold text-lg text-white group-hover:text-white/80 transition-colors mb-2 line-clamp-2">{topic.title[lang]}</h4>
+                <p className="text-white/60 text-sm line-clamp-2 leading-relaxed italic">"{topic.desc[lang]}"</p>
               </div>
             </motion.div>
           ))}
@@ -1708,39 +1515,37 @@ function HomeTab({ t, lang, dept, config, setActiveTab }: { t: any, lang: 'bn' |
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setSelectedTopic(null)}
-              className="absolute inset-0 bg-stone-900/80 dark:bg-black/80 backdrop-blur-xl"
+              className="absolute inset-0 bg-black/60 backdrop-blur-xl"
             />
             <motion.div 
               initial={{ scale: 0.9, opacity: 0, y: 40 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 40 }}
-              className="relative bg-white dark:bg-stone-900 w-full max-w-2xl rounded-[3rem] p-10 shadow-2xl overflow-hidden transition-colors duration-300"
+              className="relative card-glass w-full max-w-2xl p-10 overflow-hidden"
             >
-              <div className={cn("absolute top-0 left-0 right-0 h-3", config.bg)} />
-              
               <div className="flex justify-between items-start mb-8">
                 <div className="flex items-center gap-4">
-                  <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center text-white shadow-md", config.bg)}>
+                  <div className="w-12 h-12 rounded-xl flex items-center justify-center glass text-white border border-white/10">
                     <Info size={24} />
                   </div>
-                  <h3 className="text-3xl font-black text-stone-900 dark:text-stone-100">{selectedTopic.title[lang]}</h3>
+                  <h3 className="text-3xl font-black text-white">{selectedTopic.title[lang]}</h3>
                 </div>
-                <button onClick={() => setSelectedTopic(null)} className="p-3 rounded-full hover:bg-stone-100 dark:hover:bg-stone-800 text-stone-500 dark:text-stone-400 transition-colors">
+                <button onClick={() => setSelectedTopic(null)} className="p-3 rounded-xl glass hover:bg-white/10 text-white/60 transition-all">
                   <X size={28} />
                 </button>
               </div>
 
-              <div className="bg-stone-50 dark:bg-stone-950 p-8 rounded-3xl border border-stone-100 dark:border-stone-800/50 mb-8">
-                <p className="text-stone-700 dark:text-stone-300 leading-relaxed text-xl font-medium italic">
+              <div className="glass p-8 mb-8">
+                <p className="text-white/80 leading-relaxed text-xl font-medium italic">
                   "{selectedTopic.content[lang]}"
                 </p>
               </div>
 
               <button 
                 onClick={() => setSelectedTopic(null)}
-                className={cn("w-full py-5 rounded-2xl text-white font-black text-lg shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all", config.bg)}
+                className="w-full py-5 glass hover:bg-white/10 text-white font-black text-lg transition-all"
               >
-                Close
+                {lang === 'bn' ? 'বন্ধ করুন' : 'Close'}
               </button>
             </motion.div>
           </div>
@@ -1755,6 +1560,7 @@ function SurveyTab({ t, config }: { t: any, config: any }) {
   const [isSurveying, setIsSurveying] = useState(false);
   const [heading, setHeading] = useState(0);
   const [currentTime, setCurrentTime] = useState<string | null>(null);
+  const [recordedPoints, setRecordedPoints] = useState<{ lat: number, lng: number, heading: number, time: string }[]>([]);
 
   const [error, setError] = useState<string | null>(null);
 
@@ -1847,15 +1653,15 @@ function SurveyTab({ t, config }: { t: any, config: any }) {
 
   return (
     <div className="space-y-8">
-      <div className="bg-white dark:bg-stone-900 p-8 rounded-[3rem] border border-stone-200 dark:border-stone-800 shadow-xl overflow-hidden relative transition-colors duration-300">
+      <div className="card-glass p-8 transition-colors duration-300">
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">
-            <div className={cn("p-4 rounded-2xl bg-stone-50 dark:bg-stone-800", config.text)}>
+            <div className={cn("p-4 rounded-2xl glass border border-white/10", config.text)}>
               <Navigation size={28} />
             </div>
-            <h2 className="text-3xl font-black text-stone-900 dark:text-stone-100">{t.survey}</h2>
+            <h2 className="text-3xl font-black text-white">{t.survey}</h2>
           </div>
-          <div className={cn("px-4 py-2 rounded-full text-xs font-black uppercase tracking-widest", isSurveying ? "bg-red-50 dark:bg-red-900/30 text-red-500 dark:text-red-400 animate-pulse" : "bg-stone-100 dark:bg-stone-800 text-stone-400 dark:text-stone-500")}>
+          <div className={cn("px-4 py-2 rounded-xl glass text-[10px] font-black uppercase tracking-widest border border-white/10", isSurveying ? "text-red-400 animate-pulse" : "text-white/40")}>
             {isSurveying ? "Live" : "Idle"}
           </div>
         </div>
@@ -1874,7 +1680,7 @@ function SurveyTab({ t, config }: { t: any, config: any }) {
             </div>
 
             {/* Animated Compass */}
-            <div className="relative aspect-square max-w-[280px] mx-auto bg-stone-900 rounded-full p-6 shadow-2xl border-8 border-stone-800 overflow-hidden">
+            <div className="relative aspect-square max-w-[280px] mx-auto bg-black/40 rounded-full p-6 shadow-2xl border-8 border-white/5 overflow-hidden glass border-white/10">
               {/* Fixed Lubber Line (Needle) */}
               <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1.5 h-10 bg-red-500 z-20 rounded-b-full shadow-[0_0_15px_rgba(239,68,68,0.6)]" />
               
@@ -1933,12 +1739,12 @@ function SurveyTab({ t, config }: { t: any, config: any }) {
           {/* Map View */}
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-black text-stone-400 dark:text-stone-500 uppercase tracking-widest flex items-center gap-2">
+              <h3 className="text-sm font-black text-white/40 uppercase tracking-widest flex items-center gap-2">
                 <MapIcon size={14} />
                 {t.mapView}
               </h3>
             </div>
-            <div className="aspect-square bg-stone-100 dark:bg-stone-800 rounded-[2rem] border border-stone-200 dark:border-stone-700 overflow-hidden relative shadow-inner">
+            <div className="aspect-square bg-white/5 rounded-[2rem] border border-white/10 overflow-hidden relative shadow-inner">
               {coords ? (
                 <div className="w-full h-full relative">
                   <iframe 
@@ -1949,13 +1755,12 @@ function SurveyTab({ t, config }: { t: any, config: any }) {
                     loading="lazy"
                     allowFullScreen
                   />
-                  {/* Overlay to prevent interaction if needed, or just leave it */}
-                  <div className="absolute bottom-2 right-2 bg-white/80 dark:bg-stone-900/80 backdrop-blur-sm px-2 py-1 rounded-lg text-[8px] font-bold text-stone-500 pointer-events-none uppercase tracking-tighter">
+                  <div className="absolute bottom-2 right-2 glass px-2 py-1 rounded-lg text-[8px] font-bold text-white/60 pointer-events-none uppercase tracking-tighter">
                     Google Maps View
                   </div>
                 </div>
               ) : (
-                <div className="w-full h-full flex items-center justify-center flex-col gap-4 text-stone-300 dark:text-stone-600 p-8 text-center">
+                <div className="w-full h-full flex items-center justify-center flex-col gap-4 text-white/20 p-8 text-center">
                   <MapIcon size={48} className={cn(isSurveying ? "animate-pulse" : "")} />
                   <p className="text-xs font-bold uppercase tracking-widest">
                     {error ? error : (isSurveying ? "Locating your position..." : "Start Survey to see Map")}
@@ -1963,7 +1768,7 @@ function SurveyTab({ t, config }: { t: any, config: any }) {
                   {error && (
                     <button 
                       onClick={() => setIsSurveying(false)}
-                      className="text-[10px] text-red-500 dark:text-red-400 underline font-bold"
+                      className="text-[10px] text-red-400 underline font-bold"
                     >
                       Reset & Try Again
                     </button>
@@ -1971,7 +1776,7 @@ function SurveyTab({ t, config }: { t: any, config: any }) {
                 </div>
               )}
               {coords && (
-                <div className="absolute top-4 right-4 p-2 bg-white/80 dark:bg-stone-900/80 backdrop-blur rounded-xl shadow-lg border border-white/20 dark:border-stone-700/50">
+                <div className="absolute top-4 right-4 p-2 glass rounded-xl shadow-lg">
                   <Target size={20} className={config.text} />
                 </div>
               )}
@@ -1982,14 +1787,52 @@ function SurveyTab({ t, config }: { t: any, config: any }) {
         <button 
           onClick={() => isSurveying ? setIsSurveying(false) : requestOrientationPermission()}
           className={cn(
-            "w-full mt-8 py-6 rounded-[2rem] font-black text-xl transition-all shadow-2xl hover:scale-[1.01] active:scale-[0.99]",
+            "w-full mt-8 py-6 rounded-[2rem] font-black text-xl transition-all hover:scale-[1.01] active:scale-[0.99]",
             isSurveying 
-              ? "bg-red-500 text-white shadow-red-100 dark:shadow-red-900/20" 
-              : cn("text-white", config.bg, config.shadow)
+              ? "bg-red-500 text-white" 
+              : cn("text-white", config.bg)
           )}
         >
           {isSurveying ? t.stopSurvey : t.startSurvey}
         </button>
+
+        {isSurveying && coords && (
+          <button
+            onClick={() => setRecordedPoints([...recordedPoints, { ...coords, heading, time: new Date().toLocaleTimeString() }])}
+            className="w-full mt-4 py-4 rounded-[2rem] font-black text-lg transition-all hover:scale-[1.01] active:scale-[0.99] glass text-white border border-white/20 hover:bg-white/10"
+          >
+            Record Current Point
+          </button>
+        )}
+
+        {recordedPoints.length > 0 && (
+          <div className="mt-8 space-y-4">
+            <h3 className="text-xl font-black text-white flex items-center gap-2">
+              <MapIcon size={20} />
+              Recorded Points
+            </h3>
+            <div className="space-y-2">
+              {recordedPoints.map((pt, i) => (
+                <div key={i} className="glass p-4 rounded-xl border border-white/10 flex justify-between items-center">
+                  <div>
+                    <p className="text-white font-bold">Point {i + 1}</p>
+                    <p className="text-white/60 text-xs font-mono">{pt.lat.toFixed(6)}, {pt.lng.toFixed(6)}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-white font-bold">{Math.round(pt.heading)}°</p>
+                    <p className="text-white/60 text-xs">{pt.time}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <button
+              onClick={() => setRecordedPoints([])}
+              className="text-red-400 text-sm font-bold underline mt-2"
+            >
+              Clear All Points
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -1997,8 +1840,8 @@ function SurveyTab({ t, config }: { t: any, config: any }) {
 
 function SurveyCard({ label, value, config }: { label: string, value: string, config: any }) {
   return (
-    <div className="bg-stone-50 dark:bg-stone-800 p-4 rounded-2xl border border-stone-100 dark:border-stone-700 overflow-hidden">
-      <p className="text-[10px] text-stone-400 dark:text-stone-500 uppercase font-black tracking-widest mb-1 truncate">{label}</p>
+    <div className="glass p-4 overflow-hidden border border-white/10">
+      <p className="text-[10px] text-white/40 uppercase font-black tracking-widest mb-1 truncate">{label}</p>
       <p className={cn("text-lg sm:text-xl font-mono font-bold truncate", config.text)} title={value}>{value}</p>
     </div>
   );
@@ -2189,31 +2032,31 @@ function LandTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: any }
 
   return (
     <div className="space-y-6 sm:space-y-8">
-      <div className="bg-white dark:bg-stone-900 p-4 sm:p-8 rounded-[2rem] sm:rounded-[3rem] border border-stone-200 dark:border-stone-800 shadow-xl transition-colors duration-300">
+      <div className="card-glass p-4 sm:p-8 transition-colors duration-300">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 sm:mb-8">
           <div className="flex items-center gap-3 sm:gap-4">
-            <div className={cn("p-3 sm:p-4 rounded-2xl bg-stone-50 dark:bg-stone-800", config.text)}>
+            <div className={cn("p-3 sm:p-4 rounded-2xl glass border border-white/10", config.text)}>
               <MapIcon size={24} className="sm:w-7 sm:h-7" />
             </div>
-            <h2 className="text-xl sm:text-3xl font-black text-stone-900 dark:text-stone-100">{t.land}</h2>
+            <h2 className="text-xl sm:text-3xl font-black text-white">{t.land}</h2>
           </div>
           
-          <div className="grid grid-cols-3 gap-1 sm:gap-2 bg-stone-50 dark:bg-stone-800 p-1 rounded-2xl border border-stone-100 dark:border-stone-700 w-full md:w-auto">
+          <div className="grid grid-cols-3 gap-1 sm:gap-2 glass p-1 rounded-2xl border border-white/10 w-full md:w-auto">
             <button 
               onClick={() => setMapType('roadmap')}
-              className={cn("px-2 py-1.5 sm:px-4 sm:py-2 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap w-full", mapType === 'roadmap' ? "bg-white dark:bg-stone-700 shadow-sm text-stone-900 dark:text-white" : "text-stone-400")}
+              className={cn("px-2 py-1.5 sm:px-4 sm:py-2 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap w-full", mapType === 'roadmap' ? "bg-white/20 text-white" : "text-white/40")}
             >
               Roadmap
             </button>
             <button 
               onClick={() => setMapType('satellite')}
-              className={cn("px-2 py-1.5 sm:px-4 sm:py-2 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap w-full", mapType === 'satellite' ? "bg-white dark:bg-stone-700 shadow-sm text-stone-900 dark:text-white" : "text-stone-400")}
+              className={cn("px-2 py-1.5 sm:px-4 sm:py-2 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap w-full", mapType === 'satellite' ? "bg-white/20 text-white" : "text-white/40")}
             >
               Satellite
             </button>
             <button 
               onClick={() => setMapType('hybrid')}
-              className={cn("px-2 py-1.5 sm:px-4 sm:py-2 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap w-full", mapType === 'hybrid' ? "bg-white dark:bg-stone-700 shadow-sm text-stone-900 dark:text-white" : "text-stone-400")}
+              className={cn("px-2 py-1.5 sm:px-4 sm:py-2 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap w-full", mapType === 'hybrid' ? "bg-white/20 text-white" : "text-white/40")}
             >
               Hybrid
             </button>
@@ -2223,14 +2066,14 @@ function LandTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: any }
             <button 
               onClick={undoLastPoint}
               disabled={points.length === 0}
-              className="flex-1 sm:flex-none px-4 py-2 rounded-xl bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 text-[10px] font-black uppercase tracking-widest hover:bg-stone-200 transition-all disabled:opacity-50"
+              className="flex-1 sm:flex-none px-4 py-2 rounded-xl glass text-white/60 text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all disabled:opacity-50 border border-white/10"
             >
               {lang === 'bn' ? "পয়েন্ট মুছুন" : "Undo"}
             </button>
             <button 
               onClick={clearPoints}
               disabled={points.length === 0}
-              className="flex-1 sm:flex-none px-4 py-2 rounded-xl bg-red-50 dark:bg-red-900/30 text-red-500 dark:text-red-400 text-[10px] font-black uppercase tracking-widest hover:bg-red-100 transition-all disabled:opacity-50"
+              className="flex-1 sm:flex-none px-4 py-2 rounded-xl glass text-red-400 text-[10px] font-black uppercase tracking-widest hover:bg-red-500/10 transition-all disabled:opacity-50 border border-red-500/20"
             >
               {lang === 'bn' ? "সব মুছুন" : "Clear All"}
             </button>
@@ -2238,22 +2081,22 @@ function LandTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: any }
         </div>
 
         {/* Mode Selector */}
-        <div className="grid grid-cols-3 gap-1 sm:gap-2 mb-6 p-1 bg-stone-50 dark:bg-stone-800 rounded-2xl border border-stone-100 dark:border-stone-700 w-full sm:w-fit">
+        <div className="grid grid-cols-3 gap-1 sm:gap-2 mb-6 p-1 bg-white/5 rounded-2xl border border-white/10 w-full sm:w-fit">
           <button 
             onClick={() => setCalcMode('general')}
-            className={cn("px-2 sm:px-4 py-2 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all w-full", calcMode === 'general' ? "bg-white dark:bg-stone-700 shadow-sm text-stone-900 dark:text-white" : "text-stone-400")}
+            className={cn("px-2 sm:px-4 py-2 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all w-full", calcMode === 'general' ? "bg-white/20 text-white" : "text-white/40")}
           >
             {lang === 'bn' ? "সাধারণ" : "General"}
           </button>
           <button 
             onClick={() => setCalcMode('station')}
-            className={cn("px-2 sm:px-4 py-2 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all w-full", calcMode === 'station' ? "bg-white dark:bg-stone-700 shadow-sm text-stone-900 dark:text-white" : "text-stone-400")}
+            className={cn("px-2 sm:px-4 py-2 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all w-full", calcMode === 'station' ? "bg-white/20 text-white" : "text-white/40")}
           >
             {lang === 'bn' ? "স্টেশন (GPS)" : "Station (GPS)"}
           </button>
           <button 
             onClick={() => setCalcMode('coordinates')}
-            className={cn("px-2 sm:px-4 py-2 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all w-full", calcMode === 'coordinates' ? "bg-white dark:bg-stone-700 shadow-sm text-stone-900 dark:text-white" : "text-stone-400")}
+            className={cn("px-2 sm:px-4 py-2 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all w-full", calcMode === 'coordinates' ? "bg-white/20 text-white" : "text-white/40")}
           >
             {lang === 'bn' ? "স্থানাঙ্ক" : "Coordinates"}
           </button>
@@ -2263,31 +2106,31 @@ function LandTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: any }
           {/* Map View */}
           <div className="lg:col-span-2 space-y-4">
             {calcMode === 'coordinates' && (
-              <div className="p-4 bg-stone-50 dark:bg-stone-800 rounded-2xl border border-stone-100 dark:border-stone-700 space-y-4">
-                <p className="text-[10px] font-black text-stone-500 uppercase tracking-widest">
+              <div className="p-4 glass space-y-4">
+                <p className="text-[10px] font-black text-white/60 uppercase tracking-widest">
                   {lang === 'bn' 
                     ? `${points.length + 1} নং বিন্দুর অক্ষাংশ ও দ্রাঘিমাংশ দিন` 
                     : `Enter coordinates for Point ${points.length + 1}`}
                 </p>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <label className="text-[9px] font-bold text-stone-400 uppercase ml-1">{lang === 'bn' ? "অক্ষাংশ (Latitude)" : "Latitude"}</label>
+                    <label className="text-[9px] font-bold text-white/40 uppercase ml-1">{lang === 'bn' ? "অক্ষাংশ (Latitude)" : "Latitude"}</label>
                     <input 
                       type="number" 
                       step="any"
                       placeholder="e.g. 23.8103"
-                      className="w-full bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-700 rounded-xl px-3 py-2 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-stone-200 dark:focus:ring-stone-700"
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-white/20 text-white"
                       value={manualLat}
                       onChange={(e) => setManualLat(e.target.value)}
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[9px] font-bold text-stone-400 uppercase ml-1">{lang === 'bn' ? "দ্রাঘিমাংশ (Longitude)" : "Longitude"}</label>
+                    <label className="text-[9px] font-bold text-white/40 uppercase ml-1">{lang === 'bn' ? "দ্রাঘিমাংশ (Longitude)" : "Longitude"}</label>
                     <input 
                       type="number" 
                       step="any"
                       placeholder="e.g. 90.4125"
-                      className="w-full bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-700 rounded-xl px-3 py-2 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-stone-200 dark:focus:ring-stone-700"
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-white/20 text-white"
                       value={manualLng}
                       onChange={(e) => setManualLng(e.target.value)}
                     />
@@ -2303,14 +2146,14 @@ function LandTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: any }
             )}
 
             {calcMode === 'station' && (
-              <div className="p-4 bg-stone-50 dark:bg-stone-800 rounded-2xl border border-stone-100 dark:border-stone-700 space-y-4">
+              <div className="p-4 glass space-y-4">
                 <div className="flex items-center justify-between">
-                  <p className="text-[10px] font-black text-stone-500 uppercase tracking-widest">
+                  <p className="text-[10px] font-black text-white/60 uppercase tracking-widest">
                     {lang === 'bn' ? "আপনার বর্তমান অবস্থান ব্যবহার করুন" : "Use your current location"}
                   </p>
                   <div className="flex items-center gap-2">
                     <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                    <span className="text-[9px] font-bold text-stone-400 uppercase">GPS ACTIVE</span>
+                    <span className="text-[9px] font-bold text-white/40 uppercase">GPS ACTIVE</span>
                   </div>
                 </div>
                 <button 
@@ -2325,7 +2168,7 @@ function LandTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: any }
                   )}
                   {lang === 'bn' ? `${points.length + 1} নং বিন্দু হিসাবে বর্তমান লোকেশন নিন` : `Take Current Location as Point ${points.length + 1}`}
                 </button>
-                <p className="text-[9px] text-stone-400 text-center italic">
+                <p className="text-[9px] text-white/40 text-center italic">
                   {lang === 'bn' 
                     ? "* জমির এক কোণায় দাঁড়িয়ে বাটনে ক্লিক করুন, তারপর অন্য কোণায় গিয়ে আবার ক্লিক করুন।" 
                     : "* Stand at one corner of the land and click, then move to the next corner and click again."}
@@ -2333,13 +2176,13 @@ function LandTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: any }
               </div>
             )}
             <div className="flex items-center justify-between gap-2">
-              <p className="text-[10px] sm:text-xs font-black text-stone-400 dark:text-stone-500 uppercase tracking-widest leading-tight">{t.clickOnMap}</p>
+              <p className="text-[10px] sm:text-xs font-black text-white/40 uppercase tracking-widest leading-tight">{t.clickOnMap}</p>
               <div className="flex items-center gap-2 shrink-0">
                 <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-                <span className="text-[9px] sm:text-[10px] font-bold text-stone-400 uppercase whitespace-nowrap">{points.length} POINTS</span>
+                <span className="text-[9px] sm:text-[10px] font-bold text-white/40 uppercase whitespace-nowrap">{points.length} POINTS</span>
               </div>
             </div>
-            <div className="aspect-video lg:aspect-square bg-stone-100 dark:bg-stone-800 rounded-[1.5rem] sm:rounded-[2.5rem] border border-stone-200 dark:border-stone-700 overflow-hidden relative shadow-inner z-0">
+            <div className="aspect-video lg:aspect-square bg-white/5 rounded-[1.5rem] sm:rounded-[2.5rem] border border-white/10 overflow-hidden relative shadow-inner z-0">
               {center && (
                 <MapContainer 
                   center={center} 
@@ -2375,8 +2218,8 @@ function LandTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: any }
           {/* 2D Model & AI */}
           <div className="space-y-6">
             <div>
-              <p className="text-[10px] sm:text-xs font-black text-stone-400 dark:text-stone-500 uppercase tracking-widest mb-3 sm:mb-4">2D Model View</p>
-              <div className="aspect-square bg-stone-50 dark:bg-stone-950 rounded-[1.5rem] sm:rounded-[2rem] border border-stone-200 dark:border-stone-800 relative flex items-center justify-center overflow-hidden shadow-inner">
+              <p className="text-[10px] sm:text-xs font-black text-white/40 uppercase tracking-widest mb-3 sm:mb-4">2D Model View</p>
+              <div className="aspect-square bg-white/5 rounded-[1.5rem] sm:rounded-[2rem] border border-white/10 relative flex items-center justify-center overflow-hidden shadow-inner">
                 {points.length > 2 ? (
                   <svg viewBox="0 0 100 100" className="w-full h-full p-4">
                     <polygon 
@@ -2390,7 +2233,7 @@ function LandTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: any }
                         <text 
                           x={side.midX} 
                           y={side.midY} 
-                          className="fill-stone-400 dark:fill-stone-600 font-black text-[3px] uppercase tracking-tighter"
+                          className="fill-white/40 font-black text-[3px] uppercase tracking-tighter"
                           textAnchor="middle"
                           dominantBaseline="middle"
                         >
@@ -2416,20 +2259,20 @@ function LandTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: any }
                   </svg>
                 ) : (
                   <div className="text-center p-6 sm:p-8">
-                    <Compass size={40} className="sm:w-12 sm:h-12 mx-auto text-stone-200 dark:text-stone-800 mb-4 animate-pulse" />
-                    <p className="text-[9px] sm:text-[10px] font-black text-stone-300 dark:text-stone-700 uppercase tracking-widest">Select at least 3 points on map</p>
+                    <Compass size={40} className="sm:w-12 sm:h-12 mx-auto text-white/10 mb-4 animate-pulse" />
+                    <p className="text-[9px] sm:text-[10px] font-black text-white/20 uppercase tracking-widest">Select at least 3 points on map</p>
                   </div>
                 )}
               </div>
             </div>
 
             <div className="space-y-4">
-              <p className="text-[10px] sm:text-xs font-black text-stone-400 dark:text-stone-500 uppercase tracking-widest">{t.aiSuggestion}</p>
+              <p className="text-[10px] sm:text-xs font-black text-white/40 uppercase tracking-widest">{t.aiSuggestion}</p>
               <div className="relative">
                 <input 
                   type="text"
                   placeholder={lang === 'bn' ? "AI কে কমান্ড দিন..." : "Command AI..."}
-                  className="w-full bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-2xl py-3 sm:py-4 pl-4 sm:pl-6 pr-12 sm:pr-14 text-xs sm:text-sm font-bold focus:outline-none focus:ring-2 focus:ring-stone-200 dark:focus:ring-stone-700 transition-all"
+                  className="w-full glass border border-white/10 rounded-2xl py-3 sm:py-4 pl-4 sm:pl-6 pr-12 sm:pr-14 text-xs sm:text-sm font-bold focus:outline-none focus:ring-2 focus:ring-white/20 text-white transition-all"
                   value={aiCommand}
                   onChange={(e) => setAiCommand(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleAiCommand()}
@@ -2449,9 +2292,9 @@ function LandTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: any }
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -10 }}
-                    className="p-4 sm:p-6 bg-stone-50 dark:bg-stone-800 rounded-2xl sm:rounded-3xl border border-stone-100 dark:border-stone-700 max-h-[250px] overflow-y-auto no-scrollbar"
+                    className="p-4 sm:p-6 glass max-h-[250px] overflow-y-auto no-scrollbar"
                   >
-                    <div className="prose prose-xs sm:prose-sm dark:prose-invert prose-stone">
+                    <div className="prose prose-xs sm:prose-sm prose-invert">
                       <ReactMarkdown>{landAnalysis}</ReactMarkdown>
                     </div>
                   </motion.div>
@@ -2472,11 +2315,11 @@ function LandTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: any }
 
 function ResultCard({ label, value, unit, config }: { label: string, value: string, unit: string, config: any }) {
   return (
-    <div className="bg-stone-50 dark:bg-stone-800 p-6 rounded-3xl border border-stone-100 dark:border-stone-700 group hover:border-stone-300 dark:hover:border-stone-600 transition-all">
-      <p className="text-[10px] text-stone-400 dark:text-stone-500 uppercase font-black tracking-widest mb-2">{label}</p>
+    <div className="glass p-6 group hover:border-white/20 transition-all">
+      <p className="text-[10px] text-white/40 uppercase font-black tracking-widest mb-2">{label}</p>
       <div className="flex items-baseline gap-2">
         <span className={cn("text-2xl font-mono font-black", config.text)}>{value}</span>
-        <span className="text-[10px] font-bold text-stone-400 uppercase">{unit}</span>
+        <span className="text-[10px] font-bold text-white/40 uppercase">{unit}</span>
       </div>
     </div>
   );
@@ -2525,68 +2368,68 @@ function EstimatingTab({ t, config }: { t: any, config: any }) {
 
   return (
     <div className="space-y-6">
-      <div className="bg-white dark:bg-stone-900 p-8 rounded-[2.5rem] border border-stone-200 dark:border-stone-800 transition-colors duration-300">
-        <h2 className="text-2xl font-black mb-6 text-stone-900 dark:text-stone-100">{t.estimating}</h2>
+      <div className="card-glass transition-colors duration-300">
+        <h2 className="text-2xl font-black mb-6 text-white">{t.estimating}</h2>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
           <div className="space-y-2">
-            <label className="text-xs font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest">{t.floors}</label>
+            <label className="text-xs font-bold text-white/40 uppercase tracking-widest ml-1">{t.floors}</label>
             <input 
               type="number" 
               min="1"
               value={floors}
               onChange={(e) => setFloors(Number(e.target.value))}
-              className="w-full bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-stone-200 dark:focus:ring-stone-600 font-bold text-stone-900 dark:text-stone-100 transition-colors"
+              className="w-full glass border border-white/10 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-white/20 font-bold text-white transition-all"
             />
           </div>
           <div className="space-y-2">
-            <label className="text-xs font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest">{t.areaSqft} {t.optional}</label>
+            <label className="text-xs font-bold text-white/40 uppercase tracking-widest ml-1">{t.areaSqft} {t.optional}</label>
             <input 
               type="number" 
               placeholder="e.g. 1200"
               value={areaSqft}
               onChange={(e) => setAreaSqft(e.target.value)}
-              className="w-full bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-stone-200 dark:focus:ring-stone-600 font-bold text-stone-900 dark:text-stone-100 transition-colors"
+              className="w-full glass border border-white/10 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-white/20 font-bold text-white transition-all"
             />
           </div>
           <div className="space-y-2">
-            <label className="text-xs font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest">{t.foundationType}</label>
+            <label className="text-xs font-bold text-white/40 uppercase tracking-widest ml-1">{t.foundationType}</label>
             <select 
               value={foundation}
               onChange={(e) => setFoundation(e.target.value)}
-              className="w-full bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-stone-200 dark:focus:ring-stone-600 font-bold text-stone-900 dark:text-stone-100 transition-colors"
+              className="w-full glass border border-white/10 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-white/20 font-bold text-white transition-all appearance-none"
             >
-              <option value="Spread Footing">Spread Footing</option>
-              <option value="Mat/Raft Foundation">Mat/Raft Foundation</option>
-              <option value="Pile Foundation">Pile Foundation</option>
-              <option value="Strip Foundation">Strip Foundation</option>
+              <option value="Spread Footing" className="bg-stone-900">Spread Footing</option>
+              <option value="Mat/Raft Foundation" className="bg-stone-900">Mat/Raft Foundation</option>
+              <option value="Pile Foundation" className="bg-stone-900">Pile Foundation</option>
+              <option value="Strip Foundation" className="bg-stone-900">Strip Foundation</option>
             </select>
           </div>
           <div className="space-y-2">
-            <label className="text-xs font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest">{t.buildingType}</label>
+            <label className="text-xs font-bold text-white/40 uppercase tracking-widest ml-1">{t.buildingType}</label>
             <select 
               value={buildingType}
               onChange={(e) => setBuildingType(e.target.value)}
-              className="w-full bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-stone-200 dark:focus:ring-stone-600 font-bold text-stone-900 dark:text-stone-100 transition-colors"
+              className="w-full glass border border-white/10 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-white/20 font-bold text-white transition-all appearance-none"
             >
-              <option value="Residential">Residential</option>
-              <option value="Commercial">Commercial</option>
-              <option value="Industrial">Industrial</option>
+              <option value="Residential" className="bg-stone-900">Residential</option>
+              <option value="Commercial" className="bg-stone-900">Commercial</option>
+              <option value="Industrial" className="bg-stone-900">Industrial</option>
             </select>
           </div>
         </div>
 
-        <div className="relative aspect-video bg-stone-50 dark:bg-stone-800 rounded-3xl border-2 border-dashed border-stone-200 dark:border-stone-700 mb-6 flex items-center justify-center overflow-hidden group transition-colors">
+        <div className="relative aspect-video glass rounded-3xl border-2 border-dashed border-white/10 mb-6 flex items-center justify-center overflow-hidden group transition-all">
           {image ? (
             <>
               <img src={image} className="w-full h-full object-cover" alt="Plan" />
-              <button onClick={() => setImage(null)} className="absolute top-4 right-4 p-2 bg-white/80 dark:bg-stone-900/80 backdrop-blur rounded-full shadow-lg hover:bg-white dark:hover:bg-stone-800 text-stone-900 dark:text-stone-100 transition-all">
+              <button onClick={() => setImage(null)} className="absolute top-4 right-4 p-2 glass hover:bg-white/10 text-white transition-all">
                 <X size={20} />
               </button>
             </>
           ) : (
-            <label className="cursor-pointer flex flex-col items-center gap-3 text-stone-400 dark:text-stone-500 group-hover:text-stone-600 dark:group-hover:text-stone-300 transition-colors">
-              <div className="p-5 rounded-full bg-stone-100 dark:bg-stone-700 group-hover:bg-stone-200 dark:group-hover:bg-stone-600 transition-all">
+            <label className="cursor-pointer flex flex-col items-center gap-3 text-white/40 group-hover:text-white transition-colors">
+              <div className="p-5 rounded-full glass group-hover:bg-white/10 transition-all border border-white/10">
                 <Upload size={32} />
               </div>
               <span className="text-sm font-bold">{t.uploadPlan} {t.optional}</span>
@@ -2598,7 +2441,7 @@ function EstimatingTab({ t, config }: { t: any, config: any }) {
         <button 
           onClick={handleEstimate}
           disabled={loading || (!image && !areaSqft)}
-          className={cn("w-full text-white py-5 rounded-2xl font-black text-lg flex items-center justify-center gap-3 disabled:opacity-50 shadow-xl", config.bg, config.shadow)}
+          className={cn("w-full text-white py-5 rounded-2xl font-black text-lg flex items-center justify-center gap-3 disabled:opacity-50", config.bg)}
         >
           {loading ? <Loader2 className="animate-spin" /> : <Calculator size={24} />}
           {t.estimate}
@@ -2613,8 +2456,8 @@ function EstimatingTab({ t, config }: { t: any, config: any }) {
           <StatCard label={t.rods} value={`${result.rods || 0} kg`} config={config} />
           
           {result.breakdown && (
-            <div className="col-span-2 bg-white dark:bg-stone-900 p-6 rounded-3xl border border-stone-100 dark:border-stone-800 shadow-sm mt-2 transition-colors duration-300">
-              <h3 className="text-sm font-black text-stone-400 dark:text-stone-500 uppercase tracking-widest mb-4">{t.costBreakdown}</h3>
+            <div className="col-span-2 card-glass p-6 mt-2 transition-colors duration-300">
+              <h3 className="text-sm font-black text-white/40 uppercase tracking-widest mb-4">{t.costBreakdown}</h3>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 <BreakdownItem label="Foundation" value={result.breakdown.foundation} config={config} />
                 <BreakdownItem label="Walls" value={result.breakdown.walls} config={config} />
@@ -2629,14 +2472,14 @@ function EstimatingTab({ t, config }: { t: any, config: any }) {
           <motion.div 
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
-            className={cn("col-span-2 text-white p-8 rounded-[2.5rem] shadow-2xl relative overflow-hidden mt-2", config.bg)}
+            className="col-span-2 card-glass p-8 shadow-2xl relative overflow-hidden mt-2"
           >
             <div className="relative z-10">
-              <p className="text-xs uppercase font-black opacity-60 mb-2 tracking-widest">{t.cost}</p>
-              <p className="text-5xl font-black">৳ {(result.totalCost || 0).toLocaleString()}</p>
-              <p className="mt-6 text-lg font-medium opacity-90 leading-relaxed">{result.summary}</p>
+              <p className="text-xs uppercase font-black text-slate-400 mb-2 tracking-widest">{t.cost}</p>
+              <p className="text-5xl font-black text-white">৳ {(result.totalCost || 0).toLocaleString()}</p>
+              <p className="mt-6 text-lg font-medium text-slate-300 leading-relaxed">{result.summary}</p>
             </div>
-            <div className="absolute -right-20 -bottom-20 w-80 h-80 bg-white/10 rounded-full blur-3xl" />
+            <div className="absolute -right-20 -bottom-20 w-80 h-80 bg-white/5 rounded-full blur-3xl" />
           </motion.div>
         </div>
       )}
@@ -2646,18 +2489,18 @@ function EstimatingTab({ t, config }: { t: any, config: any }) {
 
 function BreakdownItem({ label, value, config }: { label: string, value: number, config: any }) {
   return (
-    <div className="bg-stone-50 dark:bg-stone-800 p-4 rounded-2xl border border-stone-100 dark:border-stone-700 transition-colors duration-300">
-      <p className="text-[10px] uppercase font-bold text-stone-500 dark:text-stone-400 mb-1">{label}</p>
-      <p className={cn("text-lg font-black", config.text)}>{value ? `৳ ${value.toLocaleString()}` : 'N/A'}</p>
+    <div className="glass p-4 border border-white/10 transition-all">
+      <p className="text-[10px] uppercase font-bold text-white/40 mb-1">{label}</p>
+      <p className="text-lg font-black text-white">{value ? `৳ ${value.toLocaleString()}` : 'N/A'}</p>
     </div>
   );
 }
 
 function StatCard({ label, value, config }: { label: string, value: string, config: any }) {
   return (
-    <div className="bg-white dark:bg-stone-900 p-6 rounded-3xl border border-stone-100 dark:border-stone-800 shadow-sm transition-colors duration-300">
-      <p className="text-[10px] uppercase font-black text-stone-400 dark:text-stone-500 mb-1 tracking-widest">{label}</p>
-      <p className={cn("text-2xl font-black", config.text)}>{value}</p>
+    <div className="glass p-6 transition-all border border-white/10">
+      <p className="text-[10px] uppercase font-black text-white/40 mb-1 tracking-widest">{label}</p>
+      <p className="text-2xl font-black text-white">{value}</p>
     </div>
   );
 }
@@ -2679,7 +2522,7 @@ function MaterialsTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: 
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4">
-        <h2 className="text-2xl font-black text-stone-900 dark:text-stone-100">{t.materials}</h2>
+        <h2 className="text-2xl font-black text-white">{t.materials}</h2>
         
         {/* Category Filters */}
         <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
@@ -2688,10 +2531,10 @@ function MaterialsTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: 
               key={cat}
               onClick={() => setActiveCategory(cat)}
               className={cn(
-                "px-5 py-3 rounded-2xl font-bold text-sm whitespace-nowrap transition-all shadow-sm border flex items-center gap-2",
+                "px-5 py-3 rounded-2xl font-bold text-sm whitespace-nowrap transition-all border flex items-center gap-2",
                 activeCategory === cat 
-                   ? cn("text-white border-transparent", config.bg) 
-                  : "bg-white dark:bg-stone-900 text-stone-500 dark:text-stone-400 border-stone-200 dark:border-stone-800 hover:border-stone-300 dark:hover:border-stone-700"
+                   ? "bg-white/20 text-white border-white/30 scale-105" 
+                  : "glass text-white/40 border-white/10 hover:bg-white/10 hover:text-white"
               )}
             >
               {t[cat] || cat.charAt(0).toUpperCase() + cat.slice(1)}
@@ -2708,8 +2551,8 @@ function MaterialsTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: 
               className={cn(
                 "flex-1 py-3 rounded-2xl font-bold text-sm transition-all border flex items-center justify-center gap-2",
                 activeType === type 
-                  ? cn("text-white border-transparent", config.bg) 
-                  : "bg-white dark:bg-stone-900 text-stone-500 dark:text-stone-400 border-stone-200 dark:border-stone-800 hover:border-stone-300 dark:hover:border-stone-700"
+                  ? "bg-white/20 text-white border-white/30 scale-[1.02]" 
+                  : "glass text-white/40 border-white/10 hover:bg-white/10 hover:text-white"
               )}
             >
               {type === 'field' ? '🔹 ' : '🔬 '}
@@ -2729,10 +2572,10 @@ function MaterialsTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: 
               animate={{ opacity: 1, scale: 1 }}
               whileHover={{ x: 8 }}
               onClick={() => setSelectedTest(test)}
-              className="bg-white dark:bg-stone-900 p-5 rounded-[2rem] border border-stone-200 dark:border-stone-800 flex items-center justify-between cursor-pointer hover:border-stone-300 dark:hover:border-stone-700 transition-all group shadow-sm"
+              className="glass p-5 flex items-center justify-between cursor-pointer hover:bg-white/10 transition-all group border border-white/10"
             >
               <div className="flex items-center gap-4 flex-1">
-                <div className={cn("w-14 h-14 rounded-2xl flex items-center justify-center font-black text-xl text-white shadow-lg shrink-0", config.bg)}>
+                <div className="w-14 h-14 rounded-2xl flex items-center justify-center font-black text-xl text-white shadow-lg shrink-0 glass border border-white/20">
                   {test.material === 'brick' ? '🧱' : 
                    test.material === 'sand' ? '⏳' :
                    test.material === 'cement' ? '🧪' :
@@ -2746,25 +2589,25 @@ function MaterialsTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: 
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1 flex-wrap">
-                    <p className={cn("text-[10px] font-black uppercase tracking-widest", config.text)}>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-white/40">
                       {t[test.material]?.split(' ')[0] || test.material}
                     </p>
-                    <span className="w-1 h-1 rounded-full bg-stone-300 dark:bg-stone-700" />
-                    <div className={cn("px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest text-white shadow-sm", test.type === 'field' ? 'bg-emerald-500' : 'bg-blue-500')}>
+                    <span className="w-1 h-1 rounded-full bg-white/20" />
+                    <div className={cn("px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest text-white shadow-sm", test.type === 'field' ? 'bg-emerald-500/80 backdrop-blur-sm' : 'bg-blue-500/80 backdrop-blur-sm')}>
                       {t[test.type]}
                     </div>
                   </div>
-                  <h3 className="font-bold text-lg text-stone-800 dark:text-stone-200 leading-tight break-words">{test.name[lang]}</h3>
+                  <h3 className="font-bold text-lg text-white leading-tight break-words">{test.name[lang]}</h3>
                 </div>
               </div>
-              <div className={cn("p-2 rounded-xl bg-stone-50 dark:bg-stone-800 group-hover:bg-stone-100 dark:group-hover:bg-stone-700 transition-colors shrink-0 ml-2", config.text)}>
+              <div className="p-2 rounded-xl glass hover:bg-white/10 transition-all shrink-0 ml-2 text-white border border-white/10">
                 <ChevronRight size={20} />
               </div>
             </motion.div>
           ))
         ) : (
-          <div className="bg-white dark:bg-stone-900 p-12 rounded-[2.5rem] border border-stone-200 dark:border-stone-800 text-center">
-            <p className="text-stone-400 dark:text-stone-500 font-bold">No tests found for this selection.</p>
+          <div className="glass p-12 text-center border border-white/10">
+            <p className="text-white/40 font-bold">No tests found for this selection.</p>
           </div>
         )}
       </div>
@@ -2783,7 +2626,7 @@ function MaterialsTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: 
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="relative bg-white dark:bg-stone-900 w-full max-w-lg rounded-[2.5rem] p-8 shadow-2xl overflow-y-auto max-h-[90vh] no-scrollbar"
+              className="relative card-glass w-full max-w-lg p-8 shadow-2xl overflow-y-auto max-h-[90vh] no-scrollbar border border-white/20"
             >
               <div className={cn("absolute top-0 left-0 right-0 h-2", config.bg)} />
               <div className="flex justify-between items-start mb-8">
@@ -2792,14 +2635,14 @@ function MaterialsTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: 
                     <p className={cn("text-[10px] font-black uppercase tracking-widest", config.text)}>
                       {t[selectedTest.material] || selectedTest.material}
                     </p>
-                    <span className="w-1 h-1 rounded-full bg-stone-300 dark:bg-stone-700" />
-                    <div className={cn("px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest text-white shadow-sm", selectedTest.type === 'field' ? 'bg-emerald-500' : 'bg-blue-500')}>
+                    <span className="w-1 h-1 rounded-full bg-white/20" />
+                    <div className={cn("px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest text-white shadow-sm", selectedTest.type === 'field' ? 'bg-emerald-500/80 backdrop-blur-sm' : 'bg-blue-500/80 backdrop-blur-sm')}>
                       {t[selectedTest.type]}
                     </div>
                   </div>
-                  <h3 className="text-2xl font-black text-stone-900 dark:text-stone-100 leading-tight">{selectedTest.name[lang]}</h3>
+                  <h3 className="text-2xl font-black text-white leading-tight">{selectedTest.name[lang]}</h3>
                 </div>
-                <button onClick={() => setSelectedTest(null)} className="p-2 rounded-full hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors text-stone-500 dark:text-stone-400">
+                <button onClick={() => setSelectedTest(null)} className="p-2 rounded-full glass hover:bg-white/10 transition-all text-white border border-white/10">
                   <X size={24} />
                 </button>
               </div>
@@ -2862,7 +2705,7 @@ function MaterialsTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: 
 
               <button 
                 onClick={() => setSelectedTest(null)}
-                className={cn("w-full mt-10 py-4 rounded-2xl text-white font-bold shadow-lg", config.bg)}
+                className={cn("w-full mt-10 py-4 rounded-2xl text-white font-bold", config.bg)}
               >
                 {lang === 'bn' ? 'ঠিক আছে' : 'Done'}
               </button>
@@ -2942,11 +2785,11 @@ function QuizTab({ t, lang, config, dept }: { t: any, lang: 'bn' | 'en', config:
     if (showAnswers) {
       return (
         <div className="space-y-6">
-          <div className="flex justify-between items-center bg-white dark:bg-stone-900 p-6 rounded-3xl border border-stone-200 dark:border-stone-800 shadow-sm transition-colors duration-300">
-            <h2 className="text-2xl font-black text-stone-900 dark:text-stone-100">{lang === 'bn' ? "উত্তরপত্র" : "Answer Sheet"}</h2>
+          <div className="flex justify-between items-center glass p-6 transition-colors duration-300">
+            <h2 className="text-2xl font-black text-white">{lang === 'bn' ? "উত্তরপত্র" : "Answer Sheet"}</h2>
             <button 
               onClick={() => setShowAnswers(false)}
-              className="p-2 rounded-xl bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400"
+              className="p-2 rounded-xl bg-white/5 text-white hover:bg-white/10 transition-colors"
             >
               <X size={24} />
             </button>
@@ -2959,12 +2802,12 @@ function QuizTab({ t, lang, config, dept }: { t: any, lang: 'bn' | 'en', config:
               const isCorrect = userPick === correctIdx;
 
               return (
-                <div key={qIdx} className="bg-white dark:bg-stone-900 p-6 rounded-3xl border border-stone-200 dark:border-stone-800 space-y-4 shadow-sm transition-colors duration-300">
+                <div key={qIdx} className="glass p-6 space-y-4 transition-colors duration-300">
                   <div className="flex gap-3">
-                    <span className={cn("flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-black text-sm", isCorrect ? "bg-emerald-100 text-emerald-600" : "bg-red-100 text-red-600")}>
+                    <span className={cn("flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-black text-sm", isCorrect ? "bg-emerald-500/20 text-emerald-400" : "bg-red-500/20 text-red-400")}>
                       {qIdx + 1}
                     </span>
-                    <h4 className="font-bold text-stone-900 dark:text-stone-100 leading-tight">{q.question[lang]}</h4>
+                    <h4 className="font-bold text-white leading-tight">{q.question[lang]}</h4>
                   </div>
 
                   <div className="grid grid-cols-1 gap-2 ml-11">
@@ -2972,18 +2815,18 @@ function QuizTab({ t, lang, config, dept }: { t: any, lang: 'bn' | 'en', config:
                       const isUserChoice = oIdx === userPick;
                       const isCorrectChoice = oIdx === correctIdx;
                       
-                      let borderClass = "border-stone-100 dark:border-stone-800";
-                      let bgClass = "bg-stone-50/50 dark:bg-stone-800/30";
-                      let textClass = "text-stone-600 dark:text-stone-400";
+                      let borderClass = "border-white/5";
+                      let bgClass = "bg-white/5";
+                      let textClass = "text-white/40";
 
                       if (isCorrectChoice) {
-                        borderClass = "border-emerald-500 dark:border-emerald-600";
-                        bgClass = "bg-emerald-50 dark:bg-emerald-900/20";
-                        textClass = "text-emerald-700 dark:text-emerald-400 font-bold";
+                        borderClass = "border-emerald-500/50";
+                        bgClass = "bg-emerald-500/10";
+                        textClass = "text-emerald-400 font-bold";
                       } else if (isUserChoice && !isCorrectChoice) {
-                        borderClass = "border-red-500 dark:border-red-600";
-                        bgClass = "bg-red-50 dark:bg-red-900/20";
-                        textClass = "text-red-700 dark:text-red-400 font-bold";
+                        borderClass = "border-red-500/50";
+                        bgClass = "bg-red-500/10";
+                        textClass = "text-red-400 font-bold";
                       }
 
                       return (
@@ -2996,9 +2839,9 @@ function QuizTab({ t, lang, config, dept }: { t: any, lang: 'bn' | 'en', config:
                     })}
                   </div>
 
-                  <div className="ml-11 p-4 rounded-2xl bg-stone-50 dark:bg-stone-800/50 border border-stone-100 dark:border-stone-800">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-stone-400 dark:text-stone-500 mb-1">{t.explanation}</p>
-                    <p className="text-xs text-stone-600 dark:text-stone-400 leading-relaxed">{q.explanation[lang]}</p>
+                  <div className="ml-11 p-4 rounded-2xl bg-white/5 border border-white/10">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">{t.explanation}</p>
+                    <p className="text-xs text-white/60 leading-relaxed">{q.explanation[lang]}</p>
                   </div>
                 </div>
               );
@@ -3007,7 +2850,7 @@ function QuizTab({ t, lang, config, dept }: { t: any, lang: 'bn' | 'en', config:
 
           <button 
             onClick={() => setFinished(false)}
-            className={cn("w-full py-5 rounded-2xl text-white font-black text-lg shadow-xl", quizConfig.bg)}
+            className={cn("w-full py-5 rounded-2xl text-white font-black text-lg glass hover:bg-white/10 transition-all")}
           >
             {lang === 'bn' ? "ফিরে যান" : "Go Back"}
           </button>
@@ -3016,30 +2859,30 @@ function QuizTab({ t, lang, config, dept }: { t: any, lang: 'bn' | 'en', config:
     }
 
     return (
-      <div className="bg-white dark:bg-stone-900 p-10 rounded-[3rem] border border-stone-200 dark:border-stone-800 text-center space-y-8 shadow-xl transition-colors duration-300">
+      <div className="card-glass p-10 text-center space-y-8 shadow-xl transition-colors duration-300">
         <motion.div 
           animate={{ scale: [1, 1.2, 1], rotate: [0, 10, -10, 0] }}
           transition={{ duration: 0.5, repeat: 2 }}
         >
-          <Trophy size={80} className="mx-auto text-amber-500" />
+          <Trophy size={80} className="mx-auto text-amber-400" />
         </motion.div>
-        <h2 className="text-4xl font-black text-stone-900 dark:text-stone-100">{t.quiz} Finished!</h2>
-        <div className="p-8 rounded-3xl bg-stone-50 dark:bg-stone-800 border border-stone-100 dark:border-stone-700">
-          <p className="text-stone-400 dark:text-stone-500 font-black uppercase tracking-widest mb-2">{t.score}</p>
-          <p className={cn("text-7xl font-black", quizConfig.text)}>{score}</p>
+        <h2 className="text-4xl font-black text-white">{t.quiz} Finished!</h2>
+        <div className="p-8 rounded-3xl glass">
+          <p className="text-white/40 font-black uppercase tracking-widest mb-2">{t.score}</p>
+          <p className={cn("text-7xl font-black text-white")}>{score}</p>
         </div>
         
         <div className="grid grid-cols-1 gap-4">
           <button 
             onClick={() => setShowAnswers(true)}
-            className="w-full py-5 rounded-2xl bg-stone-100 dark:bg-stone-800 text-stone-900 dark:text-stone-100 font-black text-lg border border-stone-200 dark:border-stone-700 transition-all hover:bg-stone-200 dark:hover:bg-stone-700"
+            className="w-full py-5 rounded-2xl glass text-white font-black text-lg hover:bg-white/10 transition-all"
           >
             {lang === 'bn' ? "উত্তর দেখুন" : "View Answers"}
           </button>
           <button 
             onClick={startQuiz} 
             disabled={isLoading}
-            className={cn("w-full text-white py-5 rounded-2xl font-black text-lg shadow-xl flex items-center justify-center gap-2", quizConfig.bg, quizConfig.shadow, isLoading && "opacity-70 cursor-not-allowed")}
+            className={cn("w-full text-white py-5 rounded-2xl font-black text-lg flex items-center justify-center gap-2", quizConfig.bg, isLoading && "opacity-70 cursor-not-allowed")}
           >
             {isLoading ? <Loader2 size={24} className="animate-spin" /> : "Try Again"}
           </button>
@@ -3050,17 +2893,17 @@ function QuizTab({ t, lang, config, dept }: { t: any, lang: 'bn' | 'en', config:
 
   if (!started) {
     return (
-      <div className="bg-white dark:bg-stone-900 p-10 rounded-[3rem] border border-stone-200 dark:border-stone-800 text-center space-y-8 shadow-xl transition-colors duration-300">
+      <div className="card-glass p-10 text-center space-y-8 shadow-xl transition-colors duration-300">
         <div className={cn("w-24 h-24 rounded-[2rem] flex items-center justify-center mx-auto shadow-2xl", quizConfig.bg, "text-white")}>
           <Trophy size={48} />
         </div>
         <div>
-          <h2 className="text-3xl font-black mb-2 text-stone-900 dark:text-stone-100">{t.quiz}</h2>
-          <p className="text-stone-500 dark:text-stone-400 font-medium">10 Questions • 100 Seconds</p>
+          <h2 className="text-3xl font-black mb-2 text-white">{t.quiz}</h2>
+          <p className="text-white/40 font-medium">10 Questions • 100 Seconds</p>
         </div>
         
         <div className="space-y-3 text-left">
-          <p className="text-sm font-bold text-stone-500 dark:text-stone-400 uppercase tracking-wider">Select Department</p>
+          <p className="text-sm font-bold text-white/40 uppercase tracking-wider">Select Department</p>
           <div className="grid grid-cols-2 gap-3">
             {Object.entries(DEPT_CONFIG).map(([key, deptConfig]) => {
               const isSelected = selectedDept === key;
@@ -3071,8 +2914,8 @@ function QuizTab({ t, lang, config, dept }: { t: any, lang: 'bn' | 'en', config:
                   className={cn(
                     "p-4 rounded-2xl border-2 text-left transition-all flex flex-col gap-2",
                     isSelected 
-                      ? cn(deptConfig.border, deptConfig.bg, "text-white shadow-md") 
-                      : "border-stone-100 dark:border-stone-800 bg-stone-50 dark:bg-stone-800/50 text-stone-600 dark:text-stone-400 hover:border-stone-200 dark:hover:border-stone-700"
+                      ? cn(deptConfig.border, deptConfig.bg, "text-white") 
+                      : "bg-white/5 border-white/10 text-white/40 hover:border-white/20 hover:bg-white/10"
                   )}
                 >
                   <div className={cn(!isSelected && deptConfig.text)}>
@@ -3088,7 +2931,7 @@ function QuizTab({ t, lang, config, dept }: { t: any, lang: 'bn' | 'en', config:
         <button 
           onClick={startQuiz} 
           disabled={isLoading}
-          className={cn("w-full text-white py-5 rounded-2xl font-black text-lg shadow-xl flex items-center justify-center gap-2", quizConfig.bg, quizConfig.shadow, isLoading && "opacity-70 cursor-not-allowed")}
+          className={cn("w-full text-white py-5 rounded-2xl font-black text-lg flex items-center justify-center gap-2", quizConfig.bg, isLoading && "opacity-70 cursor-not-allowed")}
         >
           {isLoading ? <Loader2 size={24} className="animate-spin" /> : t.startQuiz}
         </button>
@@ -3100,16 +2943,16 @@ function QuizTab({ t, lang, config, dept }: { t: any, lang: 'bn' | 'en', config:
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center bg-white dark:bg-stone-900 p-5 rounded-3xl border border-stone-200 dark:border-stone-800 shadow-sm transition-colors duration-300">
-        <p className={cn("font-black text-lg", quizConfig.text)}>Q {currentIdx + 1}/{questions.length}</p>
-        <div className="flex items-center gap-3 text-red-500 dark:text-red-400 font-mono font-black text-lg">
+      <div className="flex justify-between items-center glass p-5 transition-colors duration-300">
+        <p className="font-black text-lg text-white">Q {currentIdx + 1}/{questions.length}</p>
+        <div className="flex items-center gap-3 text-red-400 font-mono font-black text-lg">
           <Loader2 size={20} className={timeLeft < 20 ? "animate-spin" : ""} />
           {timeLeft}s
         </div>
       </div>
 
-      <div className="bg-white dark:bg-stone-900 p-8 rounded-[2.5rem] border border-stone-200 dark:border-stone-800 shadow-xl overflow-hidden relative transition-colors duration-300">
-        <h3 className="text-2xl font-black mb-10 leading-tight text-stone-900 dark:text-stone-100">{currentQuestion.question[lang]}</h3>
+      <div className="glass p-8 overflow-hidden relative transition-colors duration-300">
+        <h3 className="text-2xl font-black mb-10 leading-tight text-white">{currentQuestion.question[lang]}</h3>
         <div className="grid grid-cols-1 gap-4">
           {currentQuestion.options[lang].map((opt: string, i: number) => {
             const isSelected = i === userAnswers[currentIdx];
@@ -3122,8 +2965,8 @@ function QuizTab({ t, lang, config, dept }: { t: any, lang: 'bn' | 'en', config:
                 className={cn(
                   "w-full text-left p-5 rounded-2xl border transition-all font-bold text-lg",
                   isSelected 
-                    ? cn(quizConfig.bg, "text-white border-transparent shadow-lg")
-                    : "bg-stone-50 dark:bg-stone-800 border-stone-200 dark:border-stone-700 text-stone-700 dark:text-stone-300 hover:border-stone-400 dark:hover:border-stone-500 hover:bg-white dark:hover:bg-stone-700"
+                    ? "bg-white/20 text-white border-white/30 shadow-lg"
+                    : "bg-white/5 border-white/10 text-slate-400 hover:border-white/20 hover:bg-white/10"
                 )}
               >
                 <div className="flex justify-between items-center">
@@ -3177,11 +3020,11 @@ function ChatTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: any }
     <div className="flex flex-col h-[calc(100vh-180px)]">
       <div className="flex-1 overflow-y-auto space-y-6 pr-2 no-scrollbar pb-4">
         {messages.length === 0 && (
-          <div className="text-center py-20 text-stone-300 dark:text-stone-600">
-            <div className="w-24 h-24 rounded-[2rem] bg-stone-100 dark:bg-stone-800 flex items-center justify-center mx-auto mb-6">
-              <MessageSquare size={48} className="opacity-20" />
+          <div className="text-center py-20 text-white/40">
+            <div className="w-24 h-24 rounded-[2rem] glass flex items-center justify-center mx-auto mb-6 border border-white/10">
+              <MessageSquare size={48} className="opacity-20 text-white" />
             </div>
-            <p className="font-black text-xl">Ask Engix AI anything</p>
+            <p className="font-black text-xl text-white">Ask Engix AI anything</p>
           </div>
         )}
         {messages.map((m, i) => (
@@ -3193,9 +3036,9 @@ function ChatTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: any }
           >
             <div className={cn(
               "max-w-[85%] p-5 rounded-3xl text-lg leading-relaxed shadow-sm",
-              m.role === 'user' ? cn("text-white rounded-tr-none", config.bg) : "bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-tl-none text-stone-900 dark:text-stone-100"
+              m.role === 'user' ? "card-glass text-white rounded-tr-none" : "glass rounded-tl-none text-white"
             )}>
-              <div className="markdown-body prose prose-stone dark:prose-invert max-w-none">
+              <div className="markdown-body prose prose-invert max-w-none">
                 <ReactMarkdown>{m.content}</ReactMarkdown>
               </div>
               {m.image && (
@@ -3203,7 +3046,7 @@ function ChatTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: any }
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
                   src={m.image} 
-                  className="mt-4 rounded-2xl w-full aspect-video object-cover shadow-lg" 
+                  className="mt-4 rounded-2xl w-full aspect-video object-cover shadow-lg border border-white/10" 
                   alt="Example" 
                   referrerPolicy="no-referrer" 
                 />
@@ -3213,8 +3056,8 @@ function ChatTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: any }
         ))}
         {loading && (
           <div className="flex items-start">
-            <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 p-5 rounded-3xl rounded-tl-none shadow-sm">
-              <Loader2 className={cn("animate-spin", config.text)} size={24} />
+            <div className="glass p-5 rounded-3xl rounded-tl-none shadow-sm">
+              <Loader2 className="animate-spin text-white" size={24} />
             </div>
           </div>
         )}
@@ -3225,20 +3068,30 @@ function ChatTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: any }
         <div className="flex gap-2 mb-3 px-2">
           <button 
             onClick={() => setResponseLength('short')}
-            className={cn("px-4 py-1.5 text-xs font-bold rounded-full transition-all border", responseLength === 'short' ? cn("text-white border-transparent shadow-md", config.bg) : "bg-white dark:bg-stone-900 text-stone-500 dark:text-stone-400 border-stone-200 dark:border-stone-800 hover:bg-stone-50 dark:hover:bg-stone-800")}
+            className={cn(
+              "px-4 py-1.5 text-xs font-bold rounded-full transition-all border", 
+              responseLength === 'short' 
+                ? "bg-white/20 text-white border-white/30 shadow-md scale-105" 
+                : "glass text-white/40 border-white/10 hover:bg-white/10 hover:text-white"
+            )}
           >
             {lang === 'bn' ? 'সংক্ষিপ্ত উত্তর' : 'Short Answer'}
           </button>
           <button 
             onClick={() => setResponseLength('long')}
-            className={cn("px-4 py-1.5 text-xs font-bold rounded-full transition-all border", responseLength === 'long' ? cn("text-white border-transparent shadow-md", config.bg) : "bg-white dark:bg-stone-900 text-stone-500 dark:text-stone-400 border-stone-200 dark:border-stone-800 hover:bg-stone-50 dark:hover:bg-stone-800")}
+            className={cn(
+              "px-4 py-1.5 text-xs font-bold rounded-full transition-all border", 
+              responseLength === 'long' 
+                ? "bg-white/20 text-white border-white/30 shadow-md scale-105" 
+                : "glass text-white/40 border-white/10 hover:bg-white/10 hover:text-white"
+            )}
           >
             {lang === 'bn' ? 'বিস্তারিত উত্তর' : 'Detailed Answer'}
           </button>
         </div>
         <div className="relative">
           <input 
-            className="w-full bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-[2rem] py-5 pl-6 pr-16 focus:outline-none focus:ring-4 focus:ring-stone-100 dark:focus:ring-stone-800 shadow-xl text-lg font-medium text-stone-900 dark:text-stone-100 placeholder:text-stone-400 dark:placeholder:text-stone-600 transition-colors"
+            className="w-full glass border border-white/10 rounded-[2rem] py-5 pl-6 pr-16 focus:outline-none focus:ring-4 focus:ring-white/5 shadow-xl text-lg font-medium text-white placeholder:text-white/20 transition-all"
             placeholder="Type your question..."
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -3247,7 +3100,7 @@ function ChatTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: any }
           <button 
             onClick={handleSend}
             disabled={loading || !input.trim()}
-            className={cn("absolute right-2.5 top-2.5 bottom-2.5 aspect-square text-white rounded-2xl flex items-center justify-center transition-all disabled:opacity-50 shadow-lg", config.bg)}
+            className={cn("absolute right-2.5 top-2.5 bottom-2.5 aspect-square text-white rounded-2xl flex items-center justify-center transition-all disabled:opacity-50 border border-white/10", config.bg)}
           >
             <Send size={24} />
           </button>

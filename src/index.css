@@ -1,40 +1,135 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Poppins:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
 @import url('https://unpkg.com/leaflet@1.9.4/dist/leaflet.css');
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Outfit", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Poppins", "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
-  
-  --color-stone-50: #F9F9F8;
-  --color-stone-100: #F2F2F0;
-  --color-stone-200: #E6E6E2;
-  --color-stone-300: #D4D4CE;
-  --color-stone-400: #A8A8A0;
-  --color-stone-500: #73736D;
-  --color-stone-600: #52524E;
-  --color-stone-700: #40403D;
-  --color-stone-800: #262624;
-  --color-stone-900: #171716;
 }
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+:root {
+  --accent: #3B82F6;
+  --accent-glow: #60A5FA;
+}
+
+.civil-theme { --accent: #22C55E; --accent-glow: #4ADE80; }
+.electrical-theme { --accent: #3B82F6; --accent-glow: #60A5FA; }
+.mechanical-theme { --accent: #F97316; --accent-glow: #FB923C; }
+.computer-theme { --accent: #8B5CF6; --accent-glow: #A78BFA; }
+
 @layer base {
   body {
-    @apply bg-stone-50 text-stone-900 dark:bg-stone-950 dark:text-stone-100 antialiased selection:bg-stone-900 selection:text-white dark:selection:bg-stone-100 dark:selection:text-stone-900;
+    background: radial-gradient(circle at 20% 30%, #1e293b, #020617);
+    color: #E2E8F0;
+    @apply antialiased min-h-screen overflow-x-hidden;
+  }
+}
+
+@layer components {
+  .glass {
+    background: rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+  }
+
+  .glass-strong {
+    background: rgba(255, 255, 255, 0.12);
+    backdrop-filter: blur(22px);
+    -webkit-backdrop-filter: blur(22px);
+    border-radius: 20px;
+    border: 1px solid rgba(255,255,255,0.2);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.3);
+  }
+
+  .glass-dark {
+    background: rgba(0, 0, 0, 0.35);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    border-radius: 20px;
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+
+  .navbar {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    background: rgba(255,255,255,0.05);
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+  }
+
+  .bottom-bar {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 8px 16px;
+    border-radius: 32px;
+    z-index: 50;
+    background: rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  }
+
+  .btn-glass {
+    @apply px-4 py-2 rounded-xl transition-all duration-300 flex items-center gap-2;
+    background: rgba(255,255,255,0.1);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+
+  .btn-glass:hover {
+    @apply -translate-y-0.5;
+    box-shadow: 0 0 15px var(--accent);
+    border-color: var(--accent-glow);
+  }
+
+  .btn-glass:active {
+    @apply scale-95;
+  }
+
+  .card-glass {
+    @apply relative p-6 rounded-2xl overflow-hidden;
+    background: rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+  }
+
+  .card-glass::before {
+    content: "";
+    height: 3px;
+    width: 100%;
+    background: var(--accent);
+    position: absolute;
+    top: 0;
+    left: 0;
+    box-shadow: 0 0 10px var(--accent);
+  }
+
+  .blur-circle {
+    position: absolute;
+    width: 400px;
+    height: 400px;
+    border-radius: 50%;
+    background: var(--accent);
+    filter: blur(120px);
+    opacity: 0.15;
+    pointer-events: none;
+    z-index: -1;
   }
 }
 
 @layer utilities {
-  .glass-card {
-    @apply bg-white/70 backdrop-blur-xl border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.04)];
-  }
-  
-  .neo-shadow {
-    @apply shadow-[0_20px_50px_rgba(0,0,0,0.05)];
-  }
-
   .no-scrollbar::-webkit-scrollbar {
     display: none;
   }
@@ -45,11 +140,11 @@
 }
 
 .markdown-body {
-  @apply text-stone-700 dark:text-stone-300 leading-relaxed;
+  @apply text-slate-300 leading-relaxed;
 }
 
 .markdown-body h1, .markdown-body h2, .markdown-body h3 {
-  @apply font-black text-stone-900 dark:text-stone-100 mt-6 mb-4;
+  @apply font-bold text-white mt-6 mb-4;
 }
 
 .markdown-body p {
@@ -61,5 +156,12 @@
 }
 
 .markdown-body code {
-  @apply bg-stone-100 dark:bg-stone-800 px-1.5 py-0.5 rounded font-mono text-sm text-stone-900 dark:text-stone-100;
+  @apply bg-white/10 px-1.5 py-0.5 rounded font-mono text-sm text-white;
+}
+
+/* Leaflet Overrides */
+.leaflet-container {
+  border-radius: 1rem !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  background: #0f172a !important;
 }
