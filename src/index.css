@@ -23,7 +23,7 @@
   body {
     background: radial-gradient(circle at 20% 30%, #1e293b, #020617);
     color: #E2E8F0;
-    @apply antialiased min-h-screen overflow-x-hidden;
+    @apply antialiased min-h-[100dvh] overflow-x-hidden;
   }
 }
 

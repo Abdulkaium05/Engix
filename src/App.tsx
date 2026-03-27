@@ -153,14 +153,19 @@ export default function App() {
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
 
   return (
-    <div className={cn("min-h-screen relative flex flex-col overflow-hidden", config.theme)}>
+    <div className={cn("h-[100dvh] relative flex flex-col overflow-hidden", config.theme)}>
       {/* Floating Blur Blobs */}
       <div className="blur-circle top-[10%] left-[10%]" />
       <div className="blur-circle top-[60%] right-[10%] opacity-10" />
       <div className="blur-circle bottom-[10%] left-[30%] opacity-5" />
       {/* Navbar */}
       <nav className="navbar px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-4">
+        <motion.div 
+          initial={{ opacity: 1 }}
+          animate={{ opacity: isMenuOpen ? 0 : 1 }}
+          transition={{ duration: 0.3 }}
+          className="flex items-center gap-4"
+        >
           <motion.div 
             key={dept}
             initial={{ rotate: -90, scale: 0.8 }}
@@ -173,7 +178,7 @@ export default function App() {
             <h1 className="text-xl font-black text-white leading-none tracking-tight">Engix</h1>
             <p className={cn("text-[8px] font-bold uppercase tracking-widest mt-1", config.text)}>{t[dept]}</p>
           </div>
-        </div>
+        </motion.div>
         <button 
           onClick={toggleMenu}
           className="btn-glass p-2.5"
@@ -288,8 +293,8 @@ export default function App() {
 
 
         {/* Main Content */}
-        <main className="flex-1 overflow-y-auto pb-32 pt-8 px-6 no-scrollbar">
-          <div className="max-w-7xl mx-auto">
+        <main className="flex-1 overflow-y-auto pb-8 pt-8 px-6 no-scrollbar">
+          <div className="max-w-7xl mx-auto h-full flex flex-col">
             <AnimatePresence mode="wait">
               <motion.div
                 key={`${activeTab}-${dept}`}
@@ -297,6 +302,7 @@ export default function App() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
                 transition={{ duration: 0.2 }}
+                className="flex-1 flex flex-col"
               >
                 {activeTab === 'home' && <HomeTab t={t} lang={lang} dept={dept} config={config} setActiveTab={setActiveTab} />}
                 {activeTab === 'survey' && <SurveyTab t={t} config={config} />}
@@ -3017,7 +3023,7 @@ function ChatTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: any }
   };
 
   return (
-    <div className="flex flex-col h-full min-h-[60vh]">
+    <div className="flex flex-col h-full">
       <div className="flex-1 overflow-y-auto space-y-6 pr-2 no-scrollbar pb-4">
         {messages.length === 0 && (
           <div className="text-center py-20 text-white/40">
@@ -3064,7 +3070,7 @@ function ChatTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: any }
         <div ref={scrollRef} />
       </div>
 
-      <div className="mt-4">
+      <div className="">
         <div className="flex gap-2 mb-3 px-2">
           <button 
             onClick={() => setResponseLength('short')}
