@@ -15,12 +15,12 @@ export async function getChatResponse(prompt: string, history: any[] = [], respo
 
     const chat = ai.chats.create({
       model: "gemini-3-flash-preview",
+      history: history,
       config: {
         systemInstruction: `You are Engix AI, a professional engineering assistant. You help engineers with calculations, design principles, and technical questions across Civil, Mechanical, Electrical, and Computer engineering. Provide clear, accurate, and professional advice. Use Markdown for formatting. ${lengthInstruction}`,
       },
     });
 
-    // Send history if needed, but for simplicity we'll just send the prompt with context
     const response = await chat.sendMessage({ message: prompt });
     return response.text;
   } catch (error) {

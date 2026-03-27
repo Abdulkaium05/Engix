@@ -42,7 +42,8 @@ import {
   ArrowRightLeft,
   RefreshCw,
   Trash2,
-  Plus
+  Plus,
+  ArrowLeft
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { translations, materialTests, quizQuestions, homeTopics } from './data/content';
@@ -128,6 +129,7 @@ export default function App() {
   const [dept, setDept] = useState<Dept>(() => (localStorage.getItem('engix_dept') as Dept) || 'civil');
   const [theme, setTheme] = useState<'light' | 'dark'>(() => (localStorage.getItem('engix_theme') as 'light' | 'dark') || 'dark');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const mainRef = useRef<HTMLElement>(null);
 
   const t = translations[lang];
   const config = DEPT_CONFIG[dept];
@@ -136,6 +138,13 @@ export default function App() {
     // Force dark mode for Glass Engineering UI
     document.documentElement.classList.add('dark');
   }, []);
+
+  useEffect(() => {
+    // Reset scroll position when changing tabs
+    if (mainRef.current) {
+      mainRef.current.scrollTop = 0;
+    }
+  }, [activeTab, dept]);
 
   const saveUserSettings = (newLang: 'bn' | 'en', newDept: Dept, newTheme: 'light' | 'dark' = theme) => {
     // Always save to localStorage for guest persistence
@@ -159,33 +168,35 @@ export default function App() {
       <div className="blur-circle top-[60%] right-[10%] opacity-10" />
       <div className="blur-circle bottom-[10%] left-[30%] opacity-5" />
       {/* Navbar */}
-      <nav className="navbar px-6 py-4 flex items-center justify-between">
-        <motion.div 
-          initial={{ opacity: 1 }}
-          animate={{ opacity: isMenuOpen ? 0 : 1 }}
-          transition={{ duration: 0.3 }}
-          className="flex items-center gap-4"
-        >
+      {activeTab !== 'chat' && (
+        <nav className="navbar px-6 py-4 flex items-center justify-between z-10">
           <motion.div 
-            key={dept}
-            initial={{ rotate: -90, scale: 0.8 }}
-            animate={{ rotate: 0, scale: 1 }}
-            className={cn("w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold text-xl", config.bg)}
+            initial={{ opacity: 1 }}
+            animate={{ opacity: isMenuOpen ? 0 : 1 }}
+            transition={{ duration: 0.3 }}
+            className="flex items-center gap-4"
           >
-            {config.logo}
+            <motion.div 
+              key={dept}
+              initial={{ rotate: -90, scale: 0.8 }}
+              animate={{ rotate: 0, scale: 1 }}
+              className={cn("w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold text-xl", config.bg)}
+            >
+              {config.logo}
+            </motion.div>
+            <div>
+              <h1 className="text-xl font-black text-white leading-none tracking-tight">Engix</h1>
+              <p className={cn("text-[8px] font-bold uppercase tracking-widest mt-1", config.text)}>{t[dept]}</p>
+            </div>
           </motion.div>
-          <div>
-            <h1 className="text-xl font-black text-white leading-none tracking-tight">Engix</h1>
-            <p className={cn("text-[8px] font-bold uppercase tracking-widest mt-1", config.text)}>{t[dept]}</p>
-          </div>
-        </motion.div>
-        <button 
-          onClick={toggleMenu}
-          className="btn-glass p-2.5"
-        >
-          <Menu size={20} className="text-white" />
-        </button>
-      </nav>
+          <button 
+            onClick={toggleMenu}
+            className="btn-glass p-2.5"
+          >
+            <Menu size={20} className="text-white" />
+          </button>
+        </nav>
+      )}
 
       {/* Sidebar Menu */}
       <AnimatePresence>
@@ -293,8 +304,8 @@ export default function App() {
 
 
         {/* Main Content */}
-        <main className="flex-1 overflow-y-auto pb-8 pt-8 px-6 no-scrollbar">
-          <div className="max-w-7xl mx-auto h-full flex flex-col">
+        <main ref={mainRef} className={cn("flex-1 flex flex-col w-full relative min-h-0", activeTab === 'chat' ? "overflow-hidden p-0" : "overflow-y-auto pb-8 pt-8 px-6 no-scrollbar")}>
+          <div className={cn("mx-auto h-full flex flex-col w-full min-h-0", activeTab === 'chat' ? "max-w-3xl" : "max-w-7xl")}>
             <AnimatePresence mode="wait">
               <motion.div
                 key={`${activeTab}-${dept}`}
@@ -302,7 +313,7 @@ export default function App() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
                 transition={{ duration: 0.2 }}
-                className="flex-1 flex flex-col"
+                className="flex-1 flex flex-col min-h-0 w-full h-full"
               >
                 {activeTab === 'home' && <HomeTab t={t} lang={lang} dept={dept} config={config} setActiveTab={setActiveTab} />}
                 {activeTab === 'survey' && <SurveyTab t={t} config={config} />}
@@ -314,7 +325,7 @@ export default function App() {
                 {activeTab === 'estimating' && <EstimatingTab t={t} config={config} />}
                 {activeTab === 'materials' && <MaterialsTab t={t} lang={lang} config={config} />}
                 {activeTab === 'quiz' && <QuizTab t={t} lang={lang} config={config} dept={dept} />}
-                {activeTab === 'chat' && <ChatTab t={t} lang={lang} config={config} />}
+                {activeTab === 'chat' && <ChatTab t={t} lang={lang} config={config} dept={dept} setActiveTab={setActiveTab} toggleMenu={toggleMenu} />}
                 {activeTab === 'settings' && <SettingsTab t={t} lang={lang} setLang={setLang} dept={dept} setDept={setDept} theme={theme} setTheme={setTheme} saveUserSettings={saveUserSettings} config={config} />}
                 {['mech_design', 'thermo', 'fluids', 'circuits', 'power', 'control', 'software', 'data', 'network'].includes(activeTab) && (
                   <ComingSoonTab t={t} config={config} tabId={activeTab} />
@@ -374,6 +385,130 @@ function DeptButton({ active, onClick, icon, label, color }: { active: boolean, 
 }
 
 // --- Tab Components ---
+
+function ChatTab({ t, lang, config, dept, setActiveTab, toggleMenu }: { t: any, lang: 'bn' | 'en', config: any, dept: string, setActiveTab: (tab: Tab) => void, toggleMenu: () => void }) {
+  const [messages, setMessages] = useState<{ role: 'user' | 'ai', content: string }[]>([]);
+  const [input, setInput] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = () => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTo({
+        top: scrollContainerRef.current.scrollHeight,
+        behavior: 'smooth'
+      });
+    }
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  const handleSend = async () => {
+    if (!input.trim()) return;
+    
+    const userMsg = input;
+    setInput('');
+    setMessages(prev => [...prev, { role: 'user', content: userMsg }]);
+    setIsLoading(true);
+
+    const response = await getChatResponse(userMsg, messages, 'long');
+    
+    setMessages(prev => [...prev, { role: 'ai', content: response || "Sorry, I couldn't process that." }]);
+    setIsLoading(false);
+  };
+
+  return (
+    <div className="flex-1 flex flex-col min-h-0 w-full bg-black/10 backdrop-blur-sm relative">
+      {/* Minimal Header */}
+      <div className="shrink-0 flex items-center gap-3 p-4 border-b border-white/10 bg-white/5 backdrop-blur-md z-10">
+        <button onClick={() => setActiveTab('home')} className="p-2 glass rounded-full text-white hover:bg-white/20 transition-colors">
+          <ArrowLeft size={20} />
+        </button>
+        <div>
+          <h2 className="text-base font-bold text-white leading-tight">{t.chat || "AI Assistant"}</h2>
+          <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest leading-tight">{dept}</p>
+        </div>
+      </div>
+
+      {/* Chat Messages */}
+      <div ref={scrollContainerRef} className="flex-1 min-h-0 overflow-y-auto p-4 md:p-6 space-y-6 no-scrollbar">
+        {messages.length === 0 ? (
+          <div className="h-full flex flex-col items-center justify-center text-center space-y-4 opacity-50">
+            <MessageSquare size={48} className="text-white/20" />
+            <p className="text-white/60 font-medium max-w-xs">
+              {lang === 'bn' ? "আপনার ইঞ্জিনিয়ারিং প্রশ্ন জিজ্ঞাসা করুন..." : "Ask your engineering questions..."}
+            </p>
+          </div>
+        ) : (
+          messages.map((msg, idx) => (
+            <motion.div 
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              key={idx} 
+              className={cn(
+                "flex w-full",
+                msg.role === 'user' ? "justify-end" : "justify-start"
+              )}
+            >
+              <div className={cn(
+                "max-w-[85%] rounded-2xl p-4",
+                msg.role === 'user' 
+                  ? cn("text-white rounded-tr-sm", config.bg) 
+                  : "glass border border-white/10 text-white/90 rounded-tl-sm"
+              )}>
+                {msg.role === 'ai' ? (
+                  <div className="prose prose-invert prose-sm max-w-none">
+                    <ReactMarkdown>{msg.content}</ReactMarkdown>
+                  </div>
+                ) : (
+                  <p className="text-sm font-medium leading-relaxed">{msg.content}</p>
+                )}
+              </div>
+            </motion.div>
+          ))
+        )}
+        {isLoading && (
+          <motion.div 
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex justify-start"
+          >
+            <div className="glass border border-white/10 rounded-2xl rounded-tl-sm p-4 flex items-center gap-3 text-white/60">
+              <Loader2 size={16} className="animate-spin" />
+              <span className="text-xs font-bold uppercase tracking-widest">Thinking...</span>
+            </div>
+          </motion.div>
+        )}
+      </div>
+
+      {/* Input Area */}
+      <div className="shrink-0 p-4 bg-black/40 backdrop-blur-xl border-t border-white/10 z-10">
+        <div className="relative flex items-center max-w-3xl mx-auto">
+          <input
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+            placeholder={lang === 'bn' ? "মেসেজ লিখুন..." : "Type your message..."}
+            className="w-full glass border border-white/10 rounded-full py-4 pl-6 pr-14 focus:outline-none focus:ring-2 focus:ring-white/20 text-white placeholder:text-white/30 transition-all shadow-lg"
+          />
+          <button
+            onClick={handleSend}
+            disabled={!input.trim() || isLoading}
+            className={cn(
+              "absolute right-2 p-2.5 rounded-full text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md",
+              config.bg
+            )}
+          >
+            <Send size={18} className={cn(input.trim() && !isLoading && "translate-x-0.5 -translate-y-0.5")} />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function SettingsTab({ t, lang, setLang, dept, setDept, theme, setTheme, saveUserSettings, config }: any) {
   return (
@@ -1215,6 +1350,36 @@ function ComingSoonTab({ t, config, tabId }: { t: any, config: any, tabId: strin
   );
 }
 
+const UNIT_INFO: Record<string, string> = {
+  m: "Meter - Base unit of length in the International System of Units (SI).",
+  cm: "Centimeter - 1/100th of a meter. Common for small measurements.",
+  mm: "Millimeter - 1/1000th of a meter. Used for precise engineering measurements.",
+  km: "Kilometer - 1000 meters. Used for long distances.",
+  in: "Inch - 1/12th of a foot. Common in US and UK.",
+  ft: "Foot - 12 inches. Standard for height and short distances in US.",
+  yd: "Yard - 3 feet. Used in landscaping and textiles.",
+  mi: "Mile - 5280 feet. Used for long distances in US and UK.",
+  sq_m: "Square Meter - Base unit of area in SI.",
+  sq_ft: "Square Foot - Common area measurement in real estate (US/UK).",
+  sq_in: "Square Inch - Small area measurement.",
+  acre: "Acre - 43,560 sq ft. Used for land measurement.",
+  hectare: "Hectare - 10,000 sq meters. Used for large land tracts.",
+  decimal: "Decimal - 1/100th of an acre. Common in South Asia.",
+  katha: "Katha - Traditional land measure in South Asia (~720 sq ft).",
+  bigha: "Bigha - Traditional land measure in South Asia (~14,400 sq ft).",
+  kg: "Kilogram - Base unit of mass in SI.",
+  g: "Gram - 1/1000th of a kg. Used for small weights.",
+  mg: "Milligram - 1/1000th of a gram. Used in medicine and chemistry.",
+  lb: "Pound - 16 ounces. Standard weight in US.",
+  oz: "Ounce - 1/16th of a pound.",
+  ton: "Metric Ton - 1000 kg. Used for heavy loads.",
+  liter: "Liter - Base unit of volume in metric system.",
+  ml: "Milliliter - 1/1000th of a liter.",
+  cubic_m: "Cubic Meter - 1000 liters. Used for large volumes.",
+  cubic_ft: "Cubic Foot - Common volume measurement in US.",
+  gallon_us: "US Gallon - ~3.785 liters. Standard for liquids in US."
+};
+
 const CONVERSION_RATES: any = {
   length: {
     m: 1,
@@ -1316,6 +1481,10 @@ function UnitConverterTab({ t, config }: { t: any, config: any }) {
               >
                 {Object.keys(rates).map(u => <option key={u} value={u} className="bg-stone-900">{u}</option>)}
               </select>
+              <div className="flex items-start gap-1.5 mt-2 px-1 text-white/50">
+                <Info size={12} className="mt-0.5 shrink-0" />
+                <p className="text-[10px] leading-tight">{UNIT_INFO[fromUnit]}</p>
+              </div>
             </div>
 
             <button onClick={handleSwap} className="p-4 rounded-full glass text-white border border-white/20 hover:scale-110 transition-all mx-auto mt-6 md:mt-0">
@@ -1334,6 +1503,10 @@ function UnitConverterTab({ t, config }: { t: any, config: any }) {
               >
                 {Object.keys(rates).map(u => <option key={u} value={u} className="bg-stone-900">{u}</option>)}
               </select>
+              <div className="flex items-start gap-1.5 mt-2 px-1 text-white/50">
+                <Info size={12} className="mt-0.5 shrink-0" />
+                <p className="text-[10px] leading-tight">{UNIT_INFO[toUnit]}</p>
+              </div>
             </div>
           </div>
         </div>
@@ -2987,131 +3160,5 @@ function QuizTab({ t, lang, config, dept }: { t: any, lang: 'bn' | 'en', config:
   );
 }
 
-function ChatTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: any }) {
-  const [messages, setMessages] = useState<{ role: 'user' | 'ai', content: string, image?: string }[]>([]);
-  const [input, setInput] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [responseLength, setResponseLength] = useState<'short' | 'long'>('short');
-  const scrollRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
 
-  const handleSend = async () => {
-    if (!input.trim()) return;
-    const userMsg = input;
-    setInput("");
-    setMessages(prev => [...prev, { role: 'user', content: userMsg }]);
-    setLoading(true);
-
-    try {
-      const history = messages.map(m => ({ role: m.role === 'user' ? 'user' as const : 'model' as const, parts: [{ text: m.content }] }));
-      const response = await getChatResponse(userMsg, history, responseLength);
-      
-      let image;
-      if (userMsg.toLowerCase().includes('example') || userMsg.toLowerCase().includes('উদাহরণ')) {
-        image = await generateExampleImage(userMsg);
-      }
-
-      setMessages(prev => [...prev, { role: 'ai', content: response || "", image: image || undefined }]);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="flex flex-col h-full">
-      <div className="flex-1 overflow-y-auto space-y-6 pr-2 no-scrollbar pb-4">
-        {messages.length === 0 && (
-          <div className="text-center py-20 text-white/40">
-            <div className="w-24 h-24 rounded-[2rem] glass flex items-center justify-center mx-auto mb-6 border border-white/10">
-              <MessageSquare size={48} className="opacity-20 text-white" />
-            </div>
-            <p className="font-black text-xl text-white">Ask Engix AI anything</p>
-          </div>
-        )}
-        {messages.map((m, i) => (
-          <motion.div 
-            key={i} 
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className={cn("flex flex-col", m.role === 'user' ? "items-end" : "items-start")}
-          >
-            <div className={cn(
-              "max-w-[85%] p-5 rounded-3xl text-lg leading-relaxed",
-              m.role === 'user' ? "card-glass text-white rounded-tr-none" : "glass rounded-tl-none text-white"
-            )}>
-              <div className="markdown-body prose prose-invert max-w-none">
-                <ReactMarkdown>{m.content}</ReactMarkdown>
-              </div>
-              {m.image && (
-                <motion.img 
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  src={m.image} 
-                  className="mt-4 rounded-2xl w-full aspect-video object-cover border border-white/10" 
-                  alt="Example" 
-                  referrerPolicy="no-referrer" 
-                />
-              )}
-            </div>
-          </motion.div>
-        ))}
-        {loading && (
-          <div className="flex items-start">
-            <div className="glass p-5 rounded-3xl rounded-tl-none">
-              <Loader2 className="animate-spin text-white" size={24} />
-            </div>
-          </div>
-        )}
-        <div ref={scrollRef} />
-      </div>
-
-      <div className="">
-        <div className="flex gap-2 mb-3 px-2">
-          <button 
-            onClick={() => setResponseLength('short')}
-            className={cn(
-              "px-4 py-1.5 text-xs font-bold rounded-full transition-all border", 
-              responseLength === 'short' 
-                ? "bg-white/20 text-white border-white/30 scale-105" 
-                : "glass text-white/40 border-white/10 hover:bg-white/10 hover:text-white"
-            )}
-          >
-            {lang === 'bn' ? 'সংক্ষিপ্ত উত্তর' : 'Short Answer'}
-          </button>
-          <button 
-            onClick={() => setResponseLength('long')}
-            className={cn(
-              "px-4 py-1.5 text-xs font-bold rounded-full transition-all border", 
-              responseLength === 'long' 
-                ? "bg-white/20 text-white border-white/30 scale-105" 
-                : "glass text-white/40 border-white/10 hover:bg-white/10 hover:text-white"
-            )}
-          >
-            {lang === 'bn' ? 'বিস্তারিত উত্তর' : 'Detailed Answer'}
-          </button>
-        </div>
-        <div className="relative">
-          <input 
-            className="w-full glass border border-white/10 rounded-[2rem] py-5 pl-6 pr-16 focus:outline-none focus:ring-4 focus:ring-white/5 text-lg font-medium text-white placeholder:text-white/20 transition-all"
-            placeholder="Type your question..."
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-          />
-          <button 
-            onClick={handleSend}
-            disabled={loading || !input.trim()}
-            className={cn("absolute right-2.5 top-2.5 bottom-2.5 aspect-square text-white rounded-2xl flex items-center justify-center transition-all disabled:opacity-50 border border-white/10", config.bg)}
-          >
-            <Send size={24} />
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
