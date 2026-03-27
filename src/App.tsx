@@ -43,7 +43,9 @@ import {
   RefreshCw,
   Trash2,
   Plus,
-  ArrowLeft
+  ArrowLeft,
+  Check,
+  Play
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { translations, materialTests, quizQuestions, homeTopics } from './data/content';
@@ -127,7 +129,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>('home');
   const [lang, setLang] = useState<'bn' | 'en'>(() => (localStorage.getItem('engix_lang') as 'bn' | 'en') || 'bn');
   const [dept, setDept] = useState<Dept>(() => (localStorage.getItem('engix_dept') as Dept) || 'civil');
-  const [theme, setTheme] = useState<'light' | 'dark'>(() => (localStorage.getItem('engix_theme') as 'light' | 'dark') || 'dark');
+  const [theme, setTheme] = useState<'glass' | 'industrial' | 'brutal' | 'holographic'>(() => (localStorage.getItem('engix_theme') as 'glass' | 'industrial' | 'brutal' | 'holographic') || 'glass');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const mainRef = useRef<HTMLElement>(null);
 
@@ -137,7 +139,13 @@ export default function App() {
   useEffect(() => {
     // Force dark mode for Glass Engineering UI
     document.documentElement.classList.add('dark');
-  }, []);
+    document.body.classList.remove('theme-industrial', 'theme-brutal');
+    if (theme === 'industrial') {
+      document.body.classList.add('theme-industrial');
+    } else if (theme === 'brutal') {
+      document.body.classList.add('theme-brutal');
+    }
+  }, [theme]);
 
   useEffect(() => {
     // Reset scroll position when changing tabs
@@ -146,7 +154,7 @@ export default function App() {
     }
   }, [activeTab, dept]);
 
-  const saveUserSettings = (newLang: 'bn' | 'en', newDept: Dept, newTheme: 'light' | 'dark' = theme) => {
+  const saveUserSettings = (newLang: 'bn' | 'en', newDept: Dept, newTheme: 'glass' | 'industrial' | 'brutal' | 'holographic' = theme) => {
     // Always save to localStorage for guest persistence
     localStorage.setItem('engix_lang', newLang);
     localStorage.setItem('engix_dept', newDept);
@@ -164,12 +172,27 @@ export default function App() {
   return (
     <div className={cn("h-[100dvh] relative flex flex-col overflow-hidden", config.theme)}>
       {/* Floating Blur Blobs */}
-      <div className="blur-circle top-[10%] left-[10%]" />
-      <div className="blur-circle top-[60%] right-[10%] opacity-10" />
-      <div className="blur-circle bottom-[10%] left-[30%] opacity-5" />
+      {theme === 'glass' && (
+        <>
+          <div className="blur-circle top-[10%] left-[10%]" />
+          <div className="blur-circle top-[60%] right-[10%] opacity-10" />
+          <div className="blur-circle bottom-[10%] left-[30%] opacity-5" />
+        </>
+      )}
+      {theme === 'industrial' && <div className="grid-bg" />}
+      {theme === 'holographic' && (
+        <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden flex items-center justify-center">
+          <div className="glow-bg" />
+        </div>
+      )}
       {/* Navbar */}
       {activeTab !== 'chat' && (
-        <nav className="navbar px-6 py-4 flex items-center justify-between z-10">
+        <nav className={cn(
+          "navbar px-6 py-4 flex items-center justify-between z-10 border-b",
+          theme === 'brutal' ? "bg-white border-b-2 border-black" : 
+          theme === 'holographic' ? "bg-black/40 backdrop-blur-xl border-[rgba(var(--accent-rgb),0.2)]" :
+          "bg-white/5 backdrop-blur-md border-black"
+        )}>
           <motion.div 
             initial={{ opacity: 1 }}
             animate={{ opacity: isMenuOpen ? 0 : 1 }}
@@ -180,20 +203,27 @@ export default function App() {
               key={dept}
               initial={{ rotate: -90, scale: 0.8 }}
               animate={{ rotate: 0, scale: 1 }}
-              className={cn("w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold text-xl", config.bg)}
+              className={cn("w-10 h-10 flex items-center justify-center font-bold text-xl", 
+                theme === 'brutal' ? "bg-black text-white border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] rounded-md" : 
+                theme === 'holographic' ? "bg-[rgba(255,255,255,0.05)] text-[var(--accent)] border border-[var(--accent)] shadow-[0_0_15px_rgba(var(--accent-rgb),0.3)] rounded-xl" :
+                cn("rounded-xl text-white", config.bg)
+              )}
             >
               {config.logo}
             </motion.div>
             <div>
-              <h1 className="text-xl font-black text-white leading-none tracking-tight">Engix</h1>
-              <p className={cn("text-[8px] font-bold uppercase tracking-widest mt-1", config.text)}>{t[dept]}</p>
+              <h1 className={cn("text-xl font-black leading-none tracking-tight", theme === 'brutal' ? "text-black" : "text-white")}>Engix</h1>
+              <p className={cn("text-[8px] font-bold uppercase tracking-widest mt-1", theme === 'brutal' ? "text-black/60" : config.text)}>{t[dept]}</p>
             </div>
           </motion.div>
           <button 
             onClick={toggleMenu}
-            className="btn-glass p-2.5"
+            className={cn(
+              "p-2.5 transition-all",
+              theme === 'brutal' ? "bg-white text-black border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none" : "btn-glass"
+            )}
           >
-            <Menu size={20} className="text-white" />
+            <Menu size={20} className={theme === 'brutal' ? "text-black" : "text-white"} />
           </button>
         </nav>
       )}
@@ -214,17 +244,31 @@ export default function App() {
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
               transition={{ type: 'spring', bounce: 0, duration: 0.4 }}
-              className="fixed inset-y-0 left-0 z-50 w-80 max-w-[80vw] glass border-r border-white/10 p-6 flex flex-col overflow-y-auto no-scrollbar"
+              className={cn(
+                "fixed inset-y-0 left-0 z-50 w-80 max-w-[80vw] p-6 flex flex-col overflow-y-auto no-scrollbar",
+                theme === 'holographic' ? "bg-black/80 backdrop-blur-2xl border-r border-[rgba(var(--accent-rgb),0.2)]" : "glass border-r border-white/10"
+              )}
             >
-              <div className="flex items-center justify-between mb-8">
+              <div className={cn(
+                "flex items-center justify-between mb-8 pb-4 border-b",
+                theme === 'brutal' ? "border-b-2 border-black" : 
+                theme === 'holographic' ? "border-[rgba(var(--accent-rgb),0.2)]" : "border-black"
+              )}>
                 <div className="flex items-center gap-3">
-                  <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold text-xl", config.bg)}>
+                  <div className={cn("w-10 h-10 flex items-center justify-center font-bold text-xl", 
+                    theme === 'brutal' ? "bg-black text-white border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] rounded-md" : 
+                    theme === 'holographic' ? "bg-[rgba(255,255,255,0.05)] text-[var(--accent)] border border-[var(--accent)] shadow-[0_0_15px_rgba(var(--accent-rgb),0.3)] rounded-xl" :
+                    cn("rounded-xl text-white", config.bg)
+                  )}>
                     {config.logo}
                   </div>
-                  <h2 className="text-2xl font-black text-white tracking-tight">Engix</h2>
+                  <h2 className={cn("text-2xl font-black tracking-tight", theme === 'brutal' ? "text-black" : "text-white")}>Engix</h2>
                 </div>
-                <button onClick={toggleMenu} className="btn-glass p-2 rounded-full">
-                  <X size={20} className="text-white" />
+                <button onClick={toggleMenu} className={cn(
+                  "p-2 rounded-full transition-all",
+                  theme === 'brutal' ? "bg-white text-black border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none" : "btn-glass"
+                )}>
+                  <X size={20} className={theme === 'brutal' ? "text-black" : "text-white"} />
                 </button>
               </div>
 
@@ -255,10 +299,10 @@ export default function App() {
                 <div className="space-y-3">
                   <p className="text-xs font-bold text-white/40 uppercase tracking-widest ml-1">{lang === 'bn' ? 'বিভাগ' : 'Department'}</p>
                   <div className="grid grid-cols-1 gap-2">
-                    <DeptButton active={dept === 'civil'} onClick={() => { setDept('civil'); saveUserSettings(lang, 'civil', theme); setIsMenuOpen(false); }} icon={<HardHat size={16} />} label={t.civil} color="emerald" />
-                    <DeptButton active={dept === 'mechanical'} onClick={() => { setDept('mechanical'); saveUserSettings(lang, 'mechanical', theme); setIsMenuOpen(false); }} icon={<Settings size={16} />} label={t.mechanical} color="orange" />
-                    <DeptButton active={dept === 'electrical'} onClick={() => { setDept('electrical'); saveUserSettings(lang, 'electrical', theme); setIsMenuOpen(false); }} icon={<Zap size={16} />} label={t.electrical} color="blue" />
-                    <DeptButton active={dept === 'computer'} onClick={() => { setDept('computer'); saveUserSettings(lang, 'computer', theme); setIsMenuOpen(false); }} icon={<Code size={16} />} label={t.computer} color="purple" />
+                    <DeptButton active={dept === 'civil'} onClick={() => { setDept('civil'); saveUserSettings(lang, 'civil', theme); setIsMenuOpen(false); }} icon={<HardHat size={16} />} label={t.civil} color="emerald" theme={theme} />
+                    <DeptButton active={dept === 'mechanical'} onClick={() => { setDept('mechanical'); saveUserSettings(lang, 'mechanical', theme); setIsMenuOpen(false); }} icon={<Settings size={16} />} label={t.mechanical} color="orange" theme={theme} />
+                    <DeptButton active={dept === 'electrical'} onClick={() => { setDept('electrical'); saveUserSettings(lang, 'electrical', theme); setIsMenuOpen(false); }} icon={<Zap size={16} />} label={t.electrical} color="blue" theme={theme} />
+                    <DeptButton active={dept === 'computer'} onClick={() => { setDept('computer'); saveUserSettings(lang, 'computer', theme); setIsMenuOpen(false); }} icon={<Code size={16} />} label={t.computer} color="purple" theme={theme} />
                   </div>
                 </div>
 
@@ -315,20 +359,20 @@ export default function App() {
                 transition={{ duration: 0.2 }}
                 className="flex-1 flex flex-col min-h-0 w-full h-full"
               >
-                {activeTab === 'home' && <HomeTab t={t} lang={lang} dept={dept} config={config} setActiveTab={setActiveTab} />}
-                {activeTab === 'survey' && <SurveyTab t={t} config={config} />}
-                {activeTab === 'land' && <LandTab t={t} lang={lang} config={config} />}
-                {activeTab === 'plot_planner' && <PlotPlannerTab t={t} config={config} />}
-                {activeTab === 'slab_design' && <SlabDesignTab t={t} lang={lang} config={config} />}
-                {activeTab === 'beam_design' && <BeamDesignTab t={t} lang={lang} config={config} />}
-                {activeTab === 'unit_converter' && <UnitConverterTab t={t} config={config} />}
-                {activeTab === 'estimating' && <EstimatingTab t={t} config={config} />}
-                {activeTab === 'materials' && <MaterialsTab t={t} lang={lang} config={config} />}
-                {activeTab === 'quiz' && <QuizTab t={t} lang={lang} config={config} dept={dept} />}
-                {activeTab === 'chat' && <ChatTab t={t} lang={lang} config={config} dept={dept} setActiveTab={setActiveTab} toggleMenu={toggleMenu} />}
+                {activeTab === 'home' && <HomeTab t={t} lang={lang} dept={dept} config={config} setActiveTab={setActiveTab} theme={theme} />}
+                {activeTab === 'survey' && <SurveyTab t={t} config={config} theme={theme} />}
+                {activeTab === 'land' && <LandTab t={t} lang={lang} config={config} theme={theme} />}
+                {activeTab === 'plot_planner' && <PlotPlannerTab t={t} config={config} theme={theme} />}
+                {activeTab === 'slab_design' && <SlabDesignTab t={t} lang={lang} config={config} theme={theme} />}
+                {activeTab === 'beam_design' && <BeamDesignTab t={t} lang={lang} config={config} theme={theme} />}
+                {activeTab === 'unit_converter' && <UnitConverterTab t={t} config={config} theme={theme} />}
+                {activeTab === 'estimating' && <EstimatingTab t={t} config={config} theme={theme} />}
+                {activeTab === 'materials' && <MaterialsTab t={t} lang={lang} config={config} theme={theme} />}
+                {activeTab === 'quiz' && <QuizTab t={t} lang={lang} config={config} dept={dept} theme={theme} />}
+                {activeTab === 'chat' && <ChatTab t={t} lang={lang} config={config} dept={dept} setActiveTab={setActiveTab} toggleMenu={toggleMenu} theme={theme} />}
                 {activeTab === 'settings' && <SettingsTab t={t} lang={lang} setLang={setLang} dept={dept} setDept={setDept} theme={theme} setTheme={setTheme} saveUserSettings={saveUserSettings} config={config} />}
                 {['mech_design', 'thermo', 'fluids', 'circuits', 'power', 'control', 'software', 'data', 'network'].includes(activeTab) && (
-                  <ComingSoonTab t={t} config={config} tabId={activeTab} />
+                  <ComingSoonTab t={t} config={config} tabId={activeTab} theme={theme} />
                 )}
               </motion.div>
             </AnimatePresence>
@@ -339,7 +383,47 @@ export default function App() {
   );
 }
 
-function MenuLink({ active, onClick, icon, label, color, isGrid }: { active: boolean, onClick: () => void, icon: React.ReactNode, label: string, color: string, isGrid?: boolean }) {
+function MenuLink({ active, onClick, icon, label, color, isGrid, theme }: { active: boolean, onClick: () => void, icon: React.ReactNode, label: string, color: string, isGrid?: boolean, theme?: string }) {
+  if (theme === 'brutal') {
+    return (
+      <button 
+        onClick={onClick}
+        className={cn(
+          "flex items-center gap-4 transition-all font-bold group border-2 border-black",
+          isGrid ? "flex-col justify-center p-4 text-center text-xs rounded-md" : "px-4 py-3 text-sm w-full rounded-md",
+          active 
+            ? "bg-black text-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] translate-x-[-2px] translate-y-[-2px]" 
+            : "bg-white text-black hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[-2px] hover:translate-y-[-2px]"
+        )}
+      >
+        <div className={cn("transition-transform group-hover:scale-110", active ? "text-white" : "text-black")}>
+          {icon}
+        </div>
+        <span className="truncate">{label}</span>
+      </button>
+    );
+  }
+
+  if (theme === 'holographic') {
+    return (
+      <button 
+        onClick={onClick}
+        className={cn(
+          "flex items-center gap-4 transition-all font-bold group border",
+          isGrid ? "flex-col justify-center p-4 text-center text-xs rounded-xl" : "px-4 py-3 text-sm w-full rounded-xl",
+          active 
+            ? "bg-[rgba(255,255,255,0.05)] text-[var(--accent)] border-[var(--accent)] shadow-[0_0_15px_rgba(var(--accent-rgb),0.3)]" 
+            : "bg-transparent text-white/60 border-white/10 hover:border-[var(--accent)] hover:text-[var(--accent)] hover:shadow-[0_0_10px_rgba(var(--accent-rgb),0.2)]"
+        )}
+      >
+        <div className={cn("transition-transform group-hover:scale-110", active ? "text-[var(--accent)]" : "text-white/60 group-hover:text-[var(--accent)]")}>
+          {icon}
+        </div>
+        <span className="truncate">{label}</span>
+      </button>
+    );
+  }
+
   return (
     <button 
       onClick={onClick}
@@ -362,7 +446,46 @@ function MenuLink({ active, onClick, icon, label, color, isGrid }: { active: boo
   );
 }
 
-function DeptButton({ active, onClick, icon, label, color }: { active: boolean, onClick: () => void, icon: React.ReactNode, label: string, color: string }) {
+function DeptButton({ active, onClick, icon, label, color, theme }: { active: boolean, onClick: () => void, icon: React.ReactNode, label: string, color: string, theme?: string }) {
+  if (theme === 'brutal') {
+    return (
+      <button 
+        onClick={onClick}
+        className={cn(
+          "flex items-center justify-center gap-2 p-3 rounded-md text-xs font-bold transition-all border-2 border-black",
+          active 
+            ? "bg-black text-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] translate-x-[-2px] translate-y-[-2px]" 
+            : "bg-white text-black hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[-2px] hover:translate-y-[-2px]"
+        )}
+      >
+        <span className="shrink-0">{icon}</span>
+        <span className="truncate">{label}</span>
+      </button>
+    );
+  }
+
+  if (theme === 'holographic') {
+    const holoColors: any = {
+      emerald: active ? 'bg-[rgba(0,255,156,0.1)] text-[#00FF9C] border-[#00FF9C] shadow-[0_0_15px_rgba(0,255,156,0.3)]' : 'bg-transparent text-white/60 border-white/10 hover:border-[#00FF9C] hover:text-[#00FF9C] hover:shadow-[0_0_10px_rgba(0,255,156,0.2)]',
+      orange: active ? 'bg-[rgba(255,122,0,0.1)] text-[#FF7A00] border-[#FF7A00] shadow-[0_0_15px_rgba(255,122,0,0.3)]' : 'bg-transparent text-white/60 border-white/10 hover:border-[#FF7A00] hover:text-[#FF7A00] hover:shadow-[0_0_10px_rgba(255,122,0,0.2)]',
+      blue: active ? 'bg-[rgba(0,212,255,0.1)] text-[#00D4FF] border-[#00D4FF] shadow-[0_0_15px_rgba(0,212,255,0.3)]' : 'bg-transparent text-white/60 border-white/10 hover:border-[#00D4FF] hover:text-[#00D4FF] hover:shadow-[0_0_10px_rgba(0,212,255,0.2)]',
+      purple: active ? 'bg-[rgba(176,38,255,0.1)] text-[#B026FF] border-[#B026FF] shadow-[0_0_15px_rgba(176,38,255,0.3)]' : 'bg-transparent text-white/60 border-white/10 hover:border-[#B026FF] hover:text-[#B026FF] hover:shadow-[0_0_10px_rgba(176,38,255,0.2)]',
+    };
+
+    return (
+      <button 
+        onClick={onClick}
+        className={cn(
+          "flex items-center justify-center gap-2 p-3 rounded-xl text-xs font-bold transition-all border",
+          holoColors[color]
+        )}
+      >
+        <span className="shrink-0">{icon}</span>
+        <span className="truncate">{label}</span>
+      </button>
+    );
+  }
+
   const colors: any = {
     emerald: active ? 'bg-emerald-600 text-white' : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border-emerald-100 dark:border-emerald-900/30',
     orange: active ? 'bg-orange-600 text-white' : 'bg-orange-50 dark:bg-orange-950/40 text-orange-600 dark:text-orange-400 border-orange-100 dark:border-orange-900/30',
@@ -386,7 +509,7 @@ function DeptButton({ active, onClick, icon, label, color }: { active: boolean, 
 
 // --- Tab Components ---
 
-function ChatTab({ t, lang, config, dept, setActiveTab, toggleMenu }: { t: any, lang: 'bn' | 'en', config: any, dept: string, setActiveTab: (tab: Tab) => void, toggleMenu: () => void }) {
+function ChatTab({ t, lang, config, dept, setActiveTab, toggleMenu, theme }: { t: any, lang: 'bn' | 'en', config: any, dept: string, setActiveTab: (tab: Tab) => void, toggleMenu: () => void, theme: string }) {
   const [messages, setMessages] = useState<{ role: 'user' | 'ai', content: string }[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -422,21 +545,61 @@ function ChatTab({ t, lang, config, dept, setActiveTab, toggleMenu }: { t: any, 
   return (
     <div className="flex-1 flex flex-col min-h-0 w-full bg-black/10 backdrop-blur-sm relative">
       {/* Minimal Header */}
-      <div className="shrink-0 flex items-center gap-3 p-4 border-b border-white/10 bg-white/5 backdrop-blur-md z-10">
-        <button onClick={() => setActiveTab('home')} className="p-2 glass rounded-full text-white hover:bg-white/20 transition-colors">
-          <ArrowLeft size={20} />
-        </button>
-        <div>
-          <h2 className="text-base font-bold text-white leading-tight">{t.chat || "AI Assistant"}</h2>
-          <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest leading-tight">{dept}</p>
+      {theme === 'holographic' ? (
+        <div className="shrink-0 flex flex-col items-center justify-center p-6 border-b bg-[rgba(255,255,255,0.02)] backdrop-blur-md z-10 relative overflow-hidden" style={{ borderColor: 'rgba(var(--accent-rgb), 0.2)' }}>
+          <button onClick={() => setActiveTab('home')} className="absolute left-4 top-1/2 -translate-y-1/2 p-2 rounded-full text-[var(--accent)] hover:bg-[rgba(255,255,255,0.05)] transition-colors border border-[var(--accent)] shadow-[0_0_10px_var(--accent)]">
+            <ArrowLeft size={20} />
+          </button>
+          
+          <div className="relative flex flex-col items-center justify-center">
+            <div className="absolute inset-0 bg-[var(--accent)] blur-[40px] opacity-20 rounded-full pulse-anim" />
+            <div className="w-12 h-12 rounded-full border-2 border-[var(--accent)] flex items-center justify-center shadow-[0_0_20px_var(--accent)] bg-black/50 mb-2 z-10">
+              <Cpu size={24} className="text-[var(--accent)] animate-pulse" />
+            </div>
+            <h2 className="text-lg font-black text-white tracking-[0.2em] uppercase z-10" style={{ textShadow: '0 0 10px var(--accent)' }}>
+              ⚡ ENGIX AI CORE
+            </h2>
+            <p className="text-[10px] font-bold text-[var(--accent)] uppercase tracking-[0.3em] mt-1 z-10">
+              {dept} // ONLINE
+            </p>
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className={cn(
+          "shrink-0 flex items-center gap-3 p-4 border-b z-10",
+          theme === 'brutal' ? "bg-white border-black border-b-2" : "border-white/10 bg-white/5 backdrop-blur-md"
+        )}>
+          <button 
+            onClick={() => setActiveTab('home')} 
+            className={cn(
+              "p-2 rounded-full transition-colors",
+              theme === 'brutal' ? "bg-white text-black border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]" : "glass text-white hover:bg-white/20"
+            )}
+          >
+            <ArrowLeft size={20} />
+          </button>
+          <div>
+            <h2 className={cn(
+              "text-base font-bold leading-tight",
+              theme === 'brutal' ? "text-black" : "text-white"
+            )}>{t.chat || "AI Assistant"}</h2>
+            <p className={cn(
+              "text-[10px] font-bold uppercase tracking-widest leading-tight",
+              theme === 'brutal' ? "text-black/60" : "text-white/40"
+            )}>{dept}</p>
+          </div>
+        </div>
+      )}
 
       {/* Chat Messages */}
       <div ref={scrollContainerRef} className="flex-1 min-h-0 overflow-y-auto p-4 md:p-6 space-y-6 no-scrollbar">
         {messages.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-center space-y-4 opacity-50">
-            <MessageSquare size={48} className="text-white/20" />
+            {theme === 'holographic' ? (
+              <Cpu size={48} className="text-[var(--accent)] animate-pulse" />
+            ) : (
+              <MessageSquare size={48} className="text-white/20" />
+            )}
             <p className="text-white/60 font-medium max-w-xs">
               {lang === 'bn' ? "আপনার ইঞ্জিনিয়ারিং প্রশ্ন জিজ্ঞাসা করুন..." : "Ask your engineering questions..."}
             </p>
@@ -453,13 +616,18 @@ function ChatTab({ t, lang, config, dept, setActiveTab, toggleMenu }: { t: any, 
               )}
             >
               <div className={cn(
-                "max-w-[85%] rounded-2xl p-4",
+                "max-w-[85%] p-4",
                 msg.role === 'user' 
-                  ? cn("text-white rounded-tr-sm", config.bg) 
-                  : "glass border border-white/10 text-white/90 rounded-tl-sm"
+                  ? cn("text-white rounded-2xl rounded-tr-sm user-msg", theme === 'glass' && config.bg) 
+                  : cn("text-white/90 ai-msg", theme === 'glass' && "glass border border-white/10 rounded-2xl rounded-tl-sm")
               )}>
                 {msg.role === 'ai' ? (
                   <div className="prose prose-invert prose-sm max-w-none">
+                    {theme === 'holographic' && (
+                      <div className="text-[10px] font-bold text-[var(--accent)] uppercase tracking-widest mb-2 border-b border-[rgba(255,255,255,0.1)] pb-1">
+                        &gt; SIGNAL RECEIVED
+                      </div>
+                    )}
                     <ReactMarkdown>{msg.content}</ReactMarkdown>
                   </div>
                 ) : (
@@ -475,16 +643,31 @@ function ChatTab({ t, lang, config, dept, setActiveTab, toggleMenu }: { t: any, 
             animate={{ opacity: 1, y: 0 }}
             className="flex justify-start"
           >
-            <div className="glass border border-white/10 rounded-2xl rounded-tl-sm p-4 flex items-center gap-3 text-white/60">
+            <div className={cn(
+              "p-4 flex items-center gap-3 text-white/60",
+              theme === 'holographic' ? "ai-msg" : "glass border border-white/10 rounded-2xl rounded-tl-sm"
+            )}>
               <Loader2 size={16} className="animate-spin" />
-              <span className="text-xs font-bold uppercase tracking-widest">Thinking...</span>
+              <span className="text-xs font-bold uppercase tracking-widest">
+                {theme === 'holographic' ? (
+                  <span className="animate-pulse text-[var(--accent)]">Processing data...</span>
+                ) : (
+                  "Thinking..."
+                )}
+              </span>
             </div>
           </motion.div>
         )}
       </div>
 
       {/* Input Area */}
-      <div className="shrink-0 p-4 bg-black/40 backdrop-blur-xl border-t border-white/10 z-10">
+      <div 
+        className={cn(
+          "shrink-0 p-4 z-10",
+          theme === 'holographic' ? "bg-black/80 border-t" : "bg-black/40 backdrop-blur-xl border-t border-white/10"
+        )}
+        style={theme === 'holographic' ? { borderColor: 'rgba(var(--accent-rgb), 0.2)' } : {}}
+      >
         <div className="relative flex items-center max-w-3xl mx-auto">
           <input
             type="text"
@@ -492,17 +675,23 @@ function ChatTab({ t, lang, config, dept, setActiveTab, toggleMenu }: { t: any, 
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSend()}
             placeholder={lang === 'bn' ? "মেসেজ লিখুন..." : "Type your message..."}
-            className="w-full glass border border-white/10 rounded-full py-4 pl-6 pr-14 focus:outline-none focus:ring-2 focus:ring-white/20 text-white placeholder:text-white/30 transition-all shadow-lg"
+            className={cn(
+              "w-full border border-white/10 rounded-full py-4 pl-6 pr-14 focus:outline-none focus:ring-2 focus:ring-white/20 text-white placeholder:text-white/30 transition-all shadow-lg",
+              theme === 'holographic' ? "input" : "glass"
+            )}
           />
           <button
             onClick={handleSend}
             disabled={!input.trim() || isLoading}
             className={cn(
-              "absolute right-2 p-2.5 rounded-full text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md",
-              config.bg
+              "absolute right-2 p-2.5 rounded-full transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md",
+              theme === 'holographic' ? "btn" : cn("text-white", config.bg)
             )}
           >
-            <Send size={18} className={cn(input.trim() && !isLoading && "translate-x-0.5 -translate-y-0.5")} />
+            <Send size={18} className={cn(
+              input.trim() && !isLoading && "translate-x-0.5 -translate-y-0.5",
+              theme === 'holographic' && "text-[var(--accent)]"
+            )} />
           </button>
         </div>
       </div>
@@ -513,25 +702,37 @@ function ChatTab({ t, lang, config, dept, setActiveTab, toggleMenu }: { t: any, 
 function SettingsTab({ t, lang, setLang, dept, setDept, theme, setTheme, saveUserSettings, config }: any) {
   return (
     <div className="space-y-6">
-      <div className="card-glass transition-colors duration-300">
+      <div className={cn(
+        "p-8 transition-all duration-300 border",
+        theme === 'holographic' ? "bg-black/40 backdrop-blur-3xl border-[rgba(var(--accent-rgb),0.2)] rounded-3xl shadow-[0_0_30px_rgba(var(--accent-rgb),0.1)]" : "card-glass rounded-3xl"
+      )}>
         <div className="flex items-center gap-4 mb-8">
-          <div className="p-4 rounded-2xl bg-white/5 text-white">
+          <div className={cn(
+            "p-4 rounded-2xl border",
+            theme === 'holographic' ? "bg-[rgba(var(--accent-rgb),0.1)] border-[rgba(var(--accent-rgb),0.2)] text-[var(--accent)]" : "bg-white/5 text-white border-white/10"
+          )}>
             <Settings size={28} />
           </div>
-          <h2 className="text-2xl font-black text-white">{t.settings}</h2>
+          <h2 className={cn(
+            "text-2xl font-black",
+            theme === 'holographic' ? "text-white" : "text-white"
+          )} style={theme === 'holographic' ? { textShadow: '0 0 10px var(--accent)' } : {}}>{t.settings}</h2>
         </div>
 
         <div className="space-y-8">
           <div className="space-y-4">
-            <p className="text-xs font-bold text-white/40 uppercase tracking-widest ml-1">{t.language}</p>
+            <p className={cn(
+              "text-xs font-bold uppercase tracking-widest ml-1",
+              theme === 'holographic' ? "text-[var(--accent)] opacity-60" : "text-white/40"
+            )}>{t.language}</p>
             <div className="grid grid-cols-2 gap-3">
               <button 
                 onClick={() => { setLang('bn'); saveUserSettings('bn', dept, theme); }}
                 className={cn(
                   "py-4 rounded-2xl font-bold border transition-all", 
                   lang === 'bn' 
-                    ? "bg-white/20 text-white border-white/30 scale-105" 
-                    : "glass border-white/10 text-white/40 hover:bg-white/10 hover:text-white"
+                    ? (theme === 'holographic' ? "bg-[rgba(var(--accent-rgb),0.2)] text-white border-[var(--accent)] shadow-[0_0_15px_rgba(var(--accent-rgb),0.3)] scale-105" : "bg-white/20 text-white border-white/30 scale-105")
+                    : (theme === 'holographic' ? "bg-black/40 border-[rgba(var(--accent-rgb),0.2)] text-[var(--accent)] opacity-60 hover:opacity-100" : "glass border-white/10 text-white/40 hover:bg-white/10 hover:text-white")
                 )}
               >
                 বাংলা
@@ -541,8 +742,8 @@ function SettingsTab({ t, lang, setLang, dept, setDept, theme, setTheme, saveUse
                 className={cn(
                   "py-4 rounded-2xl font-bold border transition-all", 
                   lang === 'en' 
-                    ? "bg-white/20 text-white border-white/30 scale-105" 
-                    : "glass border-white/10 text-white/40 hover:bg-white/10 hover:text-white"
+                    ? (theme === 'holographic' ? "bg-[rgba(var(--accent-rgb),0.2)] text-white border-[var(--accent)] shadow-[0_0_15px_rgba(var(--accent-rgb),0.3)] scale-105" : "bg-white/20 text-white border-white/30 scale-105")
+                    : (theme === 'holographic' ? "bg-black/40 border-[rgba(var(--accent-rgb),0.2)] text-[var(--accent)] opacity-60 hover:opacity-100" : "glass border-white/10 text-white/40 hover:bg-white/10 hover:text-white")
                 )}
               >
                 English
@@ -551,31 +752,58 @@ function SettingsTab({ t, lang, setLang, dept, setDept, theme, setTheme, saveUse
           </div>
 
           <div className="space-y-4">
-            <p className="text-xs font-bold text-white/40 uppercase tracking-widest ml-1">Theme</p>
-            <div className="flex glass p-1.5 rounded-2xl border border-white/10">
+            <p className={cn(
+              "text-xs font-bold uppercase tracking-widest ml-1",
+              theme === 'holographic' ? "text-[var(--accent)] opacity-60" : "text-white/40"
+            )}>Theme</p>
+            <div className="grid grid-cols-2 gap-3">
               <button 
-                onClick={() => { setTheme('light'); saveUserSettings(lang, dept, 'light'); }}
+                onClick={() => { setTheme('glass'); saveUserSettings(lang, dept, 'glass'); }}
                 className={cn(
-                  "flex-1 py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2", 
-                  theme === 'light' 
-                    ? "bg-white/20 text-white border border-white/30" 
-                    : "text-white/40 hover:text-white/60 hover:bg-white/5"
+                  "py-4 rounded-2xl font-bold border transition-all flex flex-col items-center justify-center gap-2", 
+                  theme === 'glass' 
+                    ? (theme === 'holographic' ? "bg-[rgba(var(--accent-rgb),0.2)] text-white border-[var(--accent)] shadow-[0_0_15px_rgba(var(--accent-rgb),0.3)] scale-105" : "bg-white/20 text-white border-white/30 scale-105")
+                    : (theme === 'holographic' ? "bg-black/40 border-[rgba(var(--accent-rgb),0.2)] text-[var(--accent)] opacity-60 hover:opacity-100" : "glass border-white/10 text-white/40 hover:bg-white/10 hover:text-white")
                 )}
               >
-                <Sun size={20} />
-                Light
+                <Layers size={24} />
+                Glass
               </button>
               <button 
-                onClick={() => { setTheme('dark'); saveUserSettings(lang, dept, 'dark'); }}
+                onClick={() => { setTheme('industrial'); saveUserSettings(lang, dept, 'industrial'); }}
                 className={cn(
-                  "flex-1 py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2", 
-                  theme === 'dark' 
-                    ? "bg-white/20 text-white border border-white/30" 
-                    : "text-white/40 hover:text-white/60 hover:bg-white/5"
+                  "py-4 rounded-2xl font-bold border transition-all flex flex-col items-center justify-center gap-2", 
+                  theme === 'industrial' 
+                    ? (theme === 'holographic' ? "bg-[rgba(var(--accent-rgb),0.2)] text-white border-[var(--accent)] shadow-[0_0_15px_rgba(var(--accent-rgb),0.3)] scale-105" : "bg-white/20 text-white border-white/30 scale-105")
+                    : (theme === 'holographic' ? "bg-black/40 border-[rgba(var(--accent-rgb),0.2)] text-[var(--accent)] opacity-60 hover:opacity-100" : "glass border-white/10 text-white/40 hover:bg-white/10 hover:text-white")
                 )}
               >
-                <Moon size={20} />
-                Dark
+                <Wrench size={24} />
+                Industrial
+              </button>
+              <button 
+                onClick={() => { setTheme('brutal'); saveUserSettings(lang, dept, 'brutal'); }}
+                className={cn(
+                  "py-4 rounded-2xl font-bold border transition-all flex flex-col items-center justify-center gap-2", 
+                  theme === 'brutal' 
+                    ? (theme === 'holographic' ? "bg-[rgba(var(--accent-rgb),0.2)] text-white border-[var(--accent)] shadow-[0_0_15px_rgba(var(--accent-rgb),0.3)] scale-105" : "bg-white/20 text-white border-white/30 scale-105")
+                    : (theme === 'holographic' ? "bg-black/40 border-[rgba(var(--accent-rgb),0.2)] text-[var(--accent)] opacity-60 hover:opacity-100" : "glass border-white/10 text-white/40 hover:bg-white/10 hover:text-white")
+                )}
+              >
+                <Zap size={24} />
+                Brutal
+              </button>
+              <button 
+                onClick={() => { setTheme('holographic'); saveUserSettings(lang, dept, 'holographic'); }}
+                className={cn(
+                  "py-4 rounded-2xl font-bold border transition-all flex flex-col items-center justify-center gap-2", 
+                  theme === 'holographic' 
+                    ? "bg-[rgba(var(--accent-rgb),0.2)] text-white border-[var(--accent)] shadow-[0_0_15px_rgba(var(--accent-rgb),0.3)] scale-105"
+                    : "bg-black/40 border-[rgba(var(--accent-rgb),0.2)] text-[var(--accent)] opacity-60 hover:opacity-100"
+                )}
+              >
+                <Cpu size={24} />
+                Holographic
               </button>
             </div>
           </div>
@@ -583,10 +811,10 @@ function SettingsTab({ t, lang, setLang, dept, setDept, theme, setTheme, saveUse
           <div className="space-y-4">
             <p className="text-xs font-bold text-white/40 uppercase tracking-widest">{t.deptSelect}</p>
             <div className="grid grid-cols-2 gap-3">
-              <DeptButton active={dept === 'civil'} onClick={() => { setDept('civil'); saveUserSettings(lang, 'civil', theme); }} icon={<HardHat size={16} />} label={t.civil} color="emerald" />
-              <DeptButton active={dept === 'mechanical'} onClick={() => { setDept('mechanical'); saveUserSettings(lang, 'mechanical', theme); }} icon={<Settings size={16} />} label={t.mechanical} color="orange" />
-              <DeptButton active={dept === 'electrical'} onClick={() => { setDept('electrical'); saveUserSettings(lang, 'electrical', theme); }} icon={<Zap size={16} />} label={t.electrical} color="blue" />
-              <DeptButton active={dept === 'computer'} onClick={() => { setDept('computer'); saveUserSettings(lang, 'computer', theme); }} icon={<Code size={16} />} label={t.computer} color="purple" />
+              <DeptButton active={dept === 'civil'} onClick={() => { setDept('civil'); saveUserSettings(lang, 'civil', theme); }} icon={<HardHat size={16} />} label={t.civil} color="emerald" theme={theme} />
+              <DeptButton active={dept === 'mechanical'} onClick={() => { setDept('mechanical'); saveUserSettings(lang, 'mechanical', theme); }} icon={<Settings size={16} />} label={t.mechanical} color="orange" theme={theme} />
+              <DeptButton active={dept === 'electrical'} onClick={() => { setDept('electrical'); saveUserSettings(lang, 'electrical', theme); }} icon={<Zap size={16} />} label={t.electrical} color="blue" theme={theme} />
+              <DeptButton active={dept === 'computer'} onClick={() => { setDept('computer'); saveUserSettings(lang, 'computer', theme); }} icon={<Code size={16} />} label={t.computer} color="purple" theme={theme} />
             </div>
           </div>
         </div>
@@ -595,7 +823,7 @@ function SettingsTab({ t, lang, setLang, dept, setDept, theme, setTheme, saveUse
   );
 }
 
-function PlotPlannerTab({ t, config }: { t: any, config: any }) {
+function PlotPlannerTab({ t, config, theme }: { t: any, config: any, theme: string }) {
   const [length, setLength] = useState<number>(40);
   const [width, setWidth] = useState<number>(60);
   const [roadWidth, setRoadWidth] = useState<number>(10);
@@ -626,44 +854,68 @@ function PlotPlannerTab({ t, config }: { t: any, config: any }) {
 
   return (
     <div className="space-y-6">
-      <div className="card-glass transition-colors duration-300">
-        <h2 className="text-2xl font-black mb-6 text-white">{t.plot_planner}</h2>
+      <div className={cn(
+        "p-8 transition-all duration-300 border",
+        theme === 'holographic' ? "bg-black/40 backdrop-blur-3xl border-[rgba(var(--accent-rgb),0.2)] rounded-3xl shadow-[0_0_30px_rgba(var(--accent-rgb),0.1)]" : "card-glass rounded-3xl"
+      )}>
+        <h2 className={cn(
+          "text-2xl font-black mb-6",
+          theme === 'holographic' ? "text-white" : "text-white"
+        )} style={theme === 'holographic' ? { textShadow: '0 0 15px var(--accent)' } : {}}>{t.plot_planner}</h2>
         
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-          <InputGroup label={t.length} value={length} onChange={setLength} />
-          <InputGroup label={t.width} value={width} onChange={setWidth} />
-          <InputGroup label={t.roadWidth} value={roadWidth} onChange={setRoadWidth} />
+          <InputGroup label={t.length} value={length} onChange={setLength} theme={theme} />
+          <InputGroup label={t.width} value={width} onChange={setWidth} theme={theme} />
+          <InputGroup label={t.roadWidth} value={roadWidth} onChange={setRoadWidth} theme={theme} />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           <div className="space-y-6">
-            <div className="glass p-6 border border-white/10">
-              <h3 className="font-bold mb-4 flex items-center gap-2 text-white">
-                <Info size={18} className="text-white" />
+            <div className={cn(
+              "p-6 border",
+              theme === 'holographic' ? "bg-[rgba(var(--accent-rgb),0.05)] border-[rgba(var(--accent-rgb),0.1)] rounded-2xl" : "glass rounded-2xl border-white/10"
+            )}>
+              <h3 className={cn(
+                "font-bold mb-4 flex items-center gap-2",
+                theme === 'holographic' ? "text-white" : "text-white"
+              )}>
+                <Info size={18} className={theme === 'holographic' ? "text-[var(--accent)]" : "text-white"} />
                 {t.setback}
               </h3>
               <div className="grid grid-cols-2 gap-4 text-sm">
-                <div><p className="text-white/40 font-medium uppercase tracking-widest text-[10px]">{t.front}</p><p className="font-bold text-white text-lg">{setbacks.front} ft</p></div>
-                <div><p className="text-white/40 font-medium uppercase tracking-widest text-[10px]">{t.back}</p><p className="font-bold text-white text-lg">{setbacks.back} ft</p></div>
-                <div><p className="text-white/40 font-medium uppercase tracking-widest text-[10px]">{t.side}</p><p className="font-bold text-white text-lg">{setbacks.side} ft</p></div>
+                <div><p className={cn("font-medium uppercase tracking-widest text-[10px]", theme === 'holographic' ? "text-[var(--accent)] opacity-60" : "text-white/40")}>{t.front}</p><p className="font-bold text-white text-lg">{setbacks.front} ft</p></div>
+                <div><p className={cn("font-medium uppercase tracking-widest text-[10px]", theme === 'holographic' ? "text-[var(--accent)] opacity-60" : "text-white/40")}>{t.back}</p><p className="font-bold text-white text-lg">{setbacks.back} ft</p></div>
+                <div><p className={cn("font-medium uppercase tracking-widest text-[10px]", theme === 'holographic' ? "text-[var(--accent)] opacity-60" : "text-white/40")}>{t.side}</p><p className="font-bold text-white text-lg">{setbacks.side} ft</p></div>
               </div>
             </div>
 
-            <div className="glass p-6 border border-white/10">
-              <h3 className="font-bold mb-4 flex items-center gap-2 text-white">
-                <Calculator size={18} className="text-white" />
+            <div className={cn(
+              "p-6 border",
+              theme === 'holographic' ? "bg-[rgba(var(--accent-rgb),0.05)] border-[rgba(var(--accent-rgb),0.1)] rounded-2xl" : "glass rounded-2xl border-white/10"
+            )}>
+              <h3 className={cn(
+                "font-bold mb-4 flex items-center gap-2",
+                theme === 'holographic' ? "text-white" : "text-white"
+              )}>
+                <Calculator size={18} className={theme === 'holographic' ? "text-[var(--accent)]" : "text-white"} />
                 {t.mgc}
               </h3>
-              <p className="text-4xl font-black mb-1 text-white tracking-tighter">{mgc.toFixed(1)}%</p>
-              <p className="text-[10px] text-white/40 font-bold uppercase tracking-widest">{t.buildableArea}: {buildableArea} sq ft</p>
+              <p className={cn("text-4xl font-black mb-1 tracking-tighter", theme === 'holographic' ? "text-white" : "text-white")}>{mgc.toFixed(1)}%</p>
+              <p className={cn("text-[10px] font-bold uppercase tracking-widest", theme === 'holographic' ? "text-[var(--accent)] opacity-60" : "text-white/40")}>{t.buildableArea}: {buildableArea} sq ft</p>
             </div>
 
-            <div className="glass p-6 border border-white/10">
-              <h3 className="font-bold mb-2 flex items-center gap-2 text-white">
+            <div className={cn(
+              "p-6 border",
+              theme === 'holographic' ? "bg-[rgba(var(--accent-rgb),0.05)] border-[rgba(var(--accent-rgb),0.1)] rounded-2xl" : "glass rounded-2xl border-white/10"
+            )}>
+              <h3 className={cn(
+                "font-bold mb-2 flex items-center gap-2",
+                theme === 'holographic' ? "text-white" : "text-white"
+              )}>
                 <Zap size={18} className="text-amber-400" />
                 {t.advice}
               </h3>
-              <p className="text-sm text-white/60 leading-relaxed italic">
+              <p className={cn("text-sm leading-relaxed italic", theme === 'holographic' ? "text-white/80" : "text-white/60")}>
                 {mgc > 65 
                   ? "আপনার গ্রাউন্ড কভারেজ অনেক বেশি। পর্যাপ্ত আলো-বাতাসের জন্য সেটব্যাক বাড়ানো উচিত।" 
                   : "আপনার প্ল্যানটি স্ট্যান্ডার্ড রুলস অনুযায়ী সঠিক আছে।"}
@@ -673,15 +925,21 @@ function PlotPlannerTab({ t, config }: { t: any, config: any }) {
           </div>
 
           <div className="flex flex-col items-center justify-center">
-            <p className="text-xs font-bold text-white/40 uppercase tracking-widest mb-4 ml-1">{t.plotMap}</p>
-            <div className="relative border-2 border-white/10 glass rounded-xl overflow-hidden" style={{ width: '200px', height: '250px' }}>
+            <p className={cn("text-xs font-bold uppercase tracking-widest mb-4 ml-1", theme === 'holographic' ? "text-[var(--accent)] opacity-60" : "text-white/40")}>{t.plotMap}</p>
+            <div className={cn(
+              "relative border-2 rounded-xl overflow-hidden",
+              theme === 'holographic' ? "border-[rgba(var(--accent-rgb),0.2)] bg-black/40" : "border-white/10 glass"
+            )} style={{ width: '200px', height: '250px' }}>
               {/* Plot Boundary */}
-              <div className="absolute inset-0 border-4 border-white/10 opacity-20" />
+              <div className={cn("absolute inset-0 border-4 opacity-20", theme === 'holographic' ? "border-[var(--accent)]" : "border-white/10")} />
               
               {/* Buildable Area */}
               <motion.div 
                 layout
-                className={cn("absolute border-2 border-dashed bg-white/10 backdrop-blur-md", config.border)}
+                className={cn(
+                  "absolute border-2 border-dashed backdrop-blur-md", 
+                  theme === 'holographic' ? "border-[var(--accent)] bg-[rgba(var(--accent-rgb),0.2)]" : cn("bg-white/10", config.border)
+                )}
                 style={{
                   top: `${(setbacks.front / length) * 100}%`,
                   bottom: `${(setbacks.back / length) * 100}%`,
@@ -690,12 +948,12 @@ function PlotPlannerTab({ t, config }: { t: any, config: any }) {
                 }}
               >
                 <div className="w-full h-full flex items-center justify-center">
-                  <span className="text-[10px] font-black uppercase tracking-tighter text-white opacity-40">Building</span>
+                  <span className={cn("text-[10px] font-black uppercase tracking-tighter", theme === 'holographic' ? "text-white opacity-60" : "text-white opacity-40")}>Building</span>
                 </div>
               </motion.div>
 
               {/* Labels */}
-              <div className="absolute top-1 left-1/2 -translate-x-1/2 text-[8px] font-bold text-white/40 uppercase tracking-widest">ROAD</div>
+              <div className={cn("absolute top-1 left-1/2 -translate-x-1/2 text-[8px] font-bold uppercase tracking-widest", theme === 'holographic' ? "text-[var(--accent)]" : "text-white/40")}>ROAD</div>
             </div>
           </div>
         </div>
@@ -704,21 +962,29 @@ function PlotPlannerTab({ t, config }: { t: any, config: any }) {
   );
 }
 
-function InputGroup({ label, value, onChange }: { label: string, value: number, onChange: (v: number) => void }) {
+function InputGroup({ label, value, onChange, theme }: { label: string, value: number, onChange: (v: number) => void, theme?: string }) {
   return (
     <div className="space-y-2">
-      <label className="text-xs font-bold text-white/40 uppercase tracking-widest ml-1">{label}</label>
+      <label className={cn(
+        "text-xs font-bold uppercase tracking-widest ml-1",
+        theme === 'holographic' ? "text-[var(--accent)] opacity-60" : "text-white/40"
+      )}>{label}</label>
       <input 
         type="number" 
         value={value} 
         onChange={(e) => onChange(Number(e.target.value))}
-        className="w-full glass border border-white/10 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-white/20 font-bold text-white transition-all"
+        className={cn(
+          "w-full border rounded-xl p-3 focus:outline-none focus:ring-2 font-bold text-white transition-all",
+          theme === 'holographic' 
+            ? "bg-black/40 border-[rgba(var(--accent-rgb),0.2)] focus:ring-[rgba(var(--accent-rgb),0.3)] focus:border-[var(--accent)]" 
+            : "glass border-white/10 focus:ring-white/20"
+        )}
       />
     </div>
   );
 }
 
-function BeamDesignTab({ t, config, lang }: { t: any, config: any, lang: 'bn' | 'en' }) {
+function BeamDesignTab({ t, config, lang, theme }: { t: any, config: any, lang: 'bn' | 'en', theme: string }) {
   const [length, setLength] = useState<number>(10);
   const [supportType, setSupportType] = useState<'simply' | 'cantilever'>('simply');
   const [pointLoads, setPointLoads] = useState<{ id: string, pos: number, mag: number }[]>([
@@ -857,23 +1123,38 @@ function BeamDesignTab({ t, config, lang }: { t: any, config: any, lang: 'bn' | 
 
   return (
     <div className="space-y-6">
-      <div className="card-glass transition-colors duration-300">
-        <h2 className="text-2xl font-black mb-6 flex items-center gap-3 text-white">
-          <Construction className="text-white" size={28} />
+      <div className={cn(
+        "p-8 transition-all duration-300 border",
+        theme === 'holographic' ? "bg-black/40 backdrop-blur-3xl border-[rgba(var(--accent-rgb),0.2)] rounded-3xl shadow-[0_0_30px_rgba(var(--accent-rgb),0.1)]" : "card-glass rounded-3xl"
+      )}>
+        <h2 className={cn(
+          "text-2xl font-black mb-6 flex items-center gap-3",
+          theme === 'holographic' ? "text-white" : "text-white"
+        )} style={theme === 'holographic' ? { textShadow: '0 0 15px var(--accent)' } : {}}>
+          <Construction className={theme === 'holographic' ? "text-[var(--accent)]" : "text-white"} size={28} />
           {t.beam_design}
         </h2>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="space-y-6">
-            <div className="glass p-6 border border-white/10">
-              <h3 className="font-bold mb-4 text-white flex items-center gap-2">
-                <Ruler size={18} className="text-white" />
+            <div className={cn(
+              "p-6 border",
+              theme === 'holographic' ? "bg-[rgba(var(--accent-rgb),0.05)] border-[rgba(var(--accent-rgb),0.1)] rounded-2xl" : "glass rounded-2xl border-white/10"
+            )}>
+              <h3 className={cn(
+                "font-bold mb-4 flex items-center gap-2",
+                theme === 'holographic' ? "text-white" : "text-white"
+              )}>
+                <Ruler size={18} className={theme === 'holographic' ? "text-[var(--accent)]" : "text-white"} />
                 {lang === 'bn' ? 'বিম প্যারামিটার' : 'Beam Parameters'}
               </h3>
               <div className="space-y-4">
-                <InputGroup label={lang === 'bn' ? 'বিম দৈর্ঘ্য (ফুট)' : 'Beam Length (ft)'} value={length} onChange={setLength} />
+                <InputGroup label={lang === 'bn' ? 'বিম দৈর্ঘ্য (ফুট)' : 'Beam Length (ft)'} value={length} onChange={setLength} theme={theme} />
                 <div className="space-y-2">
-                  <label className="text-xs font-black text-white/40 uppercase tracking-widest ml-1">
+                  <label className={cn(
+                    "text-xs font-black uppercase tracking-widest ml-1",
+                    theme === 'holographic' ? "text-[var(--accent)] opacity-60" : "text-white/40"
+                  )}>
                     {lang === 'bn' ? 'সাপোর্ট টাইপ' : 'Support Type'}
                   </label>
                   <div className="grid grid-cols-2 gap-2">
@@ -882,8 +1163,8 @@ function BeamDesignTab({ t, config, lang }: { t: any, config: any, lang: 'bn' | 
                       className={cn(
                         "py-2 px-4 rounded-xl text-sm font-bold border transition-all",
                         supportType === 'simply' 
-                          ? "bg-white/20 text-white border-white/30" 
-                          : "glass text-white/40 border-white/10 hover:bg-white/10 hover:text-white"
+                          ? (theme === 'holographic' ? "bg-[rgba(var(--accent-rgb),0.2)] text-white border-[var(--accent)] shadow-[0_0_10px_rgba(var(--accent-rgb),0.3)]" : "bg-white/20 text-white border-white/30")
+                          : (theme === 'holographic' ? "bg-black/40 border-[rgba(var(--accent-rgb),0.2)] text-[var(--accent)] opacity-60 hover:opacity-100" : "glass text-white/40 border-white/10 hover:bg-white/10 hover:text-white")
                       )}
                     >
                       {lang === 'bn' ? 'সিম্পলি সাপোর্টেড' : 'Simply Supported'}
@@ -893,8 +1174,8 @@ function BeamDesignTab({ t, config, lang }: { t: any, config: any, lang: 'bn' | 
                       className={cn(
                         "py-2 px-4 rounded-xl text-sm font-bold border transition-all",
                         supportType === 'cantilever' 
-                          ? "bg-white/20 text-white border-white/30" 
-                          : "glass text-white/40 border-white/10 hover:bg-white/10 hover:text-white"
+                          ? (theme === 'holographic' ? "bg-[rgba(var(--accent-rgb),0.2)] text-white border-[var(--accent)] shadow-[0_0_10px_rgba(var(--accent-rgb),0.3)]" : "bg-white/20 text-white border-white/30")
+                          : (theme === 'holographic' ? "bg-black/40 border-[rgba(var(--accent-rgb),0.2)] text-[var(--accent)] opacity-60 hover:opacity-100" : "glass text-white/40 border-white/10 hover:bg-white/10 hover:text-white")
                       )}
                     >
                       {lang === 'bn' ? 'ক্যান্টিলিভার' : 'Cantilever'}
@@ -904,42 +1185,72 @@ function BeamDesignTab({ t, config, lang }: { t: any, config: any, lang: 'bn' | 
               </div>
             </div>
 
-            <div className="glass p-6 border border-white/10">
+            <div className={cn(
+              "p-6 border",
+              theme === 'holographic' ? "bg-[rgba(var(--accent-rgb),0.05)] border-[rgba(var(--accent-rgb),0.1)] rounded-2xl" : "glass rounded-2xl border-white/10"
+            )}>
               <div className="flex justify-between items-center mb-4">
-                <h3 className="font-bold text-white flex items-center gap-2">
-                  <Activity size={18} className="text-white" />
+                <h3 className={cn(
+                  "font-bold flex items-center gap-2",
+                  theme === 'holographic' ? "text-white" : "text-white"
+                )}>
+                  <Activity size={18} className={theme === 'holographic' ? "text-[var(--accent)]" : "text-white"} />
                   {lang === 'bn' ? 'পয়েন্ট লোড' : 'Point Loads'}
                 </h3>
-                <button onClick={addPointLoad} className="p-1.5 rounded-lg glass text-white border border-white/20 hover:bg-white/20 transition-all">
+                <button onClick={addPointLoad} className={cn(
+                  "p-1.5 rounded-lg transition-all border",
+                  theme === 'holographic' ? "bg-[rgba(var(--accent-rgb),0.1)] border-[rgba(var(--accent-rgb),0.2)] text-[var(--accent)] hover:bg-[var(--accent)] hover:text-black" : "glass text-white border-white/20 hover:bg-white/20"
+                )}>
                   <Plus size={16} />
                 </button>
               </div>
               <div className="space-y-3">
                 {pointLoads.map(p => (
-                  <div key={p.id} className="glass p-3 space-y-2 border border-white/10">
+                  <div key={p.id} className={cn(
+                    "p-3 space-y-2 border",
+                    theme === 'holographic' ? "bg-black/20 border-[rgba(var(--accent-rgb),0.1)] rounded-xl" : "glass rounded-xl border-white/10"
+                  )}>
                     <div className="flex justify-between items-center">
-                      <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">Load {p.id.substr(0, 3)}</span>
-                      <button onClick={() => removePointLoad(p.id)} className="text-white/40 hover:text-white transition-colors">
+                      <span className={cn(
+                        "text-[10px] font-black uppercase tracking-widest",
+                        theme === 'holographic' ? "text-[var(--accent)] opacity-40" : "text-white/40"
+                      )}>Load {p.id.substr(0, 3)}</span>
+                      <button onClick={() => removePointLoad(p.id)} className={cn(
+                        "transition-colors",
+                        theme === 'holographic' ? "text-[var(--accent)] opacity-40 hover:opacity-100" : "text-white/40 hover:text-white"
+                      )}>
                         <Trash2 size={14} />
                       </button>
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       <div className="space-y-1">
-                        <label className="text-[10px] text-white/40 uppercase">Pos (ft)</label>
+                        <label className={cn(
+                          "text-[10px] uppercase",
+                          theme === 'holographic' ? "text-[var(--accent)] opacity-40" : "text-white/40"
+                        )}>Pos (ft)</label>
                         <input 
                           type="number" 
                           value={p.pos} 
                           onChange={(e) => updatePointLoad(p.id, 'pos', Number(e.target.value))}
-                          className="w-full glass border border-white/10 rounded-lg px-2 py-1 text-sm font-bold text-white focus:outline-none focus:ring-1 focus:ring-white/20"
+                          className={cn(
+                            "w-full rounded-lg px-2 py-1 text-sm font-bold text-white focus:outline-none transition-all border",
+                            theme === 'holographic' ? "bg-black/40 border-[rgba(var(--accent-rgb),0.2)] focus:border-[var(--accent)]" : "glass border-white/10 focus:ring-1 focus:ring-white/20"
+                          )}
                         />
                       </div>
                       <div className="space-y-1">
-                        <label className="text-[10px] text-white/40 uppercase">Mag (kip)</label>
+                        <label className={cn(
+                          "text-[10px] uppercase",
+                          theme === 'holographic' ? "text-[var(--accent)] opacity-40" : "text-white/40"
+                        )}>Mag (kip)</label>
                         <input 
                           type="number" 
                           value={p.mag} 
                           onChange={(e) => updatePointLoad(p.id, 'mag', Number(e.target.value))}
-                          className="w-full glass border border-white/10 rounded-lg px-2 py-1 text-sm font-bold text-white focus:outline-none focus:ring-1 focus:ring-white/20"
+                          className={cn(
+                            "w-full rounded-lg px-2 py-1 text-sm font-bold text-white focus:outline-none transition-all border",
+                            theme === 'holographic' ? "bg-black/40 border-[rgba(var(--accent-rgb),0.2)] focus:border-[var(--accent)]" : "glass border-white/10 focus:ring-1 focus:ring-white/20"
+                          )}
                         />
                       </div>
                     </div>
@@ -948,51 +1259,87 @@ function BeamDesignTab({ t, config, lang }: { t: any, config: any, lang: 'bn' | 
               </div>
             </div>
 
-            <div className="glass p-6 border border-white/10">
+            <div className={cn(
+              "p-6 border",
+              theme === 'holographic' ? "bg-[rgba(var(--accent-rgb),0.05)] border-[rgba(var(--accent-rgb),0.1)] rounded-2xl" : "glass rounded-2xl border-white/10"
+            )}>
               <div className="flex justify-between items-center mb-4">
-                <h3 className="font-bold text-white flex items-center gap-2">
-                  <Layers size={18} className="text-white" />
+                <h3 className={cn(
+                  "font-bold flex items-center gap-2",
+                  theme === 'holographic' ? "text-white" : "text-white"
+                )}>
+                  <Layers size={18} className={theme === 'holographic' ? "text-[var(--accent)]" : "text-white"} />
                   {lang === 'bn' ? 'UDL লোড' : 'UDL Loads'}
                 </h3>
-                <button onClick={addUDL} className="p-1.5 rounded-lg glass text-white border border-white/20 hover:bg-white/20 transition-all">
+                <button onClick={addUDL} className={cn(
+                  "p-1.5 rounded-lg transition-all border",
+                  theme === 'holographic' ? "bg-[rgba(var(--accent-rgb),0.1)] border-[rgba(var(--accent-rgb),0.2)] text-[var(--accent)] hover:bg-[var(--accent)] hover:text-black" : "glass text-white border-white/20 hover:bg-white/20"
+                )}>
                   <Plus size={16} />
                 </button>
               </div>
               <div className="space-y-3">
                 {udls.map(u => (
-                  <div key={u.id} className="glass p-3 space-y-2 border border-white/10">
+                  <div key={u.id} className={cn(
+                    "p-3 space-y-2 border",
+                    theme === 'holographic' ? "bg-black/20 border-[rgba(var(--accent-rgb),0.1)] rounded-xl" : "glass rounded-xl border-white/10"
+                  )}>
                     <div className="flex justify-between items-center">
-                      <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">UDL {u.id.substr(0, 3)}</span>
-                      <button onClick={() => removeUDL(u.id)} className="text-white/40 hover:text-white transition-colors">
+                      <span className={cn(
+                        "text-[10px] font-black uppercase tracking-widest",
+                        theme === 'holographic' ? "text-[var(--accent)] opacity-40" : "text-white/40"
+                      )}>UDL {u.id.substr(0, 3)}</span>
+                      <button onClick={() => removeUDL(u.id)} className={cn(
+                        "transition-colors",
+                        theme === 'holographic' ? "text-[var(--accent)] opacity-40 hover:opacity-100" : "text-white/40 hover:text-white"
+                      )}>
                         <Trash2 size={14} />
                       </button>
                     </div>
                     <div className="grid grid-cols-3 gap-2">
                       <div className="space-y-1">
-                        <label className="text-[10px] text-white/40 uppercase">Start</label>
+                        <label className={cn(
+                          "text-[10px] uppercase",
+                          theme === 'holographic' ? "text-[var(--accent)] opacity-40" : "text-white/40"
+                        )}>Start</label>
                         <input 
                           type="number" 
                           value={u.start} 
                           onChange={(e) => updateUDL(u.id, 'start', Number(e.target.value))}
-                          className="w-full glass border border-white/10 rounded-lg px-2 py-1 text-sm font-bold text-white focus:outline-none focus:ring-1 focus:ring-white/20"
+                          className={cn(
+                            "w-full rounded-lg px-2 py-1 text-sm font-bold text-white focus:outline-none transition-all border",
+                            theme === 'holographic' ? "bg-black/40 border-[rgba(var(--accent-rgb),0.2)] focus:border-[var(--accent)]" : "glass border-white/10 focus:ring-1 focus:ring-white/20"
+                          )}
                         />
                       </div>
                       <div className="space-y-1">
-                        <label className="text-[10px] text-white/40 uppercase">End</label>
+                        <label className={cn(
+                          "text-[10px] uppercase",
+                          theme === 'holographic' ? "text-[var(--accent)] opacity-40" : "text-white/40"
+                        )}>End</label>
                         <input 
                           type="number" 
                           value={u.end} 
                           onChange={(e) => updateUDL(u.id, 'end', Number(e.target.value))}
-                          className="w-full glass border border-white/10 rounded-lg px-2 py-1 text-sm font-bold text-white focus:outline-none focus:ring-1 focus:ring-white/20"
+                          className={cn(
+                            "w-full rounded-lg px-2 py-1 text-sm font-bold text-white focus:outline-none transition-all border",
+                            theme === 'holographic' ? "bg-black/40 border-[rgba(var(--accent-rgb),0.2)] focus:border-[var(--accent)]" : "glass border-white/10 focus:ring-1 focus:ring-white/20"
+                          )}
                         />
                       </div>
                       <div className="space-y-1">
-                        <label className="text-[10px] text-white/40 uppercase">w (k/ft)</label>
+                        <label className={cn(
+                          "text-[10px] uppercase",
+                          theme === 'holographic' ? "text-[var(--accent)] opacity-40" : "text-white/40"
+                        )}>w (k/ft)</label>
                         <input 
                           type="number" 
                           value={u.mag} 
                           onChange={(e) => updateUDL(u.id, 'mag', Number(e.target.value))}
-                          className="w-full glass border border-white/10 rounded-lg px-2 py-1 text-sm font-bold text-white focus:outline-none focus:ring-1 focus:ring-white/20"
+                          className={cn(
+                            "w-full rounded-lg px-2 py-1 text-sm font-bold text-white focus:outline-none transition-all border",
+                            theme === 'holographic' ? "bg-black/40 border-[rgba(var(--accent-rgb),0.2)] focus:border-[var(--accent)]" : "glass border-white/10 focus:ring-1 focus:ring-white/20"
+                          )}
                         />
                       </div>
                     </div>
@@ -1003,12 +1350,21 @@ function BeamDesignTab({ t, config, lang }: { t: any, config: any, lang: 'bn' | 
           </div>
 
           <div className="lg:col-span-2 space-y-8">
-            <div className="glass p-6 overflow-hidden">
-              <h3 className="font-bold mb-6 flex items-center gap-2 text-white">
-                <LayoutGrid size={18} className="text-white" />
+            <div className={cn(
+              "p-6 overflow-hidden border",
+              theme === 'holographic' ? "bg-black/40 backdrop-blur-3xl border-[rgba(var(--accent-rgb),0.2)] rounded-3xl" : "glass rounded-3xl border-white/10"
+            )}>
+              <h3 className={cn(
+                "font-bold mb-6 flex items-center gap-2",
+                theme === 'holographic' ? "text-white" : "text-white"
+              )}>
+                <LayoutGrid size={18} className={theme === 'holographic' ? "text-[var(--accent)]" : "text-white"} />
                 {lang === 'bn' ? 'বিম এবং লোড ডায়াগ্রাম' : 'Beam & Load Diagram'}
               </h3>
-              <div className="relative w-full h-[180px] bg-white/5 rounded-2xl border border-white/10 flex items-center justify-center p-4">
+              <div className={cn(
+                "relative w-full h-[180px] rounded-2xl border flex items-center justify-center p-4",
+                theme === 'holographic' ? "bg-black/40 border-[rgba(var(--accent-rgb),0.2)]" : "bg-white/5 border-white/10"
+              )}>
                 <svg viewBox="0 0 100 40" className="w-full h-full overflow-visible">
                   {/* Beam */}
                   <rect x="10" y="18" width="80" height="2" fill="#444" rx="1" />
@@ -1059,12 +1415,21 @@ function BeamDesignTab({ t, config, lang }: { t: any, config: any, lang: 'bn' | 
               </div>
             </div>
 
-            <div className="glass p-6 border border-white/10">
-              <h3 className="font-bold mb-6 flex items-center gap-2 text-white">
-                <Activity size={18} className="text-white" />
+            <div className={cn(
+              "p-6 border",
+              theme === 'holographic' ? "bg-black/40 backdrop-blur-3xl border-[rgba(var(--accent-rgb),0.2)] rounded-3xl" : "glass rounded-3xl border-white/10"
+            )}>
+              <h3 className={cn(
+                "font-bold mb-6 flex items-center gap-2",
+                theme === 'holographic' ? "text-white" : "text-white"
+              )}>
+                <Activity size={18} className={theme === 'holographic' ? "text-[var(--accent)]" : "text-white"} />
                 {lang === 'bn' ? 'Shear Force Diagram (SFD)' : 'Shear Force Diagram (SFD)'}
               </h3>
-              <div className="h-[250px] w-full glass border border-white/10 rounded-2xl p-4">
+              <div className={cn(
+                "h-[250px] w-full border rounded-2xl p-4",
+                theme === 'holographic' ? "bg-black/40 border-[rgba(var(--accent-rgb),0.2)]" : "glass border-white/10"
+              )}>
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={data}>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
@@ -1078,12 +1443,21 @@ function BeamDesignTab({ t, config, lang }: { t: any, config: any, lang: 'bn' | 
               </div>
             </div>
 
-            <div className="glass p-6 border border-white/10">
-              <h3 className="font-bold mb-6 flex items-center gap-2 text-white">
-                <Activity size={18} className="text-white" />
+            <div className={cn(
+              "p-6 border",
+              theme === 'holographic' ? "bg-black/40 backdrop-blur-3xl border-[rgba(var(--accent-rgb),0.2)] rounded-3xl" : "glass rounded-3xl border-white/10"
+            )}>
+              <h3 className={cn(
+                "font-bold mb-6 flex items-center gap-2",
+                theme === 'holographic' ? "text-white" : "text-white"
+              )}>
+                <Activity size={18} className={theme === 'holographic' ? "text-[var(--accent)]" : "text-white"} />
                 {lang === 'bn' ? 'Bending Moment Diagram (BMD)' : 'Bending Moment Diagram (BMD)'}
               </h3>
-              <div className="h-[250px] w-full glass border border-white/10 rounded-2xl p-4">
+              <div className={cn(
+                "h-[250px] w-full border rounded-2xl p-4",
+                theme === 'holographic' ? "bg-black/40 border-[rgba(var(--accent-rgb),0.2)]" : "glass border-white/10"
+              )}>
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={data}>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
@@ -1098,24 +1472,48 @@ function BeamDesignTab({ t, config, lang }: { t: any, config: any, lang: 'bn' | 
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-              <div className="glass p-4 border border-white/10">
-                <p className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-1">R1 (Left)</p>
+              <div className={cn(
+                "p-4 border",
+                theme === 'holographic' ? "bg-black/40 backdrop-blur-3xl border-[rgba(var(--accent-rgb),0.2)] rounded-2xl" : "glass rounded-2xl border-white/10"
+              )}>
+                <p className={cn(
+                  "text-[10px] font-black uppercase tracking-widest mb-1",
+                  theme === 'holographic' ? "text-[var(--accent)] opacity-40" : "text-white/40"
+                )}>R1 (Left)</p>
                 <p className="text-xl font-black text-white">{r1.toFixed(2)} kip</p>
               </div>
               {supportType === 'simply' && (
-                <div className="glass p-4 border border-white/10">
-                  <p className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-1">R2 (Right)</p>
+                <div className={cn(
+                  "p-4 border",
+                  theme === 'holographic' ? "bg-black/40 backdrop-blur-3xl border-[rgba(var(--accent-rgb),0.2)] rounded-2xl" : "glass rounded-2xl border-white/10"
+                )}>
+                  <p className={cn(
+                    "text-[10px] font-black uppercase tracking-widest mb-1",
+                    theme === 'holographic' ? "text-[var(--accent)] opacity-40" : "text-white/40"
+                  )}>R2 (Right)</p>
                   <p className="text-xl font-black text-white">{r2.toFixed(2)} kip</p>
                 </div>
               )}
               {supportType === 'cantilever' && (
-                <div className="glass p-4 border border-white/10">
-                  <p className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-1">M1 (Fixed)</p>
+                <div className={cn(
+                  "p-4 border",
+                  theme === 'holographic' ? "bg-black/40 backdrop-blur-3xl border-[rgba(var(--accent-rgb),0.2)] rounded-2xl" : "glass rounded-2xl border-white/10"
+                )}>
+                  <p className={cn(
+                    "text-[10px] font-black uppercase tracking-widest mb-1",
+                    theme === 'holographic' ? "text-[var(--accent)] opacity-40" : "text-white/40"
+                  )}>M1 (Fixed)</p>
                   <p className="text-xl font-black text-red-500">{m1.toFixed(2)} k-ft</p>
                 </div>
               )}
-              <div className="glass p-4 border border-white/10">
-                <p className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-1">Max Moment</p>
+              <div className={cn(
+                "p-4 border",
+                theme === 'holographic' ? "bg-black/40 backdrop-blur-3xl border-[rgba(var(--accent-rgb),0.2)] rounded-2xl" : "glass rounded-2xl border-white/10"
+              )}>
+                <p className={cn(
+                  "text-[10px] font-black uppercase tracking-widest mb-1",
+                  theme === 'holographic' ? "text-[var(--accent)] opacity-40" : "text-white/40"
+                )}>Max Moment</p>
                 <p className="text-xl font-black text-red-500">
                   {Math.max(...data.map(d => Math.abs(d.moment))).toFixed(2)} k-ft
                 </p>
@@ -1128,7 +1526,7 @@ function BeamDesignTab({ t, config, lang }: { t: any, config: any, lang: 'bn' | 
   );
 }
 
-function SlabDesignTab({ t, config, lang }: { t: any, config: any, lang: 'bn' | 'en' }) {
+function SlabDesignTab({ t, config, lang, theme }: { t: any, config: any, lang: 'bn' | 'en', theme: string }) {
   const [lx, setLx] = useState<number>(12);
   const [ly, setLy] = useState<number>(15);
   const [thickness, setThickness] = useState<number>(5);
@@ -1147,40 +1545,52 @@ function SlabDesignTab({ t, config, lang }: { t: any, config: any, lang: 'bn' | 
 
   return (
     <div className="space-y-6">
-      <div className="card-glass transition-colors duration-300">
-        <h2 className="text-2xl font-black mb-6 flex items-center gap-3 text-white">
-          <Layers className="text-white" size={28} />
+      <div className={cn(
+        "p-8 transition-all duration-300 border",
+        theme === 'holographic' ? "bg-black/40 backdrop-blur-3xl border-[rgba(var(--accent-rgb),0.2)] rounded-3xl shadow-[0_0_30px_rgba(var(--accent-rgb),0.1)]" : "card-glass rounded-3xl"
+      )}>
+        <h2 className={cn(
+          "text-2xl font-black mb-6 flex items-center gap-3",
+          theme === 'holographic' ? "text-white" : "text-white"
+        )} style={theme === 'holographic' ? { textShadow: '0 0 15px var(--accent)' } : {}}>
+          <Layers className={theme === 'holographic' ? "text-[var(--accent)]" : "text-white"} size={28} />
           {t.slab_design}
         </h2>
         
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
-              <InputGroup label={t.shortSpan} value={lx} onChange={setLx} />
-              <InputGroup label={t.longSpan} value={ly} onChange={setLy} />
+              <InputGroup label={t.shortSpan} value={lx} onChange={setLx} theme={theme} />
+              <InputGroup label={t.longSpan} value={ly} onChange={setLy} theme={theme} />
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <InputGroup label={t.thickness} value={thickness} onChange={setThickness} />
-              <InputGroup label={t.liveLoad} value={liveLoad} onChange={setLiveLoad} />
+              <InputGroup label={t.thickness} value={thickness} onChange={setThickness} theme={theme} />
+              <InputGroup label={t.liveLoad} value={liveLoad} onChange={setLiveLoad} theme={theme} />
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <InputGroup label={t.floorFinish} value={floorFinish} onChange={setFloorFinish} />
-              <InputGroup label={t.partitionWall} value={partitionWall} onChange={setPartitionWall} />
+              <InputGroup label={t.floorFinish} value={floorFinish} onChange={setFloorFinish} theme={theme} />
+              <InputGroup label={t.partitionWall} value={partitionWall} onChange={setPartitionWall} theme={theme} />
             </div>
           </div>
           
-            <div className="glass p-6 flex flex-col items-center justify-between overflow-hidden relative min-h-[400px] border border-white/10">
+            <div className={cn(
+              "p-6 flex flex-col items-center justify-between overflow-hidden relative min-h-[400px] border",
+              theme === 'holographic' ? "bg-black/40 border-[rgba(var(--accent-rgb),0.2)] rounded-2xl" : "glass rounded-2xl border border-white/10"
+            )}>
               {/* Blueprint Background */}
-              <div className="absolute inset-0 opacity-10 bg-[linear-gradient(to_right,#fff_1px,transparent_1px),linear-gradient(to_bottom,#fff_1px,transparent_1px)] bg-[size:1rem_1rem]" />
+              <div className={cn("absolute inset-0 opacity-10 bg-[linear-gradient(to_right,#fff_1px,transparent_1px),linear-gradient(to_bottom,#fff_1px,transparent_1px)] bg-[size:1rem_1rem]", theme === 'holographic' ? "bg-[rgba(var(--accent-rgb),0.1)]" : "")} />
               
               <div className="w-full flex justify-between items-center relative z-10 mb-4">
-                <h3 className="font-bold flex items-center gap-2 glass px-3 py-1.5 rounded-xl border border-white/10 text-white">
-                  <LayoutGrid size={18} className="text-white" />
+                <h3 className={cn(
+                  "font-bold flex items-center gap-2 px-3 py-1.5 rounded-xl border",
+                  theme === 'holographic' ? "bg-[rgba(var(--accent-rgb),0.1)] border-[rgba(var(--accent-rgb),0.2)] text-white" : "glass border-white/10 text-white"
+                )}>
+                  <LayoutGrid size={18} className={theme === 'holographic' ? "text-[var(--accent)]" : "text-white"} />
                   {lang === 'bn' ? 'ইন্টারেক্টিভ মডেল' : 'Interactive Model'}
                 </h3>
                 <div className="flex gap-2">
-                  <span className="text-[10px] font-bold glass text-white/60 px-2 py-1 rounded-md uppercase tracking-wider border border-white/10">Plan</span>
-                  <span className="text-[10px] font-bold glass text-white/60 px-2 py-1 rounded-md uppercase tracking-wider border border-white/10">Section</span>
+                  <span className={cn("text-[10px] font-bold px-2 py-1 rounded-md uppercase tracking-wider border", theme === 'holographic' ? "bg-[rgba(var(--accent-rgb),0.1)] border-[rgba(var(--accent-rgb),0.2)] text-[var(--accent)]" : "glass text-white/60 border-white/10")}>Plan</span>
+                  <span className={cn("text-[10px] font-bold px-2 py-1 rounded-md uppercase tracking-wider border", theme === 'holographic' ? "bg-[rgba(var(--accent-rgb),0.1)] border-[rgba(var(--accent-rgb),0.2)] text-[var(--accent)]" : "glass text-white/60 border-white/10")}>Section</span>
                 </div>
               </div>
 
@@ -1188,7 +1598,10 @@ function SlabDesignTab({ t, config, lang }: { t: any, config: any, lang: 'bn' | 
             <div className="relative w-full flex-1 flex items-center justify-center z-10 p-8">
               <motion.div
                 layout
-                className={cn("relative border-4 flex items-center justify-center bg-white/10", config.border)}
+                className={cn(
+                  "relative border-4 flex items-center justify-center", 
+                  theme === 'holographic' ? "border-[var(--accent)] bg-[rgba(var(--accent-rgb),0.1)] shadow-[0_0_20px_rgba(var(--accent-rgb),0.2)]" : cn("bg-white/10", config.border)
+                )}
                 animate={{
                   width: `${(lx / maxSpan) * 100}%`,
                   height: `${(ly / maxSpan) * 100}%`,
@@ -1196,44 +1609,44 @@ function SlabDesignTab({ t, config, lang }: { t: any, config: any, lang: 'bn' | 
                 transition={{ type: "spring", bounce: 0.4, duration: 0.8 }}
               >
                 {/* Reinforcement Mesh */}
-                <div className="absolute inset-2 opacity-20 bg-[linear-gradient(to_right,#fff_1px,transparent_1px),linear-gradient(to_bottom,#fff_1px,transparent_1px)] bg-[size:0.5rem_0.5rem]" />
+                <div className={cn("absolute inset-2 opacity-20 bg-[linear-gradient(to_right,#fff_1px,transparent_1px),linear-gradient(to_bottom,#fff_1px,transparent_1px)] bg-[size:0.5rem_0.5rem]", theme === 'holographic' ? "bg-[rgba(var(--accent-rgb),0.3)]" : "")} />
                 
                 {/* Columns */}
-                <div className="absolute -top-3 -left-3 w-6 h-6 bg-white/20 rounded-sm" />
-                <div className="absolute -top-3 -right-3 w-6 h-6 bg-white/20 rounded-sm" />
-                <div className="absolute -bottom-3 -left-3 w-6 h-6 bg-white/20 rounded-sm" />
-                <div className="absolute -bottom-3 -right-3 w-6 h-6 bg-white/20 rounded-sm" />
+                <div className={cn("absolute -top-3 -left-3 w-6 h-6 rounded-sm", theme === 'holographic' ? "bg-[var(--accent)] shadow-[0_0_10px_var(--accent)]" : "bg-white/20")} />
+                <div className={cn("absolute -top-3 -right-3 w-6 h-6 rounded-sm", theme === 'holographic' ? "bg-[var(--accent)] shadow-[0_0_10px_var(--accent)]" : "bg-white/20")} />
+                <div className={cn("absolute -bottom-3 -left-3 w-6 h-6 rounded-sm", theme === 'holographic' ? "bg-[var(--accent)] shadow-[0_0_10px_var(--accent)]" : "bg-white/20")} />
+                <div className={cn("absolute -bottom-3 -right-3 w-6 h-6 rounded-sm", theme === 'holographic' ? "bg-[var(--accent)] shadow-[0_0_10px_var(--accent)]" : "bg-white/20")} />
 
                 {/* Load Distribution Arrows */}
                 {isTwoWay ? (
-                  <div className="absolute inset-0 flex items-center justify-center opacity-70 text-white">
+                  <div className={cn("absolute inset-0 flex items-center justify-center opacity-70", theme === 'holographic' ? "text-[var(--accent)]" : "text-white")}>
                     <ArrowRightLeft size={36} className="absolute rotate-90" />
                     <ArrowRightLeft size={36} className="absolute" />
                   </div>
                 ) : (
-                  <div className="absolute inset-0 flex items-center justify-center opacity-70 text-white">
+                  <div className={cn("absolute inset-0 flex items-center justify-center opacity-70", theme === 'holographic' ? "text-[var(--accent)]" : "text-white")}>
                     <ArrowRightLeft size={36} className={lx < ly ? "" : "rotate-90"} />
                   </div>
                 )}
 
                 {/* Dimension Ly */}
                 <div className="absolute -right-10 top-0 bottom-0 flex items-center">
-                  <div className="w-px h-full bg-white/30 relative">
-                    <div className="absolute top-0 -left-1.5 w-3 h-px bg-white/30" />
-                    <div className="absolute bottom-0 -left-1.5 w-3 h-px bg-white/30" />
+                  <div className={cn("w-px h-full relative", theme === 'holographic' ? "bg-[var(--accent)]" : "bg-white/30")}>
+                    <div className={cn("absolute top-0 -left-1.5 w-3 h-px", theme === 'holographic' ? "bg-[var(--accent)]" : "bg-white/30")} />
+                    <div className={cn("absolute bottom-0 -left-1.5 w-3 h-px", theme === 'holographic' ? "bg-[var(--accent)]" : "bg-white/30")} />
                   </div>
-                  <div className="absolute left-2 bg-white/10 backdrop-blur-md px-1 py-0.5 rounded text-[10px] font-black text-white whitespace-nowrap rotate-90 origin-left translate-y-1/2">
+                  <div className={cn("absolute left-2 backdrop-blur-md px-1 py-0.5 rounded text-[10px] font-black whitespace-nowrap rotate-90 origin-left translate-y-1/2", theme === 'holographic' ? "bg-[rgba(var(--accent-rgb),0.2)] text-white border border-[rgba(var(--accent-rgb),0.3)]" : "bg-white/10 text-white")}>
                     Ly = {ly}'
                   </div>
                 </div>
 
                 {/* Dimension Lx */}
                 <div className="absolute -bottom-10 left-0 right-0 flex justify-center">
-                  <div className="h-px w-full bg-white/30 relative">
-                    <div className="absolute left-0 -top-1.5 h-3 w-px bg-white/30" />
-                    <div className="absolute right-0 -top-1.5 h-3 w-px bg-white/30" />
+                  <div className={cn("h-px w-full relative", theme === 'holographic' ? "bg-[var(--accent)]" : "bg-white/30")}>
+                    <div className={cn("absolute left-0 -top-1.5 h-3 w-px", theme === 'holographic' ? "bg-[var(--accent)]" : "bg-white/30")} />
+                    <div className={cn("absolute right-0 -top-1.5 h-3 w-px", theme === 'holographic' ? "bg-[var(--accent)]" : "bg-white/30")} />
                   </div>
-                  <div className="absolute top-2 bg-white/10 backdrop-blur-md px-1.5 py-0.5 rounded text-[10px] font-black text-white whitespace-nowrap">
+                  <div className={cn("absolute top-2 backdrop-blur-md px-1.5 py-0.5 rounded text-[10px] font-black whitespace-nowrap", theme === 'holographic' ? "bg-[rgba(var(--accent-rgb),0.2)] text-white border border-[rgba(var(--accent-rgb),0.3)]" : "bg-white/10 text-white")}>
                     Lx = {lx}'
                   </div>
                 </div>
@@ -1241,35 +1654,38 @@ function SlabDesignTab({ t, config, lang }: { t: any, config: any, lang: 'bn' | 
             </div>
 
             {/* Cross Section View */}
-            <div className="w-full mt-8 z-10 glass p-4 backdrop-blur-md border border-white/10">
-              <div className="relative w-full flex items-end justify-center h-24 border-b-2 border-white/10 pb-2 px-12">
+            <div className={cn("w-full mt-8 z-10 p-4 backdrop-blur-md border", theme === 'holographic' ? "bg-black/40 border-[rgba(var(--accent-rgb),0.2)] rounded-xl" : "glass border-white/10 rounded-xl")}>
+              <div className={cn("relative w-full flex items-end justify-center h-24 border-b-2 pb-2 px-12", theme === 'holographic' ? "border-[rgba(var(--accent-rgb),0.2)]" : "border-white/10")}>
                 
                 {/* Supports */}
-                <div className="w-6 h-16 glass border-2 border-white/20 border-b-0 absolute left-8 bottom-2 rounded-t-sm" />
-                <div className="w-6 h-16 glass border-2 border-white/20 border-b-0 absolute right-8 bottom-2 rounded-t-sm" />
+                <div className={cn("w-6 h-16 border-2 border-b-0 absolute left-8 bottom-2 rounded-t-sm", theme === 'holographic' ? "bg-[rgba(var(--accent-rgb),0.1)] border-[rgba(var(--accent-rgb),0.3)]" : "glass border-white/20")} />
+                <div className={cn("w-6 h-16 border-2 border-b-0 absolute right-8 bottom-2 rounded-t-sm", theme === 'holographic' ? "bg-[rgba(var(--accent-rgb),0.1)] border-[rgba(var(--accent-rgb),0.3)]" : "glass border-white/20")} />
 
                 <motion.div
                   layout
-                  className={cn("w-full border-2 relative overflow-hidden z-10 bg-white/20", config.border)}
+                  className={cn(
+                    "w-full border-2 relative overflow-hidden z-10", 
+                    theme === 'holographic' ? "border-[var(--accent)] bg-[rgba(var(--accent-rgb),0.3)] shadow-[0_0_15px_rgba(var(--accent-rgb),0.2)]" : cn("bg-white/20", config.border)
+                  )}
                   animate={{
                     height: `${Math.max(16, Math.min(72, (thickness / 12) * 72))}px`
                   }}
                   transition={{ type: "spring", bounce: 0.4, duration: 0.8 }}
                 >
                   {/* Concrete Texture */}
-                  <div className="absolute inset-0 opacity-20 bg-[radial-gradient(#fff_1px,transparent_1px)] bg-[size:4px_4px]" />
+                  <div className={cn("absolute inset-0 opacity-20 bg-[radial-gradient(#fff_1px,transparent_1px)] bg-[size:4px_4px]", theme === 'holographic' ? "bg-[rgba(var(--accent-rgb),0.4)]" : "")} />
                   {/* Rebar */}
-                  <div className="absolute bottom-1.5 left-0 right-0 h-1.5 border-b-2 border-dashed border-white/40 opacity-60" />
-                  <div className="absolute top-1.5 left-0 right-0 h-1.5 border-t-2 border-dashed border-white/40 opacity-30" />
+                  <div className={cn("absolute bottom-1.5 left-0 right-0 h-1.5 border-b-2 border-dashed opacity-60", theme === 'holographic' ? "border-[var(--accent)]" : "border-white/40")} />
+                  <div className={cn("absolute top-1.5 left-0 right-0 h-1.5 border-t-2 border-dashed opacity-30", theme === 'holographic' ? "border-[var(--accent)]" : "border-white/40")} />
                 </motion.div>
                 
                 {/* Thickness Dimension */}
                 <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center">
-                  <div className="h-full w-px bg-white/30 relative">
-                    <div className="absolute top-0 -left-1.5 w-3 h-px bg-white/30" />
-                    <div className="absolute bottom-0 -left-1.5 w-3 h-px bg-white/30" />
+                  <div className={cn("h-full w-px relative", theme === 'holographic' ? "bg-[var(--accent)]" : "bg-white/30")}>
+                    <div className={cn("absolute top-0 -left-1.5 w-3 h-px", theme === 'holographic' ? "bg-[var(--accent)]" : "bg-white/30")} />
+                    <div className={cn("absolute bottom-0 -left-1.5 w-3 h-px", theme === 'holographic' ? "bg-[var(--accent)]" : "bg-white/30")} />
                   </div>
-                  <div className="bg-white/10 backdrop-blur-md px-1 rounded text-[10px] font-black text-white ml-1 border border-white/10">
+                  <div className={cn("backdrop-blur-md px-1 rounded text-[10px] font-black ml-1 border", theme === 'holographic' ? "bg-[rgba(var(--accent-rgb),0.2)] text-white border-[rgba(var(--accent-rgb),0.3)]" : "bg-white/10 text-white border-white/10")}>
                     {thickness}"
                   </div>
                 </div>
@@ -1278,39 +1694,81 @@ function SlabDesignTab({ t, config, lang }: { t: any, config: any, lang: 'bn' | 
           </div>
 
           <div className="space-y-6">
-            <div className="glass p-6 border border-white/10">
-              <h3 className="font-bold mb-4 flex items-center gap-2 text-white">
-                <Info size={18} className="text-white" />
+            <div className={cn(
+              "p-6 border transition-all duration-300",
+              theme === 'holographic' ? "bg-black/40 backdrop-blur-3xl border-[rgba(var(--accent-rgb),0.2)] rounded-2xl" : "glass rounded-2xl border-white/10"
+            )}>
+              <h3 className={cn(
+                "font-bold mb-4 flex items-center gap-2",
+                theme === 'holographic' ? "text-white" : "text-white"
+              )}>
+                <Info size={18} className={theme === 'holographic' ? "text-[var(--accent)]" : "text-white"} />
                 {t.slabType}
               </h3>
-              <p className="text-4xl font-black mb-1 text-white tracking-tighter">
+              <p className={cn(
+                "text-4xl font-black mb-1 tracking-tighter",
+                theme === 'holographic' ? "text-white" : "text-white"
+              )}>
                 {isTwoWay ? t.twoWaySlab : t.oneWaySlab}
               </p>
-              <p className="text-[10px] text-white/40 font-bold uppercase tracking-widest">
+              <p className={cn(
+                "text-[10px] font-bold uppercase tracking-widest",
+                theme === 'holographic' ? "text-[var(--accent)] opacity-60" : "text-white/40"
+              )}>
                 Ratio = {(maxSpan / minSpan).toFixed(2)}
               </p>
             </div>
 
-            <div className="glass p-6 border border-white/10">
-              <h3 className="font-bold mb-4 flex items-center gap-2 text-white">
-                <Calculator size={18} className="text-white" />
+            <div className={cn(
+              "p-6 border transition-all duration-300",
+              theme === 'holographic' ? "bg-black/40 backdrop-blur-3xl border-[rgba(var(--accent-rgb),0.2)] rounded-2xl" : "glass rounded-2xl border-white/10"
+            )}>
+              <h3 className={cn(
+                "font-bold mb-4 flex items-center gap-2",
+                theme === 'holographic' ? "text-white" : "text-white"
+              )}>
+                <Calculator size={18} className={theme === 'holographic' ? "text-[var(--accent)]" : "text-white"} />
                 {t.loadAnalysis}
               </h3>
               <div className="space-y-3 text-sm">
                 <div className="flex justify-between items-center">
-                  <span className="text-white/40 font-medium uppercase tracking-widest text-[10px]">{t.selfWeight}</span>
-                  <span className="font-bold text-white glass px-2 py-0.5 rounded-md border border-white/10">{selfWeight.toFixed(1)} psf</span>
+                  <span className={cn(
+                    "font-medium uppercase tracking-widest text-[10px]",
+                    theme === 'holographic' ? "text-[var(--accent)] opacity-60" : "text-white/40"
+                  )}>{t.selfWeight}</span>
+                  <span className={cn(
+                    "font-bold border px-2 py-0.5 rounded-md",
+                    theme === 'holographic' ? "bg-[rgba(var(--accent-rgb),0.1)] border-[rgba(var(--accent-rgb),0.2)] text-white" : "glass text-white border-white/10"
+                  )}>{selfWeight.toFixed(1)} psf</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-white/40 font-medium uppercase tracking-widest text-[10px]">{t.floorFinish}</span>
-                  <span className="font-bold text-white glass px-2 py-0.5 rounded-md border border-white/10">{floorFinish.toFixed(1)} psf</span>
+                  <span className={cn(
+                    "font-medium uppercase tracking-widest text-[10px]",
+                    theme === 'holographic' ? "text-[var(--accent)] opacity-60" : "text-white/40"
+                  )}>{t.floorFinish}</span>
+                  <span className={cn(
+                    "font-bold border px-2 py-0.5 rounded-md",
+                    theme === 'holographic' ? "bg-[rgba(var(--accent-rgb),0.1)] border-[rgba(var(--accent-rgb),0.2)] text-white" : "glass text-white border-white/10"
+                  )}>{floorFinish.toFixed(1)} psf</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-white/40 font-medium uppercase tracking-widest text-[10px]">{t.partitionWall}</span>
-                  <span className="font-bold text-white glass px-2 py-0.5 rounded-md border border-white/10">{partitionWall.toFixed(1)} psf</span>
+                  <span className={cn(
+                    "font-medium uppercase tracking-widest text-[10px]",
+                    theme === 'holographic' ? "text-[var(--accent)] opacity-60" : "text-white/40"
+                  )}>{t.partitionWall}</span>
+                  <span className={cn(
+                    "font-bold border px-2 py-0.5 rounded-md",
+                    theme === 'holographic' ? "bg-[rgba(var(--accent-rgb),0.1)] border-[rgba(var(--accent-rgb),0.2)] text-white" : "glass text-white border-white/10"
+                  )}>{partitionWall.toFixed(1)} psf</span>
                 </div>
-                <div className="flex justify-between items-center pt-2 border-t border-white/10">
-                  <span className="text-white/60 font-bold uppercase tracking-widest text-[10px]">{t.totalDeadLoad}</span>
+                <div className={cn(
+                  "flex justify-between items-center pt-2 border-t",
+                  theme === 'holographic' ? "border-[rgba(var(--accent-rgb),0.2)]" : "border-white/10"
+                )}>
+                  <span className={cn(
+                    "font-bold uppercase tracking-widest text-[10px]",
+                    theme === 'holographic' ? "text-[var(--accent)] opacity-80" : "text-white/60"
+                  )}>{t.totalDeadLoad}</span>
                   <span className="font-bold text-white glass px-2 py-0.5 rounded-md border border-white/10">{totalDeadLoad.toFixed(1)} psf</span>
                 </div>
                 <div className="flex justify-between items-center">
@@ -1333,17 +1791,32 @@ function SlabDesignTab({ t, config, lang }: { t: any, config: any, lang: 'bn' | 
   );
 }
 
-function ComingSoonTab({ t, config, tabId }: { t: any, config: any, tabId: string }) {
+function ComingSoonTab({ t, config, tabId, theme }: { t: any, config: any, tabId: string, theme: string }) {
   return (
-    <div className="glass p-12 text-center space-y-8">
-      <div className={cn("w-24 h-24 rounded-[2.5rem] flex items-center justify-center mx-auto", config.bg, "text-white")}>
+    <div className={cn(
+      "p-12 text-center space-y-8",
+      theme === 'holographic' ? "bg-black/40 backdrop-blur-3xl border border-[rgba(var(--accent-rgb),0.2)] rounded-3xl" : "glass rounded-3xl"
+    )}>
+      <div className={cn(
+        "w-24 h-24 rounded-[2.5rem] flex items-center justify-center mx-auto",
+        theme === 'holographic' ? "bg-[rgba(var(--accent-rgb),0.1)] border border-[var(--accent)] shadow-[0_0_20px_rgba(var(--accent-rgb),0.3)] text-[var(--accent)]" : cn(config.bg, "text-white")
+      )}>
         {TAB_ICONS[tabId]}
       </div>
       <div>
-        <h2 className="text-3xl font-black mb-2 text-white">{t[tabId]}</h2>
-        <p className="text-white/60 font-medium text-lg">{t.comingSoon}</p>
+        <h2 className={cn(
+          "text-3xl font-black mb-2",
+          theme === 'holographic' ? "text-white" : "text-white"
+        )} style={theme === 'holographic' ? { textShadow: '0 0 10px var(--accent)' } : {}}>{t[tabId]}</h2>
+        <p className={cn(
+          "font-medium text-lg",
+          theme === 'holographic' ? "text-[var(--accent)] opacity-80" : "text-white/60"
+        )}>{t.comingSoon}</p>
       </div>
-      <div className="p-6 bg-white/5 rounded-2xl border border-white/10 text-white/40 text-sm">
+      <div className={cn(
+        "p-6 rounded-2xl border text-sm",
+        theme === 'holographic' ? "bg-[rgba(var(--accent-rgb),0.05)] border-[rgba(var(--accent-rgb),0.1)] text-[var(--accent)] opacity-60" : "bg-white/5 border-white/10 text-white/40"
+      )}>
         Stay tuned for the next major update!
       </div>
     </div>
@@ -1418,7 +1891,7 @@ const CONVERSION_RATES: any = {
   }
 };
 
-function UnitConverterTab({ t, config }: { t: any, config: any }) {
+function UnitConverterTab({ t, config, theme }: { t: any, config: any, theme: string }) {
   const [category, setCategory] = useState('length');
   const [fromUnit, setFromUnit] = useState('m');
   const [toUnit, setToUnit] = useState('ft');
@@ -1441,9 +1914,15 @@ function UnitConverterTab({ t, config }: { t: any, config: any }) {
 
   return (
     <div className="space-y-6">
-      <div className="card-glass transition-colors duration-300">
-        <h2 className="text-2xl font-black mb-6 flex items-center gap-3 text-white">
-          <ArrowRightLeft className="text-white" size={28} />
+      <div className={cn(
+        "p-8 transition-all duration-300 border",
+        theme === 'holographic' ? "bg-black/40 backdrop-blur-3xl border-[rgba(var(--accent-rgb),0.2)] rounded-3xl shadow-[0_0_30px_rgba(var(--accent-rgb),0.1)]" : "card-glass rounded-3xl"
+      )}>
+        <h2 className={cn(
+          "text-2xl font-black mb-6 flex items-center gap-3",
+          theme === 'holographic' ? "text-white" : "text-white"
+        )} style={theme === 'holographic' ? { textShadow: '0 0 15px var(--accent)' } : {}}>
+          <ArrowRightLeft className={theme === 'holographic' ? "text-[var(--accent)]" : "text-white"} size={28} />
           {t.unit_converter}
         </h2>
 
@@ -1456,8 +1935,8 @@ function UnitConverterTab({ t, config }: { t: any, config: any }) {
                 className={cn(
                   "px-4 py-2 rounded-xl font-bold text-sm whitespace-nowrap transition-all border", 
                   category === cat 
-                    ? "bg-white/20 text-white border-white/30 scale-105" 
-                    : "glass text-white/40 border-white/10 hover:bg-white/10 hover:text-white"
+                    ? (theme === 'holographic' ? "bg-[rgba(var(--accent-rgb),0.2)] text-white border-[var(--accent)] shadow-[0_0_10px_rgba(var(--accent-rgb),0.3)] scale-105" : "bg-white/20 text-white border-white/30 scale-105")
+                    : (theme === 'holographic' ? "bg-black/40 border-[rgba(var(--accent-rgb),0.2)] text-[var(--accent)] opacity-60 hover:opacity-100" : "glass text-white/40 border-white/10 hover:bg-white/10 hover:text-white")
                 )}
               >
                 {t[cat] || cat}
@@ -1465,45 +1944,75 @@ function UnitConverterTab({ t, config }: { t: any, config: any }) {
             ))}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] gap-4 items-center glass p-6 border border-white/10">
+          <div className={cn(
+            "grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] gap-4 items-center p-6 border",
+            theme === 'holographic' ? "bg-[rgba(var(--accent-rgb),0.05)] border-[rgba(var(--accent-rgb),0.1)] rounded-2xl" : "glass rounded-2xl border-white/10"
+          )}>
             <div className="space-y-2">
-              <label className="text-xs font-bold text-white/40 uppercase tracking-widest ml-1">{t.from}</label>
+              <label className={cn(
+                "text-xs font-bold uppercase tracking-widest ml-1",
+                theme === 'holographic' ? "text-[var(--accent)] opacity-60" : "text-white/40"
+              )}>{t.from}</label>
               <input
                 type="number"
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value === '' ? '' : Number(e.target.value))}
-                className="w-full glass border border-white/10 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-white/20 font-bold text-lg text-white transition-all"
+                className={cn(
+                  "w-full border rounded-xl p-3 focus:outline-none font-bold text-lg text-white transition-all",
+                  theme === 'holographic' ? "bg-black/40 border-[rgba(var(--accent-rgb),0.2)] focus:border-[var(--accent)] focus:ring-1 focus:ring-[var(--accent)]" : "glass border-white/10 focus:ring-2 focus:ring-white/20"
+                )}
               />
               <select
                 value={fromUnit}
                 onChange={(e) => setFromUnit(e.target.value)}
-                className="w-full glass border border-white/10 rounded-xl p-3 focus:outline-none font-medium text-white transition-all appearance-none"
+                className={cn(
+                  "w-full border rounded-xl p-3 focus:outline-none font-medium text-white transition-all appearance-none",
+                  theme === 'holographic' ? "bg-black/40 border-[rgba(var(--accent-rgb),0.2)]" : "glass border-white/10"
+                )}
               >
                 {Object.keys(rates).map(u => <option key={u} value={u} className="bg-stone-900">{u}</option>)}
               </select>
-              <div className="flex items-start gap-1.5 mt-2 px-1 text-white/50">
+              <div className={cn(
+                "flex items-start gap-1.5 mt-2 px-1",
+                theme === 'holographic' ? "text-[var(--accent)] opacity-40" : "text-white/50"
+              )}>
                 <Info size={12} className="mt-0.5 shrink-0" />
                 <p className="text-[10px] leading-tight">{UNIT_INFO[fromUnit]}</p>
               </div>
             </div>
 
-            <button onClick={handleSwap} className="p-4 rounded-full glass text-white border border-white/20 hover:scale-110 transition-all mx-auto mt-6 md:mt-0">
+            <button onClick={handleSwap} className={cn(
+              "p-4 rounded-full border hover:scale-110 transition-all mx-auto mt-6 md:mt-0",
+              theme === 'holographic' ? "bg-[rgba(var(--accent-rgb),0.1)] border-[var(--accent)] text-[var(--accent)] shadow-[0_0_15px_rgba(var(--accent-rgb),0.2)]" : "glass text-white border-white/20"
+            )}>
               <ArrowRightLeft size={20} />
             </button>
 
             <div className="space-y-2">
-              <label className="text-xs font-bold text-white/40 uppercase tracking-widest ml-1">{t.to}</label>
-              <div className="w-full glass border border-white/10 rounded-xl p-3 font-black text-lg text-white overflow-hidden text-ellipsis transition-all min-h-[52px] flex items-center">
+              <label className={cn(
+                "text-xs font-bold uppercase tracking-widest ml-1",
+                theme === 'holographic' ? "text-[var(--accent)] opacity-60" : "text-white/40"
+              )}>{t.to}</label>
+              <div className={cn(
+                "w-full border rounded-xl p-3 font-black text-lg text-white overflow-hidden text-ellipsis transition-all min-h-[52px] flex items-center",
+                theme === 'holographic' ? "bg-black/40 border-[rgba(var(--accent-rgb),0.2)]" : "glass border-white/10"
+              )}>
                 {(result || 0).toLocaleString(undefined, { maximumFractionDigits: 6 })}
               </div>
               <select
                 value={toUnit}
                 onChange={(e) => setToUnit(e.target.value)}
-                className="w-full glass border border-white/10 rounded-xl p-3 focus:outline-none font-medium text-white transition-all appearance-none"
+                className={cn(
+                  "w-full border rounded-xl p-3 focus:outline-none font-medium text-white transition-all appearance-none",
+                  theme === 'holographic' ? "bg-black/40 border-[rgba(var(--accent-rgb),0.2)]" : "glass border-white/10"
+                )}
               >
                 {Object.keys(rates).map(u => <option key={u} value={u} className="bg-stone-900">{u}</option>)}
               </select>
-              <div className="flex items-start gap-1.5 mt-2 px-1 text-white/50">
+              <div className={cn(
+                "flex items-start gap-1.5 mt-2 px-1",
+                theme === 'holographic' ? "text-[var(--accent)] opacity-40" : "text-white/50"
+              )}>
                 <Info size={12} className="mt-0.5 shrink-0" />
                 <p className="text-[10px] leading-tight">{UNIT_INFO[toUnit]}</p>
               </div>
@@ -1515,7 +2024,7 @@ function UnitConverterTab({ t, config }: { t: any, config: any }) {
   );
 }
 
-function HomeTab({ t, lang, dept, config, setActiveTab }: { t: any, lang: 'bn' | 'en', dept: Dept, config: any, setActiveTab: (tab: Tab) => void }) {
+function HomeTab({ t, lang, dept, config, setActiveTab, theme }: { t: any, lang: 'bn' | 'en', dept: Dept, config: any, setActiveTab: (tab: Tab) => void, theme: string }) {
   const [selectedTopic, setSelectedTopic] = useState<any>(null);
   const [shuffledTopics, setShuffledTopics] = useState<any[]>([]);
 
@@ -1541,26 +2050,40 @@ function HomeTab({ t, lang, dept, config, setActiveTab }: { t: any, lang: 'bn' |
       <motion.div 
         initial={{ scale: 0.95, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        className="card-glass text-white p-10 relative overflow-hidden"
+        className={cn(
+          "p-10 relative overflow-hidden",
+          theme === 'holographic' ? "bg-black/40 backdrop-blur-3xl border border-[rgba(var(--accent-rgb),0.2)] rounded-3xl shadow-[0_0_30px_rgba(var(--accent-rgb),0.1)]" : "card-glass text-white"
+        )}
       >
         {/* Abstract Background Elements */}
-        <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-white via-transparent to-transparent" />
-        <motion.div 
-          animate={{ 
-            rotate: 360,
-            scale: [1, 1.1, 1],
-          }}
-          transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
-          className="absolute -right-20 -top-20 w-96 h-96 bg-white/10 rounded-full blur-3xl" 
-        />
-        <motion.div 
-          animate={{ 
-            rotate: -360,
-            scale: [1, 1.2, 1],
-          }}
-          transition={{ duration: 30, repeat: Infinity, ease: "linear" }}
-          className="absolute -left-20 -bottom-20 w-80 h-80 bg-black/10 rounded-full blur-3xl" 
-        />
+        {theme !== 'holographic' && (
+          <>
+            <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-white via-transparent to-transparent" />
+            <motion.div 
+              animate={{ 
+                rotate: 360,
+                scale: [1, 1.1, 1],
+              }}
+              transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
+              className="absolute -right-20 -top-20 w-96 h-96 bg-white/10 rounded-full blur-3xl" 
+            />
+            <motion.div 
+              animate={{ 
+                rotate: -360,
+                scale: [1, 1.2, 1],
+              }}
+              transition={{ duration: 30, repeat: Infinity, ease: "linear" }}
+              className="absolute -left-20 -bottom-20 w-80 h-80 bg-black/10 rounded-full blur-3xl" 
+            />
+          </>
+        )}
+        
+        {theme === 'holographic' && (
+          <div className="absolute inset-0 z-0">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-[var(--accent)] opacity-10 blur-[100px] animate-pulse" />
+            <div className="absolute bottom-0 left-0 w-64 h-64 bg-[var(--accent)] opacity-10 blur-[100px] animate-pulse" style={{ animationDelay: '2s' }} />
+          </div>
+        )}
 
         <div className="relative z-10 max-w-2xl">
           <motion.div
@@ -1569,26 +2092,44 @@ function HomeTab({ t, lang, dept, config, setActiveTab }: { t: any, lang: 'bn' |
             transition={{ delay: 0.2 }}
           >
             <div className="flex items-center gap-3 mb-6">
-              <div className="p-3 bg-white/20 backdrop-blur-md rounded-2xl border border-white/20">
+              <div className={cn(
+                "p-3 backdrop-blur-md rounded-2xl border",
+                theme === 'holographic' ? "bg-[rgba(var(--accent-rgb),0.1)] border-[var(--accent)] shadow-[0_0_15px_rgba(var(--accent-rgb),0.3)]" : "bg-white/20 border-white/20"
+              )}>
                 {config.icon}
               </div>
-              <span className="font-bold tracking-widest uppercase text-sm opacity-90">{t[dept]} Engineering</span>
+              <span className={cn(
+                "font-bold tracking-widest uppercase text-sm",
+                theme === 'holographic' ? "text-[var(--accent)]" : "opacity-90 text-white"
+              )}>{t[dept]} Engineering</span>
             </div>
-            <h2 className="text-5xl md:text-6xl font-black mb-6 tracking-tight leading-tight">{t.welcome}</h2>
-            <p className="opacity-90 font-medium text-xl leading-relaxed max-w-lg">{t.tagline}</p>
+            <h2 className={cn(
+              "text-5xl md:text-6xl font-black mb-6 tracking-tight leading-tight",
+              theme === 'holographic' ? "text-white" : "text-white"
+            )} style={theme === 'holographic' ? { textShadow: '0 0 20px rgba(var(--accent-rgb), 0.5)' } : {}}>{t.welcome}</h2>
+            <p className={cn(
+              "font-medium text-xl leading-relaxed max-w-lg",
+              theme === 'holographic' ? "text-white/80" : "opacity-90 text-white"
+            )}>{t.tagline}</p>
           </motion.div>
           
           <div className="mt-10 flex flex-wrap gap-4">
             <button 
               onClick={() => setActiveTab('chat')}
-              className="px-6 py-3 bg-white text-stone-900 rounded-2xl font-black hover:scale-105 transition-all flex items-center gap-2"
+              className={cn(
+                "px-6 py-3 rounded-2xl font-black hover:scale-105 transition-all flex items-center gap-2",
+                theme === 'holographic' ? "bg-[var(--accent)] text-black shadow-[0_0_20px_var(--accent)]" : "bg-white text-stone-900"
+              )}
             >
-              <MessageSquare size={20} className={config.text} />
+              <MessageSquare size={20} className={theme === 'holographic' ? "text-black" : config.text} />
               {lang === 'bn' ? 'এআই চ্যাট শুরু করুন' : 'Start AI Chat'}
             </button>
             <button 
               onClick={() => setActiveTab('quiz')}
-              className="px-6 py-3 glass text-white rounded-2xl font-bold hover:bg-white/20 transition-all flex items-center gap-2 border border-white/20"
+              className={cn(
+                "px-6 py-3 rounded-2xl font-black hover:scale-105 transition-all flex items-center gap-2 border",
+                theme === 'holographic' ? "bg-transparent text-[var(--accent)] border-[var(--accent)] shadow-[0_0_15px_rgba(var(--accent-rgb),0.3)]" : "glass text-white border-white/20"
+              )}
             >
               <Trophy size={20} />
               {t.quiz}
@@ -1606,21 +2147,36 @@ function HomeTab({ t, lang, dept, config, setActiveTab }: { t: any, lang: 'bn' |
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3 }}
-        className="glass p-6 flex items-start gap-4 border border-white/10"
+        className={cn(
+          "p-6 flex items-start gap-4 border",
+          theme === 'holographic' ? "bg-black/40 backdrop-blur-3xl border-[rgba(var(--accent-rgb),0.2)] rounded-3xl shadow-[0_0_20px_rgba(var(--accent-rgb),0.05)]" : "glass rounded-3xl border-white/10"
+        )}
       >
-        <div className="p-3 bg-white/10 rounded-xl text-white shrink-0 border border-white/10">
-          <Zap size={24} className="text-amber-400" />
+        <div className={cn(
+          "p-3 rounded-xl shrink-0 border",
+          theme === 'holographic' ? "bg-[rgba(var(--accent-rgb),0.1)] border-[rgba(var(--accent-rgb),0.3)] text-[var(--accent)]" : "bg-white/10 border-white/10 text-white"
+        )}>
+          <Zap size={24} className={theme === 'holographic' ? "text-[var(--accent)]" : "text-amber-400"} />
         </div>
         <div>
-          <h4 className="font-black text-white mb-1 uppercase tracking-widest text-xs opacity-40">{lang === 'bn' ? 'আজকের টিপস' : 'Daily Tip'}</h4>
-          <p className="text-white/80 font-medium leading-relaxed italic">"{dailyTip[lang]}"</p>
+          <h4 className={cn(
+            "font-black mb-1 uppercase tracking-widest text-xs opacity-40",
+            theme === 'holographic' ? "text-[var(--accent)]" : "text-white"
+          )}>{lang === 'bn' ? 'আজকের টিপস' : 'Daily Tip'}</h4>
+          <p className={cn(
+            "font-medium leading-relaxed italic",
+            theme === 'holographic' ? "text-white/90" : "text-white/80"
+          )}>"{dailyTip[lang]}"</p>
         </div>
       </motion.div>
 
       {/* Quick Actions Grid */}
       <div className="space-y-4">
-        <h3 className="text-xl font-black text-white px-2 flex items-center gap-2">
-          <LayoutGrid size={20} className="text-white" />
+        <h3 className={cn(
+          "text-xl font-black px-2 flex items-center gap-2",
+          theme === 'holographic' ? "text-white" : "text-white"
+        )}>
+          <LayoutGrid size={20} className={theme === 'holographic' ? "text-[var(--accent)]" : "text-white"} />
           {lang === 'bn' ? 'কুইক এক্সেস' : 'Quick Access'}
         </h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -1631,12 +2187,21 @@ function HomeTab({ t, lang, dept, config, setActiveTab }: { t: any, lang: 'bn' |
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.1 }}
               onClick={() => setActiveTab(tab)}
-              className="glass p-6 hover:bg-white/10 transition-all flex flex-col items-center justify-center gap-4 group border border-white/10"
+              className={cn(
+                "p-6 transition-all flex flex-col items-center justify-center gap-4 group border",
+                theme === 'holographic' ? "bg-black/40 backdrop-blur-3xl border-[rgba(var(--accent-rgb),0.2)] rounded-3xl hover:border-[var(--accent)] shadow-[0_0_15px_rgba(var(--accent-rgb),0.05)]" : "glass rounded-3xl hover:bg-white/10 border-white/10"
+              )}
             >
-              <div className="w-14 h-14 rounded-2xl flex items-center justify-center transition-transform group-hover:scale-110 glass text-white border border-white/20">
+              <div className={cn(
+                "w-14 h-14 rounded-2xl flex items-center justify-center transition-transform group-hover:scale-110 border",
+                theme === 'holographic' ? "bg-[rgba(var(--accent-rgb),0.1)] border-[rgba(var(--accent-rgb),0.3)] text-[var(--accent)] shadow-[0_0_10px_rgba(var(--accent-rgb),0.2)]" : "glass text-white border-white/20"
+              )}>
                 {TAB_ICONS[tab]}
               </div>
-              <span className="font-bold text-white/40 text-xs uppercase tracking-widest text-center group-hover:text-white transition-colors">{t[tab]}</span>
+              <span className={cn(
+                "font-bold text-xs uppercase tracking-widest text-center transition-colors",
+                theme === 'holographic' ? "text-[var(--accent)] opacity-60 group-hover:opacity-100" : "text-white/40 group-hover:text-white"
+              )}>{t[tab]}</span>
             </motion.button>
           ))}
         </div>
@@ -1645,13 +2210,22 @@ function HomeTab({ t, lang, dept, config, setActiveTab }: { t: any, lang: 'bn' |
       {/* Q&A Section */}
       <div className="space-y-6">
         <div className="flex items-center justify-between px-2">
-          <h3 className="text-2xl font-black text-white flex items-center gap-3">
-            <div className="w-2 h-8 rounded-full bg-white/20" />
+          <h3 className={cn(
+            "text-2xl font-black flex items-center gap-3",
+            theme === 'holographic' ? "text-white" : "text-white"
+          )}>
+            <div className={cn(
+              "w-2 h-8 rounded-full",
+              theme === 'holographic' ? "bg-[var(--accent)] shadow-[0_0_10px_var(--accent)]" : "bg-white/20"
+            )} />
             {t.qna}
           </h3>
           <button 
             onClick={refreshTopics}
-            className="p-2 px-4 rounded-xl glass hover:bg-white/10 text-white/60 transition-all flex items-center gap-2 text-sm font-bold"
+            className={cn(
+              "p-2 px-4 transition-all flex items-center gap-2 text-sm font-bold border",
+              theme === 'holographic' ? "bg-black/40 backdrop-blur-3xl border-[rgba(var(--accent-rgb),0.2)] rounded-xl text-[var(--accent)] hover:border-[var(--accent)] shadow-[0_0_10px_rgba(var(--accent-rgb),0.1)]" : "glass rounded-xl hover:bg-white/10 text-white/60"
+            )}
             title="Refresh QnA"
           >
             <RefreshCw size={16} />
@@ -1667,19 +2241,34 @@ function HomeTab({ t, lang, dept, config, setActiveTab }: { t: any, lang: 'bn' |
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: i * 0.05 }}
               onClick={() => setSelectedTopic(topic)}
-              className="group glass p-6 hover:bg-white/10 transition-all cursor-pointer flex flex-col h-full border border-white/10"
+              className={cn(
+                "group p-6 transition-all cursor-pointer flex flex-col h-full border",
+                theme === 'holographic' ? "bg-black/40 backdrop-blur-3xl border-[rgba(var(--accent-rgb),0.2)] rounded-3xl hover:border-[var(--accent)] shadow-[0_0_20px_rgba(var(--accent-rgb),0.05)]" : "glass rounded-3xl hover:bg-white/10 border-white/10"
+              )}
             >
               <div className="flex items-start justify-between mb-4">
-                <div className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 transition-transform group-hover:scale-110 glass text-white border border-white/20">
+                <div className={cn(
+                  "w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 transition-transform group-hover:scale-110 border",
+                  theme === 'holographic' ? "bg-[rgba(var(--accent-rgb),0.1)] border-[rgba(var(--accent-rgb),0.3)] text-[var(--accent)] shadow-[0_0_10px_rgba(var(--accent-rgb),0.2)]" : "glass text-white border border-white/20"
+                )}>
                   <MessageSquare size={20} />
                 </div>
-                <div className="w-8 h-8 rounded-full glass flex items-center justify-center text-white/30 group-hover:text-white group-hover:bg-white/10 transition-all border border-white/10">
+                <div className={cn(
+                  "w-8 h-8 rounded-full flex items-center justify-center transition-all border",
+                  theme === 'holographic' ? "bg-[rgba(var(--accent-rgb),0.1)] border-[rgba(var(--accent-rgb),0.2)] text-[var(--accent)] group-hover:bg-[var(--accent)] group-hover:text-black" : "glass text-white/30 group-hover:text-white group-hover:bg-white/10 border-white/10"
+                )}>
                   <ChevronRight size={16} />
                 </div>
               </div>
               <div className="flex-1">
-                <h4 className="font-bold text-lg text-white group-hover:text-white/80 transition-colors mb-2 line-clamp-2">{topic.title[lang]}</h4>
-                <p className="text-white/60 text-sm line-clamp-2 leading-relaxed italic">"{topic.desc[lang]}"</p>
+                <h4 className={cn(
+                  "font-bold text-lg transition-colors mb-2 line-clamp-2",
+                  theme === 'holographic' ? "text-white group-hover:text-[var(--accent)]" : "text-white group-hover:text-white/80"
+                )}>{topic.title[lang]}</h4>
+                <p className={cn(
+                  "text-sm line-clamp-2 leading-relaxed italic",
+                  theme === 'holographic' ? "text-white/60 group-hover:text-white/80" : "text-white/60"
+                )}>"{topic.desc[lang]}"</p>
               </div>
             </motion.div>
           ))}
@@ -1734,7 +2323,7 @@ function HomeTab({ t, lang, dept, config, setActiveTab }: { t: any, lang: 'bn' |
   );
 }
 
-function SurveyTab({ t, config }: { t: any, config: any }) {
+function SurveyTab({ t, config, theme }: { t: any, config: any, theme: string }) {
   const [coords, setCoords] = useState<{ lat: number, lng: number } | null>(null);
   const [isSurveying, setIsSurveying] = useState(false);
   const [heading, setHeading] = useState(0);
@@ -1832,15 +2421,28 @@ function SurveyTab({ t, config }: { t: any, config: any }) {
 
   return (
     <div className="space-y-8">
-      <div className="card-glass p-8 transition-colors duration-300">
+      <div className={cn(
+        "p-8 transition-all duration-300 border",
+        theme === 'holographic' ? "bg-black/40 backdrop-blur-3xl border-[rgba(var(--accent-rgb),0.2)] rounded-3xl shadow-[0_0_30px_rgba(var(--accent-rgb),0.1)]" : "card-glass rounded-3xl"
+      )}>
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">
-            <div className={cn("p-4 rounded-2xl glass border border-white/10", config.text)}>
+            <div className={cn(
+              "p-4 rounded-2xl border",
+              theme === 'holographic' ? "bg-[rgba(var(--accent-rgb),0.1)] border-[rgba(var(--accent-rgb),0.2)] text-[var(--accent)]" : cn("glass border-white/10", config.text)
+            )}>
               <Navigation size={28} />
             </div>
-            <h2 className="text-3xl font-black text-white">{t.survey}</h2>
+            <h2 className={cn(
+              "text-3xl font-black",
+              theme === 'holographic' ? "text-white" : "text-white"
+            )} style={theme === 'holographic' ? { textShadow: '0 0 15px var(--accent)' } : {}}>{t.survey}</h2>
           </div>
-          <div className={cn("px-4 py-2 rounded-xl glass text-[10px] font-black uppercase tracking-widest border border-white/10", isSurveying ? "text-red-400 animate-pulse" : "text-white/40")}>
+          <div className={cn(
+            "px-4 py-2 rounded-xl border text-[10px] font-black uppercase tracking-widest",
+            theme === 'holographic' ? "bg-[rgba(var(--accent-rgb),0.1)] border-[rgba(var(--accent-rgb),0.2)]" : "glass border-white/10",
+            isSurveying ? "text-red-400 animate-pulse" : (theme === 'holographic' ? "text-[var(--accent)] opacity-40" : "text-white/40")
+          )}>
             {isSurveying ? "Live" : "Idle"}
           </div>
         </div>
@@ -1849,22 +2451,25 @@ function SurveyTab({ t, config }: { t: any, config: any }) {
           {/* Stats & Compass */}
           <div className="space-y-6">
             <div className="grid grid-cols-2 gap-4">
-              <SurveyCard label={t.lat} value={coords?.lat.toFixed(6) || "---"} config={config} />
-              <SurveyCard label={t.lng} value={coords?.lng.toFixed(6) || "---"} config={config} />
-              <SurveyCard label={t.rl} value="12.45 m" config={config} />
-              <SurveyCard label={t.msl} value="15.20 m" config={config} />
+              <SurveyCard label={t.lat} value={coords?.lat.toFixed(6) || "---"} config={config} theme={theme} />
+              <SurveyCard label={t.lng} value={coords?.lng.toFixed(6) || "---"} config={config} theme={theme} />
+              <SurveyCard label={t.rl} value="12.45 m" config={config} theme={theme} />
+              <SurveyCard label={t.msl} value="15.20 m" config={config} theme={theme} />
               <div className="col-span-2">
-                <SurveyCard label={t.currentTime} value={currentTime || "---"} config={config} />
+                <SurveyCard label={t.currentTime} value={currentTime || "---"} config={config} theme={theme} />
               </div>
             </div>
 
             {/* Animated Compass */}
-            <div className="relative aspect-square max-w-[280px] mx-auto bg-black/40 rounded-full p-6 border-8 border-white/5 overflow-hidden glass border-white/10">
+            <div className={cn(
+              "relative aspect-square max-w-[280px] mx-auto rounded-full p-6 border-8 overflow-hidden",
+              theme === 'holographic' ? "bg-black/60 border-[rgba(var(--accent-rgb),0.1)] shadow-[0_0_30px_rgba(var(--accent-rgb),0.1)]" : "bg-black/40 border-white/5 glass border-white/10"
+            )}>
               {/* Fixed Lubber Line (Needle) */}
-              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1.5 h-10 bg-red-500 z-20 rounded-b-full" />
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1.5 h-10 bg-red-500 z-20 rounded-b-full shadow-[0_0_10px_rgba(239,68,68,0.5)]" />
               
               <div className="absolute inset-0 flex items-center justify-center">
-                <div className="w-full h-full rounded-full border border-white/5" />
+                <div className={cn("w-full h-full rounded-full border", theme === 'holographic' ? "border-[rgba(var(--accent-rgb),0.1)]" : "border-white/5")} />
               </div>
               
               {/* Rotating Compass Face */}
@@ -1878,7 +2483,7 @@ function SurveyTab({ t, config }: { t: any, config: any }) {
                     key={dir} 
                     className={cn(
                       "absolute font-black text-sm",
-                      dir === 'N' ? "text-red-500 scale-125" : "text-white/40"
+                      dir === 'N' ? "text-red-500 scale-125" : (theme === 'holographic' ? "text-[var(--accent)] opacity-40" : "text-white/40")
                     )}
                     style={{ 
                       top: i === 0 ? '12%' : i === 2 ? '88%' : '50%',
@@ -1918,12 +2523,18 @@ function SurveyTab({ t, config }: { t: any, config: any }) {
           {/* Map View */}
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-black text-white/40 uppercase tracking-widest flex items-center gap-2">
+              <h3 className={cn(
+                "text-sm font-black uppercase tracking-widest flex items-center gap-2",
+                theme === 'holographic' ? "text-[var(--accent)] opacity-60" : "text-white/40"
+              )}>
                 <MapIcon size={14} />
                 {t.mapView}
               </h3>
             </div>
-            <div className="aspect-square bg-white/5 rounded-[2rem] border border-white/10 overflow-hidden relative">
+            <div className={cn(
+              "aspect-square rounded-[2rem] border overflow-hidden relative",
+              theme === 'holographic' ? "bg-black/40 border-[rgba(var(--accent-rgb),0.2)]" : "bg-white/5 border-white/10"
+            )}>
               {coords ? (
                 <div className="w-full h-full relative">
                   <iframe 
@@ -1934,12 +2545,18 @@ function SurveyTab({ t, config }: { t: any, config: any }) {
                     loading="lazy"
                     allowFullScreen
                   />
-                  <div className="absolute bottom-2 right-2 glass px-2 py-1 rounded-lg text-[8px] font-bold text-white/60 pointer-events-none uppercase tracking-tighter">
+                  <div className={cn(
+                    "absolute bottom-2 right-2 px-2 py-1 rounded-lg text-[8px] font-bold pointer-events-none uppercase tracking-tighter border",
+                    theme === 'holographic' ? "bg-black/60 border-[rgba(var(--accent-rgb),0.2)] text-[var(--accent)]" : "glass border-white/10 text-white/60"
+                  )}>
                     Google Maps View
                   </div>
                 </div>
               ) : (
-                <div className="w-full h-full flex items-center justify-center flex-col gap-4 text-white/20 p-8 text-center">
+                <div className={cn(
+                  "w-full h-full flex items-center justify-center flex-col gap-4 p-8 text-center",
+                  theme === 'holographic' ? "text-[var(--accent)] opacity-20" : "text-white/20"
+                )}>
                   <MapIcon size={48} className={cn(isSurveying ? "animate-pulse" : "")} />
                   <p className="text-xs font-bold uppercase tracking-widest">
                     {error ? error : (isSurveying ? "Locating your position..." : "Start Survey to see Map")}
@@ -1955,8 +2572,11 @@ function SurveyTab({ t, config }: { t: any, config: any }) {
                 </div>
               )}
               {coords && (
-                <div className="absolute top-4 right-4 p-2 glass rounded-xl">
-                  <Target size={20} className={config.text} />
+                <div className={cn(
+                  "absolute top-4 right-4 p-2 rounded-xl border",
+                  theme === 'holographic' ? "bg-black/60 border-[rgba(var(--accent-rgb),0.2)] text-[var(--accent)]" : "glass border-white/10 text-white"
+                )}>
+                  <Target size={20} className={theme === 'holographic' ? "text-[var(--accent)]" : config.text} />
                 </div>
               )}
             </div>
@@ -1966,10 +2586,10 @@ function SurveyTab({ t, config }: { t: any, config: any }) {
         <button 
           onClick={() => isSurveying ? setIsSurveying(false) : requestOrientationPermission()}
           className={cn(
-            "w-full mt-8 py-6 rounded-[2rem] font-black text-xl transition-all hover:scale-[1.01] active:scale-[0.99]",
+            "w-full mt-8 py-6 rounded-[2rem] font-black text-xl transition-all hover:scale-[1.01] active:scale-[0.99] border",
             isSurveying 
-              ? "bg-red-500 text-white" 
-              : cn("text-white", config.bg)
+              ? "bg-red-500 text-white border-red-400 shadow-[0_0_20px_rgba(239,68,68,0.3)]" 
+              : (theme === 'holographic' ? "bg-[var(--accent)] text-black border-[var(--accent)] shadow-[0_0_20px_var(--accent)]" : cn("text-white", config.bg))
           )}
         >
           {isSurveying ? t.stopSurvey : t.startSurvey}
@@ -1978,7 +2598,10 @@ function SurveyTab({ t, config }: { t: any, config: any }) {
         {isSurveying && coords && (
           <button
             onClick={() => setRecordedPoints([...recordedPoints, { ...coords, heading, time: new Date().toLocaleTimeString() }])}
-            className="w-full mt-4 py-4 rounded-[2rem] font-black text-lg transition-all hover:scale-[1.01] active:scale-[0.99] glass text-white border border-white/20 hover:bg-white/10"
+            className={cn(
+              "w-full mt-4 py-4 rounded-[2rem] font-black text-lg transition-all hover:scale-[1.01] active:scale-[0.99] border",
+              theme === 'holographic' ? "bg-black/40 border-[rgba(var(--accent-rgb),0.2)] text-[var(--accent)] hover:border-[var(--accent)]" : "glass text-white border-white/20 hover:bg-white/10"
+            )}
           >
             Record Current Point
           </button>
@@ -1986,20 +2609,26 @@ function SurveyTab({ t, config }: { t: any, config: any }) {
 
         {recordedPoints.length > 0 && (
           <div className="mt-8 space-y-4">
-            <h3 className="text-xl font-black text-white flex items-center gap-2">
-              <MapIcon size={20} />
+            <h3 className={cn(
+              "text-xl font-black flex items-center gap-2",
+              theme === 'holographic' ? "text-white" : "text-white"
+            )}>
+              <MapIcon size={20} className={theme === 'holographic' ? "text-[var(--accent)]" : "text-white"} />
               Recorded Points
             </h3>
             <div className="space-y-2">
               {recordedPoints.map((pt, i) => (
-                <div key={i} className="glass p-4 rounded-xl border border-white/10 flex justify-between items-center">
+                <div key={i} className={cn(
+                  "p-4 rounded-xl border flex justify-between items-center",
+                  theme === 'holographic' ? "bg-black/40 border-[rgba(var(--accent-rgb),0.2)]" : "glass border-white/10"
+                )}>
                   <div>
-                    <p className="text-white font-bold">Point {i + 1}</p>
-                    <p className="text-white/60 text-xs font-mono">{pt.lat.toFixed(6)}, {pt.lng.toFixed(6)}</p>
+                    <p className={cn("font-bold", theme === 'holographic' ? "text-white" : "text-white")}>Point {i + 1}</p>
+                    <p className={cn("text-xs font-mono", theme === 'holographic' ? "text-[var(--accent)] opacity-60" : "text-white/60")}>{pt.lat.toFixed(6)}, {pt.lng.toFixed(6)}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-white font-bold">{Math.round(pt.heading)}°</p>
-                    <p className="text-white/60 text-xs">{pt.time}</p>
+                    <p className={cn("font-bold", theme === 'holographic' ? "text-[var(--accent)]" : "text-white")}>{Math.round(pt.heading)}°</p>
+                    <p className={cn("text-xs", theme === 'holographic' ? "text-white/40" : "text-white/60")}>{pt.time}</p>
                   </div>
                 </div>
               ))}
@@ -2017,16 +2646,25 @@ function SurveyTab({ t, config }: { t: any, config: any }) {
   );
 }
 
-function SurveyCard({ label, value, config }: { label: string, value: string, config: any }) {
+function SurveyCard({ label, value, config, theme }: { label: string, value: string, config: any, theme?: string }) {
   return (
-    <div className="glass p-4 overflow-hidden border border-white/10">
-      <p className="text-[10px] text-white/40 uppercase font-black tracking-widest mb-1 truncate">{label}</p>
-      <p className={cn("text-lg sm:text-xl font-mono font-bold truncate", config.text)} title={value}>{value}</p>
+    <div className={cn(
+      "p-4 overflow-hidden border",
+      theme === 'holographic' ? "bg-black/40 border-[rgba(var(--accent-rgb),0.2)] rounded-2xl" : "glass rounded-2xl border-white/10"
+    )}>
+      <p className={cn(
+        "text-[10px] uppercase font-black tracking-widest mb-1 truncate",
+        theme === 'holographic' ? "text-[var(--accent)] opacity-60" : "text-white/40"
+      )}>{label}</p>
+      <p className={cn(
+        "text-lg sm:text-xl font-mono font-bold truncate", 
+        theme === 'holographic' ? "text-white" : config.text
+      )} title={value}>{value}</p>
     </div>
   );
 }
 
-function LandTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: any }) {
+function LandTab({ t, lang, config, theme }: { t: any, lang: 'bn' | 'en', config: any, theme: string }) {
   const [points, setPoints] = useState<[number, number][]>([]);
   const [areaInfo, setAreaInfo] = useState<{
     sqm: number;
@@ -2211,31 +2849,58 @@ function LandTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: any }
 
   return (
     <div className="space-y-6 sm:space-y-8">
-      <div className="card-glass p-4 sm:p-8 transition-colors duration-300">
+      <div className={cn(
+        "p-4 sm:p-8 transition-all duration-300 border",
+        theme === 'holographic' ? "bg-black/40 backdrop-blur-3xl border-[rgba(var(--accent-rgb),0.2)] rounded-3xl shadow-[0_0_30px_rgba(var(--accent-rgb),0.1)]" : "card-glass rounded-3xl"
+      )}>
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 sm:mb-8">
           <div className="flex items-center gap-3 sm:gap-4">
-            <div className={cn("p-3 sm:p-4 rounded-2xl glass border border-white/10", config.text)}>
+            <div className={cn(
+              "p-3 sm:p-4 rounded-2xl border",
+              theme === 'holographic' ? "bg-[rgba(var(--accent-rgb),0.1)] border-[rgba(var(--accent-rgb),0.2)] text-[var(--accent)]" : cn("glass border-white/10", config.text)
+            )}>
               <MapIcon size={24} className="sm:w-7 sm:h-7" />
             </div>
-            <h2 className="text-xl sm:text-3xl font-black text-white">{t.land}</h2>
+            <h2 className={cn(
+              "text-xl sm:text-3xl font-black",
+              theme === 'holographic' ? "text-white" : "text-white"
+            )} style={theme === 'holographic' ? { textShadow: '0 0 15px var(--accent)' } : {}}>{t.land}</h2>
           </div>
           
-          <div className="grid grid-cols-3 gap-1 sm:gap-2 glass p-1 rounded-2xl border border-white/10 w-full md:w-auto">
+          <div className={cn(
+            "grid grid-cols-3 gap-1 sm:gap-2 p-1 rounded-2xl border w-full md:w-auto",
+            theme === 'holographic' ? "bg-black/40 border-[rgba(var(--accent-rgb),0.2)]" : "glass border-white/10"
+          )}>
             <button 
               onClick={() => setMapType('roadmap')}
-              className={cn("px-2 py-1.5 sm:px-4 sm:py-2 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap w-full", mapType === 'roadmap' ? "bg-white/20 text-white" : "text-white/40")}
+              className={cn(
+                "px-2 py-1.5 sm:px-4 sm:py-2 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap w-full", 
+                mapType === 'roadmap' 
+                  ? (theme === 'holographic' ? "bg-[var(--accent)] text-black" : "bg-white/20 text-white") 
+                  : (theme === 'holographic' ? "text-[var(--accent)] opacity-40" : "text-white/40")
+              )}
             >
               Roadmap
             </button>
             <button 
               onClick={() => setMapType('satellite')}
-              className={cn("px-2 py-1.5 sm:px-4 sm:py-2 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap w-full", mapType === 'satellite' ? "bg-white/20 text-white" : "text-white/40")}
+              className={cn(
+                "px-2 py-1.5 sm:px-4 sm:py-2 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap w-full", 
+                mapType === 'satellite' 
+                  ? (theme === 'holographic' ? "bg-[var(--accent)] text-black" : "bg-white/20 text-white") 
+                  : (theme === 'holographic' ? "text-[var(--accent)] opacity-40" : "text-white/40")
+              )}
             >
               Satellite
             </button>
             <button 
               onClick={() => setMapType('hybrid')}
-              className={cn("px-2 py-1.5 sm:px-4 sm:py-2 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap w-full", mapType === 'hybrid' ? "bg-white/20 text-white" : "text-white/40")}
+              className={cn(
+                "px-2 py-1.5 sm:px-4 sm:py-2 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap w-full", 
+                mapType === 'hybrid' 
+                  ? (theme === 'holographic' ? "bg-[var(--accent)] text-black" : "bg-white/20 text-white") 
+                  : (theme === 'holographic' ? "text-[var(--accent)] opacity-40" : "text-white/40")
+              )}
             >
               Hybrid
             </button>
@@ -2245,14 +2910,20 @@ function LandTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: any }
             <button 
               onClick={undoLastPoint}
               disabled={points.length === 0}
-              className="flex-1 sm:flex-none px-4 py-2 rounded-xl glass text-white/60 text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all disabled:opacity-50 border border-white/10"
+              className={cn(
+                "flex-1 sm:flex-none px-4 py-2 rounded-xl border text-[10px] font-black uppercase tracking-widest transition-all disabled:opacity-50",
+                theme === 'holographic' ? "bg-black/40 border-[rgba(var(--accent-rgb),0.2)] text-[var(--accent)] hover:border-[var(--accent)]" : "glass text-white/60 border-white/10 hover:bg-white/10"
+              )}
             >
               {lang === 'bn' ? "পয়েন্ট মুছুন" : "Undo"}
             </button>
             <button 
               onClick={clearPoints}
               disabled={points.length === 0}
-              className="flex-1 sm:flex-none px-4 py-2 rounded-xl glass text-red-400 text-[10px] font-black uppercase tracking-widest hover:bg-red-500/10 transition-all disabled:opacity-50 border border-red-500/20"
+              className={cn(
+                "flex-1 sm:flex-none px-4 py-2 rounded-xl border text-[10px] font-black uppercase tracking-widest transition-all disabled:opacity-50",
+                theme === 'holographic' ? "bg-black/40 border-red-500/20 text-red-400 hover:bg-red-500/10" : "glass text-red-400 border-red-500/20 hover:bg-red-500/10"
+              )}
             >
               {lang === 'bn' ? "সব মুছুন" : "Clear All"}
             </button>
@@ -2260,22 +2931,40 @@ function LandTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: any }
         </div>
 
         {/* Mode Selector */}
-        <div className="grid grid-cols-3 gap-1 sm:gap-2 mb-6 p-1 bg-white/5 rounded-2xl border border-white/10 w-full sm:w-fit">
+        <div className={cn(
+          "grid grid-cols-3 gap-1 sm:gap-2 mb-6 p-1 rounded-2xl border w-full sm:w-fit",
+          theme === 'holographic' ? "bg-black/40 border-[rgba(var(--accent-rgb),0.2)]" : "bg-white/5 border-white/10"
+        )}>
           <button 
             onClick={() => setCalcMode('general')}
-            className={cn("px-2 sm:px-4 py-2 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all w-full", calcMode === 'general' ? "bg-white/20 text-white" : "text-white/40")}
+            className={cn(
+              "px-2 sm:px-4 py-2 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all w-full", 
+              calcMode === 'general' 
+                ? (theme === 'holographic' ? "bg-[var(--accent)] text-black" : "bg-white/20 text-white") 
+                : (theme === 'holographic' ? "text-[var(--accent)] opacity-40" : "text-white/40")
+            )}
           >
             {lang === 'bn' ? "সাধারণ" : "General"}
           </button>
           <button 
             onClick={() => setCalcMode('station')}
-            className={cn("px-2 sm:px-4 py-2 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all w-full", calcMode === 'station' ? "bg-white/20 text-white" : "text-white/40")}
+            className={cn(
+              "px-2 sm:px-4 py-2 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all w-full", 
+              calcMode === 'station' 
+                ? (theme === 'holographic' ? "bg-[var(--accent)] text-black" : "bg-white/20 text-white") 
+                : (theme === 'holographic' ? "text-[var(--accent)] opacity-40" : "text-white/40")
+            )}
           >
             {lang === 'bn' ? "স্টেশন (GPS)" : "Station (GPS)"}
           </button>
           <button 
             onClick={() => setCalcMode('coordinates')}
-            className={cn("px-2 sm:px-4 py-2 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all w-full", calcMode === 'coordinates' ? "bg-white/20 text-white" : "text-white/40")}
+            className={cn(
+              "px-2 sm:px-4 py-2 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all w-full", 
+              calcMode === 'coordinates' 
+                ? (theme === 'holographic' ? "bg-[var(--accent)] text-black" : "bg-white/20 text-white") 
+                : (theme === 'holographic' ? "text-[var(--accent)] opacity-40" : "text-white/40")
+            )}
           >
             {lang === 'bn' ? "স্থানাঙ্ক" : "Coordinates"}
           </button>
@@ -2285,31 +2974,49 @@ function LandTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: any }
           {/* Map View */}
           <div className="lg:col-span-2 space-y-4">
             {calcMode === 'coordinates' && (
-              <div className="p-4 glass space-y-4">
-                <p className="text-[10px] font-black text-white/60 uppercase tracking-widest">
+              <div className={cn(
+                "p-4 border space-y-4",
+                theme === 'holographic' ? "bg-black/40 border-[rgba(var(--accent-rgb),0.2)] rounded-2xl" : "glass rounded-2xl border-white/10"
+              )}>
+                <p className={cn(
+                  "text-[10px] font-black uppercase tracking-widest",
+                  theme === 'holographic' ? "text-[var(--accent)] opacity-60" : "text-white/60"
+                )}>
                   {lang === 'bn' 
                     ? `${points.length + 1} নং বিন্দুর অক্ষাংশ ও দ্রাঘিমাংশ দিন` 
                     : `Enter coordinates for Point ${points.length + 1}`}
                 </p>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <label className="text-[9px] font-bold text-white/40 uppercase ml-1">{lang === 'bn' ? "অক্ষাংশ (Latitude)" : "Latitude"}</label>
+                    <label className={cn(
+                      "text-[9px] font-bold uppercase ml-1",
+                      theme === 'holographic' ? "text-[var(--accent)] opacity-40" : "text-white/40"
+                    )}>{lang === 'bn' ? "অক্ষাংশ (Latitude)" : "Latitude"}</label>
                     <input 
                       type="number" 
                       step="any"
                       placeholder="e.g. 23.8103"
-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-white/20 text-white"
+                      className={cn(
+                        "w-full rounded-xl px-3 py-2 text-xs font-bold focus:outline-none focus:ring-2 border",
+                        theme === 'holographic' ? "bg-black/40 border-[rgba(var(--accent-rgb),0.2)] text-white focus:ring-[var(--accent)]" : "bg-white/5 border-white/10 text-white focus:ring-white/20"
+                      )}
                       value={manualLat}
                       onChange={(e) => setManualLat(e.target.value)}
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[9px] font-bold text-white/40 uppercase ml-1">{lang === 'bn' ? "দ্রাঘিমাংশ (Longitude)" : "Longitude"}</label>
+                    <label className={cn(
+                      "text-[9px] font-bold uppercase ml-1",
+                      theme === 'holographic' ? "text-[var(--accent)] opacity-40" : "text-white/40"
+                    )}>{lang === 'bn' ? "দ্রাঘিমাংশ (Longitude)" : "Longitude"}</label>
                     <input 
                       type="number" 
                       step="any"
                       placeholder="e.g. 90.4125"
-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-white/20 text-white"
+                      className={cn(
+                        "w-full rounded-xl px-3 py-2 text-xs font-bold focus:outline-none focus:ring-2 border",
+                        theme === 'holographic' ? "bg-black/40 border-[rgba(var(--accent-rgb),0.2)] text-white focus:ring-[var(--accent)]" : "bg-white/5 border-white/10 text-white focus:ring-white/20"
+                      )}
                       value={manualLng}
                       onChange={(e) => setManualLng(e.target.value)}
                     />
@@ -2317,7 +3024,10 @@ function LandTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: any }
                 </div>
                 <button 
                   onClick={addManualPoint}
-                  className={cn("w-full py-3 rounded-xl text-white text-[10px] font-black uppercase tracking-widest transition-all", config.bg)}
+                  className={cn(
+                    "w-full py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border",
+                    theme === 'holographic' ? "bg-[var(--accent)] text-black border-[var(--accent)] shadow-[0_0_15px_rgba(var(--accent-rgb),0.3)]" : cn("text-white", config.bg)
+                  )}
                 >
                   {lang === 'bn' ? "বিন্দু যোগ করুন" : "Add Point"}
                 </button>
@@ -2325,9 +3035,15 @@ function LandTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: any }
             )}
 
             {calcMode === 'station' && (
-              <div className="p-4 glass space-y-4">
+              <div className={cn(
+                "p-4 border space-y-4",
+                theme === 'holographic' ? "bg-black/40 border-[rgba(var(--accent-rgb),0.2)] rounded-2xl" : "glass rounded-2xl border-white/10"
+              )}>
                 <div className="flex items-center justify-between">
-                  <p className="text-[10px] font-black text-white/60 uppercase tracking-widest">
+                  <p className={cn(
+                    "text-[10px] font-black uppercase tracking-widest",
+                    theme === 'holographic' ? "text-[var(--accent)] opacity-60" : "text-white/60"
+                  )}>
                     {lang === 'bn' ? "আপনার বর্তমান অবস্থান ব্যবহার করুন" : "Use your current location"}
                   </p>
                   <div className="flex items-center gap-2">
@@ -2335,11 +3051,14 @@ function LandTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: any }
                     <span className="text-[9px] font-bold text-white/40 uppercase">GPS ACTIVE</span>
                   </div>
                 </div>
-                <button 
-                  onClick={addStationPoint}
-                  disabled={isLocating}
-                  className={cn("w-full py-4 rounded-xl text-white text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2", config.bg)}
-                >
+                  <button 
+                    onClick={addStationPoint}
+                    disabled={isLocating}
+                    className={cn(
+                      "w-full py-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 border",
+                      theme === 'holographic' ? "bg-[var(--accent)] text-black border-[var(--accent)] shadow-[0_0_15px_rgba(var(--accent-rgb),0.3)]" : cn("text-white", config.bg)
+                    )}
+                  >
                   {isLocating ? (
                     <Loader2 size={16} className="animate-spin" />
                   ) : (
@@ -2361,7 +3080,10 @@ function LandTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: any }
                 <span className="text-[9px] sm:text-[10px] font-bold text-white/40 uppercase whitespace-nowrap">{points.length} POINTS</span>
               </div>
             </div>
-            <div className="aspect-video lg:aspect-square bg-white/5 rounded-[1.5rem] sm:rounded-[2.5rem] border border-white/10 overflow-hidden relative z-0">
+            <div className={cn(
+              "aspect-video lg:aspect-square rounded-[1.5rem] sm:rounded-[2.5rem] border overflow-hidden relative z-0",
+              theme === 'holographic' ? "bg-black/40 border-[rgba(var(--accent-rgb),0.2)]" : "bg-white/5 border-white/10"
+            )}>
               {center && (
                 <MapContainer 
                   center={center} 
@@ -2397,8 +3119,14 @@ function LandTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: any }
           {/* 2D Model & AI */}
           <div className="space-y-6">
             <div>
-              <p className="text-[10px] sm:text-xs font-black text-white/40 uppercase tracking-widest mb-3 sm:mb-4">2D Model View</p>
-              <div className="aspect-square bg-white/5 rounded-[1.5rem] sm:rounded-[2rem] border border-white/10 relative flex items-center justify-center overflow-hidden">
+              <p className={cn(
+                "text-[10px] sm:text-xs font-black uppercase tracking-widest mb-3 sm:mb-4",
+                theme === 'holographic' ? "text-[var(--accent)] opacity-60" : "text-white/40"
+              )}>2D Model View</p>
+              <div className={cn(
+                "aspect-square rounded-[1.5rem] sm:rounded-[2rem] border relative flex items-center justify-center overflow-hidden",
+                theme === 'holographic' ? "bg-black/40 border-[rgba(var(--accent-rgb),0.2)]" : "bg-white/5 border-white/10"
+              )}>
                 {points.length > 2 ? (
                   <svg viewBox="0 0 100 100" className="w-full h-full p-4">
                     <polygon 
@@ -2446,12 +3174,18 @@ function LandTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: any }
             </div>
 
             <div className="space-y-4">
-              <p className="text-[10px] sm:text-xs font-black text-white/40 uppercase tracking-widest">{t.aiSuggestion}</p>
+              <p className={cn(
+                "text-[10px] sm:text-xs font-black uppercase tracking-widest",
+                theme === 'holographic' ? "text-[var(--accent)] opacity-60" : "text-white/40"
+              )}>{t.aiSuggestion}</p>
               <div className="relative">
                 <input 
                   type="text"
                   placeholder={lang === 'bn' ? "AI কে কমান্ড দিন..." : "Command AI..."}
-                  className="w-full glass border border-white/10 rounded-2xl py-3 sm:py-4 pl-4 sm:pl-6 pr-12 sm:pr-14 text-xs sm:text-sm font-bold focus:outline-none focus:ring-2 focus:ring-white/20 text-white transition-all"
+                  className={cn(
+                    "w-full border rounded-2xl py-3 sm:py-4 pl-4 sm:pl-6 pr-12 sm:pr-14 text-xs sm:text-sm font-bold focus:outline-none focus:ring-2 transition-all",
+                    theme === 'holographic' ? "bg-black/40 border-[rgba(var(--accent-rgb),0.2)] text-white focus:ring-[var(--accent)]" : "glass border-white/10 focus:ring-white/20 text-white"
+                  )}
                   value={aiCommand}
                   onChange={(e) => setAiCommand(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleAiCommand()}
@@ -2459,7 +3193,10 @@ function LandTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: any }
                 <button 
                   onClick={handleAiCommand}
                   disabled={isProcessing || points.length < 3}
-                  className={cn("absolute right-1.5 sm:right-2 top-1/2 -translate-y-1/2 p-2 rounded-xl text-white transition-all disabled:opacity-50", config.bg)}
+                  className={cn(
+                    "absolute right-1.5 sm:right-2 top-1/2 -translate-y-1/2 p-2 rounded-xl transition-all disabled:opacity-50 border",
+                    theme === 'holographic' ? "bg-[var(--accent)] text-black border-[var(--accent)]" : cn("text-white", config.bg)
+                  )}
                 >
                   {isProcessing ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
                 </button>
@@ -2471,7 +3208,10 @@ function LandTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: any }
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -10 }}
-                    className="p-4 sm:p-6 glass max-h-[250px] overflow-y-auto no-scrollbar"
+                    className={cn(
+                      "p-4 sm:p-6 max-h-[250px] overflow-y-auto no-scrollbar border",
+                      theme === 'holographic' ? "bg-black/40 border-[rgba(var(--accent-rgb),0.2)] rounded-2xl" : "glass rounded-2xl border-white/10"
+                    )}
                   >
                     <div className="prose prose-xs sm:prose-sm prose-invert">
                       <ReactMarkdown>{landAnalysis}</ReactMarkdown>
@@ -2482,8 +3222,8 @@ function LandTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: any }
             </div>
 
             <div className="grid grid-cols-1 gap-3 sm:gap-4">
-              <ResultCard label={t.sqft} value={areaInfo ? areaInfo.sqft.toLocaleString(undefined, { maximumFractionDigits: 1 }) : "---"} unit="ft²" config={config} />
-              <ResultCard label={t.decimal} value={areaInfo ? areaInfo.decimal.toLocaleString(undefined, { maximumFractionDigits: 3 }) : "---"} unit="Dec" config={config} />
+              <ResultCard label={t.sqft} value={areaInfo ? areaInfo.sqft.toLocaleString(undefined, { maximumFractionDigits: 1 }) : "---"} unit="ft²" config={config} theme={theme} />
+              <ResultCard label={t.decimal} value={areaInfo ? areaInfo.decimal.toLocaleString(undefined, { maximumFractionDigits: 3 }) : "---"} unit="Dec" config={config} theme={theme} />
             </div>
           </div>
         </div>
@@ -2492,19 +3232,31 @@ function LandTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: any }
   );
 }
 
-function ResultCard({ label, value, unit, config }: { label: string, value: string, unit: string, config: any }) {
+function ResultCard({ label, value, unit, config, theme }: { label: string, value: string, unit: string, config: any, theme?: string }) {
   return (
-    <div className="glass p-6 group hover:border-white/20 transition-all">
-      <p className="text-[10px] text-white/40 uppercase font-black tracking-widest mb-2">{label}</p>
+    <div className={cn(
+      "p-6 group transition-all border",
+      theme === 'holographic' ? "bg-black/40 border-[rgba(var(--accent-rgb),0.2)] rounded-2xl hover:border-[var(--accent)]" : "glass rounded-2xl border-white/10 hover:border-white/20"
+    )}>
+      <p className={cn(
+        "text-[10px] uppercase font-black tracking-widest mb-2",
+        theme === 'holographic' ? "text-[var(--accent)] opacity-60" : "text-white/40"
+      )}>{label}</p>
       <div className="flex items-baseline gap-2">
-        <span className={cn("text-2xl font-mono font-black", config.text)}>{value}</span>
-        <span className="text-[10px] font-bold text-white/40 uppercase">{unit}</span>
+        <span className={cn(
+          "text-2xl font-mono font-black", 
+          theme === 'holographic' ? "text-white" : config.text
+        )}>{value}</span>
+        <span className={cn(
+          "text-[10px] font-bold uppercase",
+          theme === 'holographic' ? "text-[var(--accent)] opacity-40" : "text-white/40"
+        )}>{unit}</span>
       </div>
     </div>
   );
 }
 
-function EstimatingTab({ t, config }: { t: any, config: any }) {
+function EstimatingTab({ t, config, theme }: { t: any, config: any, theme: string }) {
   const [image, setImage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
@@ -2547,36 +3299,60 @@ function EstimatingTab({ t, config }: { t: any, config: any }) {
 
   return (
     <div className="space-y-6">
-      <div className="card-glass transition-colors duration-300">
-        <h2 className="text-2xl font-black mb-6 text-white">{t.estimating}</h2>
+      <div className={cn(
+        "p-8 transition-all duration-300 border",
+        theme === 'holographic' ? "bg-black/40 backdrop-blur-3xl border-[rgba(var(--accent-rgb),0.2)] rounded-3xl shadow-[0_0_30px_rgba(var(--accent-rgb),0.1)]" : "card-glass rounded-3xl"
+      )}>
+        <h2 className={cn(
+          "text-2xl font-black mb-6",
+          theme === 'holographic' ? "text-white" : "text-white"
+        )} style={theme === 'holographic' ? { textShadow: '0 0 10px var(--accent)' } : {}}>{t.estimating}</h2>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
           <div className="space-y-2">
-            <label className="text-xs font-bold text-white/40 uppercase tracking-widest ml-1">{t.floors}</label>
+            <label className={cn(
+              "text-xs font-bold uppercase tracking-widest ml-1",
+              theme === 'holographic' ? "text-[var(--accent)] opacity-60" : "text-white/40"
+            )}>{t.floors}</label>
             <input 
               type="number" 
               min="1"
               value={floors}
               onChange={(e) => setFloors(Number(e.target.value))}
-              className="w-full glass border border-white/10 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-white/20 font-bold text-white transition-all"
+              className={cn(
+                "w-full border rounded-xl p-3 focus:outline-none font-bold text-white transition-all",
+                theme === 'holographic' ? "bg-black/40 border-[rgba(var(--accent-rgb),0.2)] focus:border-[var(--accent)] focus:ring-1 focus:ring-[var(--accent)]" : "glass border-white/10 focus:ring-2 focus:ring-white/20"
+              )}
             />
           </div>
           <div className="space-y-2">
-            <label className="text-xs font-bold text-white/40 uppercase tracking-widest ml-1">{t.areaSqft} {t.optional}</label>
+            <label className={cn(
+              "text-xs font-bold uppercase tracking-widest ml-1",
+              theme === 'holographic' ? "text-[var(--accent)] opacity-60" : "text-white/40"
+            )}>{t.areaSqft} {t.optional}</label>
             <input 
               type="number" 
               placeholder="e.g. 1200"
               value={areaSqft}
               onChange={(e) => setAreaSqft(e.target.value)}
-              className="w-full glass border border-white/10 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-white/20 font-bold text-white transition-all"
+              className={cn(
+                "w-full border rounded-xl p-3 focus:outline-none font-bold text-white transition-all",
+                theme === 'holographic' ? "bg-black/40 border-[rgba(var(--accent-rgb),0.2)] focus:border-[var(--accent)] focus:ring-1 focus:ring-[var(--accent)]" : "glass border-white/10 focus:ring-2 focus:ring-white/20"
+              )}
             />
           </div>
           <div className="space-y-2">
-            <label className="text-xs font-bold text-white/40 uppercase tracking-widest ml-1">{t.foundationType}</label>
+            <label className={cn(
+              "text-xs font-bold uppercase tracking-widest ml-1",
+              theme === 'holographic' ? "text-[var(--accent)] opacity-60" : "text-white/40"
+            )}>{t.foundationType}</label>
             <select 
               value={foundation}
               onChange={(e) => setFoundation(e.target.value)}
-              className="w-full glass border border-white/10 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-white/20 font-bold text-white transition-all appearance-none"
+              className={cn(
+                "w-full border rounded-xl p-3 focus:outline-none font-bold text-white transition-all appearance-none",
+                theme === 'holographic' ? "bg-black/40 border-[rgba(var(--accent-rgb),0.2)]" : "glass border-white/10"
+              )}
             >
               <option value="Spread Footing" className="bg-stone-900">Spread Footing</option>
               <option value="Mat/Raft Foundation" className="bg-stone-900">Mat/Raft Foundation</option>
@@ -2585,11 +3361,17 @@ function EstimatingTab({ t, config }: { t: any, config: any }) {
             </select>
           </div>
           <div className="space-y-2">
-            <label className="text-xs font-bold text-white/40 uppercase tracking-widest ml-1">{t.buildingType}</label>
+            <label className={cn(
+              "text-xs font-bold uppercase tracking-widest ml-1",
+              theme === 'holographic' ? "text-[var(--accent)] opacity-60" : "text-white/40"
+            )}>{t.buildingType}</label>
             <select 
               value={buildingType}
               onChange={(e) => setBuildingType(e.target.value)}
-              className="w-full glass border border-white/10 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-white/20 font-bold text-white transition-all appearance-none"
+              className={cn(
+                "w-full border rounded-xl p-3 focus:outline-none font-bold text-white transition-all appearance-none",
+                theme === 'holographic' ? "bg-black/40 border-[rgba(var(--accent-rgb),0.2)]" : "glass border-white/10"
+              )}
             >
               <option value="Residential" className="bg-stone-900">Residential</option>
               <option value="Commercial" className="bg-stone-900">Commercial</option>
@@ -2598,17 +3380,29 @@ function EstimatingTab({ t, config }: { t: any, config: any }) {
           </div>
         </div>
 
-        <div className="relative aspect-video glass rounded-3xl border-2 border-dashed border-white/10 mb-6 flex items-center justify-center overflow-hidden group transition-all">
+        <div className={cn(
+          "relative aspect-video rounded-3xl border-2 border-dashed mb-6 flex items-center justify-center overflow-hidden group transition-all",
+          theme === 'holographic' ? "bg-black/40 border-[rgba(var(--accent-rgb),0.2)]" : "glass border-white/10"
+        )}>
           {image ? (
             <>
               <img src={image} className="w-full h-full object-cover" alt="Plan" />
-              <button onClick={() => setImage(null)} className="absolute top-4 right-4 p-2 glass hover:bg-white/10 text-white transition-all">
+              <button onClick={() => setImage(null)} className={cn(
+                "absolute top-4 right-4 p-2 rounded-xl transition-all border",
+                theme === 'holographic' ? "bg-[rgba(var(--accent-rgb),0.1)] border-[rgba(var(--accent-rgb),0.2)] text-[var(--accent)] hover:bg-[var(--accent)] hover:text-black" : "glass hover:bg-white/10 text-white border-white/10"
+              )}>
                 <X size={20} />
               </button>
             </>
           ) : (
-            <label className="cursor-pointer flex flex-col items-center gap-3 text-white/40 group-hover:text-white transition-colors">
-              <div className="p-5 rounded-full glass group-hover:bg-white/10 transition-all border border-white/10">
+            <label className={cn(
+              "cursor-pointer flex flex-col items-center gap-3 transition-colors",
+              theme === 'holographic' ? "text-[var(--accent)] opacity-40 hover:opacity-100" : "text-white/40 hover:text-white"
+            )}>
+              <div className={cn(
+                "p-5 rounded-full transition-all border",
+                theme === 'holographic' ? "bg-[rgba(var(--accent-rgb),0.1)] border-[rgba(var(--accent-rgb),0.2)]" : "glass border-white/10"
+              )}>
                 <Upload size={32} />
               </div>
               <span className="text-sm font-bold">{t.uploadPlan} {t.optional}</span>
@@ -2620,7 +3414,10 @@ function EstimatingTab({ t, config }: { t: any, config: any }) {
         <button 
           onClick={handleEstimate}
           disabled={loading || (!image && !areaSqft)}
-          className={cn("w-full text-white py-5 rounded-2xl font-black text-lg flex items-center justify-center gap-3 disabled:opacity-50", config.bg)}
+          className={cn(
+            "w-full py-5 rounded-2xl font-black text-lg flex items-center justify-center gap-3 disabled:opacity-50 transition-all",
+            theme === 'holographic' ? "bg-[var(--accent)] text-black shadow-[0_0_20px_var(--accent)]" : cn("text-white", config.bg)
+          )}
         >
           {loading ? <Loader2 className="animate-spin" /> : <Calculator size={24} />}
           {t.estimate}
@@ -2629,21 +3426,27 @@ function EstimatingTab({ t, config }: { t: any, config: any }) {
 
       {result && (
         <div className="grid grid-cols-2 gap-4">
-          <StatCard label={t.cement} value={`${result.cement || 0} Bags`} config={config} />
-          <StatCard label={t.sand} value={`${result.sand || 0} cft`} config={config} />
-          <StatCard label={t.bricks} value={`${result.bricks || 0} Pcs`} config={config} />
-          <StatCard label={t.rods} value={`${result.rods || 0} kg`} config={config} />
+          <StatCard label={t.cement} value={`${result.cement || 0} Bags`} config={config} theme={theme} />
+          <StatCard label={t.sand} value={`${result.sand || 0} cft`} config={config} theme={theme} />
+          <StatCard label={t.bricks} value={`${result.bricks || 0} Pcs`} config={config} theme={theme} />
+          <StatCard label={t.rods} value={`${result.rods || 0} kg`} config={config} theme={theme} />
           
           {result.breakdown && (
-            <div className="col-span-2 card-glass p-6 mt-2 transition-colors duration-300">
-              <h3 className="text-sm font-black text-white/40 uppercase tracking-widest mb-4">{t.costBreakdown}</h3>
+            <div className={cn(
+              "col-span-2 p-6 mt-2 transition-all duration-300 border",
+              theme === 'holographic' ? "bg-black/40 backdrop-blur-3xl border-[rgba(var(--accent-rgb),0.2)] rounded-3xl shadow-[0_0_20px_rgba(var(--accent-rgb),0.1)]" : "card-glass rounded-3xl"
+            )}>
+              <h3 className={cn(
+                "text-sm font-black uppercase tracking-widest mb-4",
+                theme === 'holographic' ? "text-[var(--accent)] opacity-60" : "text-white/40"
+              )}>{t.costBreakdown}</h3>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                <BreakdownItem label="Foundation" value={result.breakdown.foundation} config={config} />
-                <BreakdownItem label="Walls" value={result.breakdown.walls} config={config} />
-                <BreakdownItem label="Roof/Slab" value={result.breakdown.roof} config={config} />
-                <BreakdownItem label="Doors & Windows" value={result.breakdown.doorsWindows} config={config} />
-                <BreakdownItem label="Finishing" value={result.breakdown.finishing} config={config} />
-                <BreakdownItem label="Plumbing & Electrical" value={result.breakdown.plumbingElectrical} config={config} />
+                <BreakdownItem label="Foundation" value={result.breakdown.foundation} config={config} theme={theme} />
+                <BreakdownItem label="Walls" value={result.breakdown.walls} config={config} theme={theme} />
+                <BreakdownItem label="Roof/Slab" value={result.breakdown.roof} config={config} theme={theme} />
+                <BreakdownItem label="Doors & Windows" value={result.breakdown.doorsWindows} config={config} theme={theme} />
+                <BreakdownItem label="Finishing" value={result.breakdown.finishing} config={config} theme={theme} />
+                <BreakdownItem label="Plumbing & Electrical" value={result.breakdown.plumbingElectrical} config={config} theme={theme} />
               </div>
             </div>
           )}
@@ -2651,14 +3454,30 @@ function EstimatingTab({ t, config }: { t: any, config: any }) {
           <motion.div 
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="col-span-2 card-glass p-8 relative overflow-hidden mt-2"
+            className={cn(
+              "col-span-2 p-8 relative overflow-hidden mt-2 border",
+              theme === 'holographic' ? "bg-black/40 backdrop-blur-3xl border-[rgba(var(--accent-rgb),0.2)] rounded-3xl shadow-[0_0_30px_rgba(var(--accent-rgb),0.1)]" : "card-glass rounded-3xl"
+            )}
           >
             <div className="relative z-10">
-              <p className="text-xs uppercase font-black text-slate-400 mb-2 tracking-widest">{t.cost}</p>
-              <p className="text-5xl font-black text-white">৳ {(result.totalCost || 0).toLocaleString()}</p>
-              <p className="mt-6 text-lg font-medium text-slate-300 leading-relaxed">{result.summary}</p>
+              <p className={cn(
+                "text-xs uppercase font-black mb-2 tracking-widest",
+                theme === 'holographic' ? "text-[var(--accent)] opacity-60" : "text-slate-400"
+              )}>{t.cost}</p>
+              <p className={cn(
+                "text-5xl font-black",
+                theme === 'holographic' ? "text-white" : "text-white"
+              )} style={theme === 'holographic' ? { textShadow: '0 0 15px var(--accent)' } : {}}>৳ {(result.totalCost || 0).toLocaleString()}</p>
+              <p className={cn(
+                "mt-6 text-lg font-medium leading-relaxed",
+                theme === 'holographic' ? "text-white/80" : "text-slate-300"
+              )}>{result.summary}</p>
             </div>
-            <div className="absolute -right-20 -bottom-20 w-80 h-80 bg-white/5 rounded-full blur-3xl" />
+            {theme === 'holographic' ? (
+              <div className="absolute -right-20 -bottom-20 w-80 h-80 bg-[var(--accent)] opacity-10 rounded-full blur-3xl" />
+            ) : (
+              <div className="absolute -right-20 -bottom-20 w-80 h-80 bg-white/5 rounded-full blur-3xl" />
+            )}
           </motion.div>
         </div>
       )}
@@ -2666,25 +3485,43 @@ function EstimatingTab({ t, config }: { t: any, config: any }) {
   );
 }
 
-function BreakdownItem({ label, value, config }: { label: string, value: number, config: any }) {
+function BreakdownItem({ label, value, config, theme }: { label: string, value: number, config: any, theme?: string }) {
   return (
-    <div className="glass p-4 border border-white/10 transition-all">
-      <p className="text-[10px] uppercase font-bold text-white/40 mb-1">{label}</p>
-      <p className="text-lg font-black text-white">{value ? `৳ ${value.toLocaleString()}` : 'N/A'}</p>
+    <div className={cn(
+      "p-4 border transition-all",
+      theme === 'holographic' ? "bg-[rgba(var(--accent-rgb),0.05)] border-[rgba(var(--accent-rgb),0.1)] rounded-xl" : "glass border-white/10 rounded-xl"
+    )}>
+      <p className={cn(
+        "text-[10px] uppercase font-bold mb-1",
+        theme === 'holographic' ? "text-[var(--accent)] opacity-60" : "text-white/40"
+      )}>{label}</p>
+      <p className={cn(
+        "text-lg font-black",
+        theme === 'holographic' ? "text-white" : "text-white"
+      )}>{value ? `৳ ${value.toLocaleString()}` : 'N/A'}</p>
     </div>
   );
 }
 
-function StatCard({ label, value, config }: { label: string, value: string, config: any }) {
+function StatCard({ label, value, config, theme }: { label: string, value: string, config: any, theme?: string }) {
   return (
-    <div className="glass p-6 transition-all border border-white/10">
-      <p className="text-[10px] uppercase font-black text-white/40 mb-1 tracking-widest">{label}</p>
-      <p className="text-2xl font-black text-white">{value}</p>
+    <div className={cn(
+      "p-6 border transition-all",
+      theme === 'holographic' ? "bg-black/40 backdrop-blur-3xl border-[rgba(var(--accent-rgb),0.2)] rounded-2xl shadow-[0_0_15px_rgba(var(--accent-rgb),0.05)]" : "glass border-white/10 rounded-2xl"
+    )}>
+      <p className={cn(
+        "text-[10px] uppercase font-black mb-1 tracking-widest",
+        theme === 'holographic' ? "text-[var(--accent)] opacity-60" : "text-white/40"
+      )}>{label}</p>
+      <p className={cn(
+        "text-2xl font-black",
+        theme === 'holographic' ? "text-white" : "text-white"
+      )}>{value}</p>
     </div>
   );
 }
 
-function MaterialsTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: any }) {
+function MaterialsTab({ t, lang, config, theme }: { t: any, lang: 'bn' | 'en', config: any, theme: string }) {
   const [selectedTest, setSelectedTest] = useState<any>(null);
   const [activeCategory, setActiveCategory] = useState<string>('brick');
   const [activeType, setActiveType] = useState<string>('field');
@@ -2701,7 +3538,10 @@ function MaterialsTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: 
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4">
-        <h2 className="text-2xl font-black text-white">{t.materials}</h2>
+        <h2 className={cn(
+          "text-2xl font-black",
+          theme === 'holographic' ? "text-white" : "text-white"
+        )} style={theme === 'holographic' ? { textShadow: '0 0 10px var(--accent)' } : {}}>{t.materials}</h2>
         
         {/* Category Filters */}
         <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
@@ -2712,8 +3552,8 @@ function MaterialsTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: 
               className={cn(
                 "px-5 py-3 rounded-2xl font-bold text-sm whitespace-nowrap transition-all border flex items-center gap-2",
                 activeCategory === cat 
-                   ? "bg-white/20 text-white border-white/30 scale-105" 
-                  : "glass text-white/40 border-white/10 hover:bg-white/10 hover:text-white"
+                  ? (theme === 'holographic' ? "bg-[rgba(var(--accent-rgb),0.2)] text-white border-[var(--accent)] shadow-[0_0_10px_rgba(var(--accent-rgb),0.3)] scale-105" : "bg-white/20 text-white border-white/30 scale-105")
+                  : (theme === 'holographic' ? "bg-black/40 border-[rgba(var(--accent-rgb),0.2)] text-[var(--accent)] opacity-60 hover:opacity-100" : "glass text-white/40 border-white/10 hover:bg-white/10 hover:text-white")
               )}
             >
               {t[cat] || cat.charAt(0).toUpperCase() + cat.slice(1)}
@@ -2730,8 +3570,8 @@ function MaterialsTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: 
               className={cn(
                 "flex-1 py-3 rounded-2xl font-bold text-sm transition-all border flex items-center justify-center gap-2",
                 activeType === type 
-                  ? "bg-white/20 text-white border-white/30 scale-[1.02]" 
-                  : "glass text-white/40 border-white/10 hover:bg-white/10 hover:text-white"
+                  ? (theme === 'holographic' ? "bg-[rgba(var(--accent-rgb),0.2)] text-white border-[var(--accent)] shadow-[0_0_10px_rgba(var(--accent-rgb),0.3)] scale-[1.02]" : "bg-white/20 text-white border-white/30 scale-[1.02]")
+                  : (theme === 'holographic' ? "bg-black/40 border-[rgba(var(--accent-rgb),0.2)] text-[var(--accent)] opacity-60 hover:opacity-100" : "glass text-white/40 border-white/10 hover:bg-white/10 hover:text-white")
               )}
             >
               {type === 'field' ? '🔹 ' : '🔬 '}
@@ -2751,10 +3591,16 @@ function MaterialsTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: 
               animate={{ opacity: 1, scale: 1 }}
               whileHover={{ x: 8 }}
               onClick={() => setSelectedTest(test)}
-              className="glass p-5 flex items-center justify-between cursor-pointer hover:bg-white/10 transition-all group border border-white/10"
+              className={cn(
+                "p-5 flex items-center justify-between cursor-pointer transition-all group border",
+                theme === 'holographic' ? "bg-black/40 backdrop-blur-3xl border-[rgba(var(--accent-rgb),0.2)] rounded-3xl shadow-[0_0_15px_rgba(var(--accent-rgb),0.05)] hover:border-[var(--accent)]" : "glass rounded-3xl border-white/10 hover:bg-white/10"
+              )}
             >
               <div className="flex items-center gap-4 flex-1">
-                <div className="w-14 h-14 rounded-2xl flex items-center justify-center font-black text-xl text-white shrink-0 glass border border-white/20">
+                <div className={cn(
+                  "w-14 h-14 rounded-2xl flex items-center justify-center font-black text-xl shrink-0 border",
+                  theme === 'holographic' ? "bg-[rgba(var(--accent-rgb),0.1)] border-[rgba(var(--accent-rgb),0.2)] text-[var(--accent)]" : "glass border border-white/20 text-white"
+                )}>
                   {test.material === 'brick' ? '🧱' : 
                    test.material === 'sand' ? '⏳' :
                    test.material === 'cement' ? '🧪' :
@@ -2768,24 +3614,39 @@ function MaterialsTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: 
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1 flex-wrap">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-white/40">
+                    <p className={cn(
+                      "text-[10px] font-black uppercase tracking-widest",
+                      theme === 'holographic' ? "text-[var(--accent)] opacity-60" : "text-white/40"
+                    )}>
                       {t[test.material]?.split(' ')[0] || test.material}
                     </p>
                     <span className="w-1 h-1 rounded-full bg-white/20" />
-                    <div className={cn("px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest text-white", test.type === 'field' ? 'bg-emerald-500/80 backdrop-blur-sm' : 'bg-blue-500/80 backdrop-blur-sm')}>
+                    <div className={cn(
+                      "px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest text-white", 
+                      test.type === 'field' ? 'bg-emerald-500/80 backdrop-blur-sm' : 'bg-blue-500/80 backdrop-blur-sm'
+                    )}>
                       {t[test.type]}
                     </div>
                   </div>
-                  <h3 className="font-bold text-lg text-white leading-tight break-words">{test.name[lang]}</h3>
+                  <h3 className={cn(
+                    "font-bold text-lg leading-tight break-words",
+                    theme === 'holographic' ? "text-white" : "text-white"
+                  )}>{test.name[lang]}</h3>
                 </div>
               </div>
-              <div className="p-2 rounded-xl glass hover:bg-white/10 transition-all shrink-0 ml-2 text-white border border-white/10">
+              <div className={cn(
+                "p-2 rounded-xl transition-all shrink-0 ml-2 border",
+                theme === 'holographic' ? "bg-[rgba(var(--accent-rgb),0.1)] border-[rgba(var(--accent-rgb),0.2)] text-[var(--accent)]" : "glass text-white border-white/10 hover:bg-white/10"
+              )}>
                 <ChevronRight size={20} />
               </div>
             </motion.div>
           ))
         ) : (
-          <div className="glass p-12 text-center border border-white/10">
+          <div className={cn(
+            "p-12 text-center border",
+            theme === 'holographic' ? "bg-black/40 backdrop-blur-3xl border-[rgba(var(--accent-rgb),0.2)] rounded-3xl" : "glass rounded-3xl border-white/10"
+          )}>
             <p className="text-white/40 font-bold">No tests found for this selection.</p>
           </div>
         )}
@@ -2805,13 +3666,19 @@ function MaterialsTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: 
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="relative card-glass w-full max-w-lg p-8 overflow-y-auto max-h-[90vh] no-scrollbar border border-white/20"
+              className={cn(
+                "relative w-full max-w-lg p-8 overflow-y-auto max-h-[90vh] no-scrollbar border",
+                theme === 'holographic' ? "bg-black/90 backdrop-blur-2xl border-[rgba(var(--accent-rgb),0.3)] rounded-3xl shadow-[0_0_50px_rgba(var(--accent-rgb),0.2)]" : "card-glass rounded-3xl border-white/20"
+              )}
             >
-              <div className={cn("absolute top-0 left-0 right-0 h-2", config.bg)} />
+              <div className={cn("absolute top-0 left-0 right-0 h-2", theme === 'holographic' ? "bg-[var(--accent)]" : config.bg)} />
               <div className="flex justify-between items-start mb-8">
                 <div>
                   <div className="flex items-center gap-2 mb-1">
-                    <p className={cn("text-[10px] font-black uppercase tracking-widest", config.text)}>
+                    <p className={cn(
+                      "text-[10px] font-black uppercase tracking-widest",
+                      theme === 'holographic' ? "text-[var(--accent)]" : config.text
+                    )}>
                       {t[selectedTest.material] || selectedTest.material}
                     </p>
                     <span className="w-1 h-1 rounded-full bg-white/20" />
@@ -2821,8 +3688,14 @@ function MaterialsTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: 
                   </div>
                   <h3 className="text-2xl font-black text-white leading-tight">{selectedTest.name[lang]}</h3>
                 </div>
-                <button onClick={() => setSelectedTest(null)} className="p-2 rounded-full glass hover:bg-white/10 transition-all text-white border border-white/10">
-                  <X size={24} />
+                <button 
+                  onClick={() => setSelectedTest(null)} 
+                  className={cn(
+                    "p-2 rounded-xl transition-all border",
+                    theme === 'holographic' ? "bg-[rgba(var(--accent-rgb),0.1)] border-[rgba(var(--accent-rgb),0.2)] text-[var(--accent)] hover:bg-[var(--accent)] hover:text-black" : "glass hover:bg-white/10 text-white border-white/10"
+                  )}
+                >
+                  <X size={20} />
                 </button>
               </div>
 
@@ -2831,12 +3704,18 @@ function MaterialsTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: 
                 {selectedTest.tools && (
                   <div className="space-y-3">
                     <div className="flex items-center gap-2">
-                      <div className={cn("w-1 h-4 rounded-full", config.bg)} />
-                      <p className="text-[10px] font-black uppercase tracking-widest text-stone-400 dark:text-stone-500">{t.tools}</p>
+                      <div className={cn("w-1 h-4 rounded-full", theme === 'holographic' ? "bg-[var(--accent)]" : config.bg)} />
+                      <p className={cn(
+                        "text-[10px] font-black uppercase tracking-widest",
+                        theme === 'holographic' ? "text-[var(--accent)] opacity-60" : "text-stone-400 dark:text-stone-500"
+                      )}>{t.tools}</p>
                     </div>
                     <div className="flex flex-wrap gap-2">
                       {selectedTest.tools[lang].map((tool: string, i: number) => (
-                        <span key={i} className="px-3 py-1.5 bg-stone-50 dark:bg-stone-800 border border-stone-100 dark:border-stone-700 rounded-xl text-stone-700 dark:text-stone-300 font-bold text-xs">
+                        <span key={i} className={cn(
+                          "px-3 py-1.5 border rounded-xl font-bold text-xs",
+                          theme === 'holographic' ? "bg-[rgba(var(--accent-rgb),0.1)] border-[rgba(var(--accent-rgb),0.2)] text-white" : "bg-stone-50 dark:bg-stone-800 border-stone-100 dark:border-stone-700 text-stone-700 dark:text-stone-300"
+                        )}>
                           {tool}
                         </span>
                       ))}
@@ -2846,17 +3725,23 @@ function MaterialsTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: 
 
                 {/* Procedure Section */}
                 <div className="space-y-4">
-                  <div className="flex items-center gap-2">
-                    <div className={cn("w-1 h-4 rounded-full", config.bg)} />
-                    <p className="text-[10px] font-black uppercase tracking-widest text-stone-400 dark:text-stone-500">{t.procedure}</p>
-                  </div>
+                  <h4 className={cn(
+                    "text-xs font-black uppercase tracking-[0.2em]",
+                    theme === 'holographic' ? "text-[var(--accent)] opacity-60" : "text-white/40"
+                  )}>{t.procedure}</h4>
                   <div className="space-y-4">
                     {selectedTest.steps[lang].map((step: string, i: number) => (
                       <div key={i} className="flex gap-4 group">
-                        <div className={cn("w-8 h-8 rounded-xl flex items-center justify-center font-black text-sm flex-shrink-0 transition-transform group-hover:scale-110", config.bg, "text-white")}>
+                        <div className={cn(
+                          "w-8 h-8 rounded-xl flex items-center justify-center font-black text-sm flex-shrink-0 transition-transform group-hover:scale-110 border",
+                          theme === 'holographic' ? "bg-[rgba(var(--accent-rgb),0.1)] border-[rgba(var(--accent-rgb),0.2)] text-[var(--accent)]" : cn(config.bg, "text-white")
+                        )}>
                           {i + 1}
                         </div>
-                        <p className="text-stone-700 dark:text-stone-300 pt-1 font-medium leading-relaxed">{step}</p>
+                        <p className={cn(
+                          "pt-1 font-medium leading-relaxed",
+                          theme === 'holographic' ? "text-white/80" : "text-slate-300"
+                        )}>{step}</p>
                       </div>
                     ))}
                   </div>
@@ -2864,27 +3749,50 @@ function MaterialsTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: 
 
                 {/* Formula Section */}
                 {selectedTest.formula && (
-                  <div className="bg-stone-900 dark:bg-black p-5 rounded-3xl border border-white/10 overflow-hidden">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-white/40 mb-2">{t.formula}</p>
-                    <p className="text-white font-mono text-lg font-bold break-words">{selectedTest.formula[lang]}</p>
+                  <div className={cn(
+                    "p-5 border overflow-hidden",
+                    theme === 'holographic' ? "bg-black/60 border-[rgba(var(--accent-rgb),0.2)] rounded-3xl" : "bg-stone-900 dark:bg-black rounded-3xl border-white/10"
+                  )}>
+                    <p className={cn(
+                      "text-[10px] font-black uppercase tracking-widest mb-2",
+                      theme === 'holographic' ? "text-[var(--accent)] opacity-60" : "text-white/40"
+                    )}>{t.formula}</p>
+                    <p className={cn(
+                      "font-mono text-lg font-bold break-words",
+                      theme === 'holographic' ? "text-[var(--accent)]" : "text-white"
+                    )}>{selectedTest.formula[lang]}</p>
                   </div>
                 )}
 
                 {/* Conclusion Section */}
                 {selectedTest.conclusion && (
-                  <div className="bg-emerald-50 dark:bg-emerald-900/20 p-5 rounded-3xl border border-emerald-100 dark:border-emerald-800/30">
+                  <div className={cn(
+                    "p-5 border",
+                    theme === 'holographic' ? "bg-[rgba(var(--accent-rgb),0.05)] border-[rgba(var(--accent-rgb),0.2)] rounded-3xl" : "bg-emerald-50 dark:bg-emerald-900/20 rounded-3xl border-emerald-100 dark:border-emerald-800/30"
+                  )}>
                     <div className="flex items-center gap-2 mb-2">
-                      <Trophy className="text-emerald-600 dark:text-emerald-400" size={16} />
-                      <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600/60 dark:text-emerald-400/60">{t.conclusion}</p>
+                      <Trophy className={cn(
+                        theme === 'holographic' ? "text-[var(--accent)]" : "text-emerald-600 dark:text-emerald-400"
+                      )} size={16} />
+                      <p className={cn(
+                        "text-[10px] font-black uppercase tracking-widest",
+                        theme === 'holographic' ? "text-[var(--accent)] opacity-60" : "text-emerald-600/60 dark:text-emerald-400/60"
+                      )}>{t.conclusion}</p>
                     </div>
-                    <p className="text-emerald-900 dark:text-emerald-100 font-bold leading-relaxed break-words">{selectedTest.conclusion[lang]}</p>
+                    <p className={cn(
+                      "font-bold leading-relaxed break-words",
+                      theme === 'holographic' ? "text-white" : "text-emerald-900 dark:text-emerald-100"
+                    )}>{selectedTest.conclusion[lang]}</p>
                   </div>
                 )}
               </div>
 
               <button 
                 onClick={() => setSelectedTest(null)}
-                className={cn("w-full mt-10 py-4 rounded-2xl text-white font-bold", config.bg)}
+                className={cn(
+                  "w-full mt-10 py-4 rounded-2xl font-bold transition-all",
+                  theme === 'holographic' ? "bg-[var(--accent)] text-black shadow-[0_0_20px_rgba(var(--accent-rgb),0.3)] hover:scale-[1.02]" : cn("text-white", config.bg)
+                )}
               >
                 {lang === 'bn' ? 'ঠিক আছে' : 'Done'}
               </button>
@@ -2896,7 +3804,7 @@ function MaterialsTab({ t, lang, config }: { t: any, lang: 'bn' | 'en', config: 
   );
 }
 
-function QuizTab({ t, lang, config, dept }: { t: any, lang: 'bn' | 'en', config: any, dept: string }) {
+function QuizTab({ t, lang, config, dept, theme }: { t: any, lang: 'bn' | 'en', config: any, dept: string, theme: string }) {
   const [started, setStarted] = useState(false);
   const [currentIdx, setCurrentIdx] = useState(0);
   const [score, setScore] = useState(0);
@@ -2964,106 +3872,114 @@ function QuizTab({ t, lang, config, dept }: { t: any, lang: 'bn' | 'en', config:
     if (showAnswers) {
       return (
         <div className="space-y-6">
-          <div className="flex justify-between items-center glass p-6 transition-colors duration-300">
-            <h2 className="text-2xl font-black text-white">{lang === 'bn' ? "উত্তরপত্র" : "Answer Sheet"}</h2>
+          <div className={cn(
+            "flex justify-between items-center p-6 transition-all duration-300 border",
+            theme === 'holographic' ? "bg-black/40 backdrop-blur-3xl border-[rgba(var(--accent-rgb),0.2)] rounded-3xl shadow-[0_0_20px_rgba(var(--accent-rgb),0.1)]" : "glass rounded-3xl"
+          )}>
+            <h2 className={cn(
+              "text-2xl font-black",
+              theme === 'holographic' ? "text-white" : "text-white"
+            )} style={theme === 'holographic' ? { textShadow: '0 0 10px var(--accent)' } : {}}>{lang === 'bn' ? "উত্তরপত্র" : "Answer Sheet"}</h2>
             <button 
               onClick={() => setShowAnswers(false)}
-              className="p-2 rounded-xl bg-white/5 text-white hover:bg-white/10 transition-colors"
+              className={cn(
+                "p-2 rounded-xl transition-colors border",
+                theme === 'holographic' ? "bg-[rgba(var(--accent-rgb),0.1)] border-[rgba(var(--accent-rgb),0.2)] text-[var(--accent)] hover:bg-[var(--accent)] hover:text-black" : "bg-white/5 text-white hover:bg-white/10"
+              )}
             >
-              <X size={24} />
+              <X size={20} />
             </button>
           </div>
-
+          
           <div className="space-y-4">
-            {questions.map((q, qIdx) => {
-              const userPick = userAnswers[qIdx];
-              const correctIdx = q.answer;
-              const isCorrect = userPick === correctIdx;
-
-              return (
-                <div key={qIdx} className="glass p-6 space-y-4 transition-colors duration-300">
-                  <div className="flex gap-3">
-                    <span className={cn("flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-black text-sm", isCorrect ? "bg-emerald-500/20 text-emerald-400" : "bg-red-500/20 text-red-400")}>
-                      {qIdx + 1}
-                    </span>
-                    <h4 className="font-bold text-white leading-tight">{q.question[lang]}</h4>
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-2 ml-11">
-                    {q.options[lang].map((opt: string, oIdx: number) => {
-                      const isUserChoice = oIdx === userPick;
-                      const isCorrectChoice = oIdx === correctIdx;
-                      
-                      let borderClass = "border-white/5";
-                      let bgClass = "bg-white/5";
-                      let textClass = "text-white/40";
-
-                      if (isCorrectChoice) {
-                        borderClass = "border-emerald-500/50";
-                        bgClass = "bg-emerald-500/10";
-                        textClass = "text-emerald-400 font-bold";
-                      } else if (isUserChoice && !isCorrectChoice) {
-                        borderClass = "border-red-500/50";
-                        bgClass = "bg-red-500/10";
-                        textClass = "text-red-400 font-bold";
-                      }
-
-                      return (
-                        <div key={oIdx} className={cn("p-3 rounded-xl border text-sm flex justify-between items-center", borderClass, bgClass, textClass)}>
-                          <span>{opt}</span>
-                          {isCorrectChoice && <Trophy size={14} />}
-                          {isUserChoice && !isCorrectChoice && <X size={14} />}
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  <div className="ml-11 p-4 rounded-2xl bg-white/5 border border-white/10">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">{t.explanation}</p>
-                    <p className="text-xs text-white/60 leading-relaxed">{q.explanation[lang]}</p>
-                  </div>
+            {questions.map((q, i) => (
+              <div key={i} className={cn(
+                "p-6 border transition-all duration-300",
+                theme === 'holographic' ? "bg-black/40 backdrop-blur-3xl border-[rgba(var(--accent-rgb),0.2)] rounded-3xl shadow-[0_0_15px_rgba(var(--accent-rgb),0.05)]" : "glass rounded-3xl border-white/10"
+              )}>
+                <div className="flex items-start gap-4 mb-4">
+                  <div className={cn(
+                    "w-8 h-8 rounded-lg flex items-center justify-center font-black shrink-0 border",
+                    theme === 'holographic' ? "bg-[rgba(var(--accent-rgb),0.1)] border-[rgba(var(--accent-rgb),0.3)] text-[var(--accent)]" : "bg-white/10 text-white border-white/10"
+                  )}>{i + 1}</div>
+                  <h4 className={cn(
+                    "font-bold text-lg",
+                    theme === 'holographic' ? "text-white" : "text-white"
+                  )}>{q.question[lang]}</h4>
                 </div>
-              );
-            })}
+                <div className="grid grid-cols-1 gap-2 ml-12">
+                  {q.options[lang].map((opt: string, optIdx: number) => {
+                    const isCorrect = optIdx === q.answer;
+                    const isUserChoice = optIdx === userAnswers[i];
+                    return (
+                      <div 
+                        key={optIdx}
+                        className={cn(
+                          "p-3 rounded-xl border flex items-center justify-between font-medium",
+                          isCorrect 
+                            ? "bg-emerald-500/20 border-emerald-500/50 text-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.1)]"
+                            : isUserChoice
+                              ? "bg-rose-500/20 border-rose-500/50 text-rose-400 shadow-[0_0_10px_rgba(244,63,94,0.1)]"
+                              : (theme === 'holographic' ? "bg-black/20 border-[rgba(var(--accent-rgb),0.1)] text-white/40" : "bg-white/5 border-white/10 text-white/40")
+                        )}
+                      >
+                        <span>{opt}</span>
+                        {isCorrect && <Check size={16} />}
+                        {!isCorrect && isUserChoice && <X size={16} />}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
           </div>
-
-          <button 
-            onClick={() => setFinished(false)}
-            className={cn("w-full py-5 rounded-2xl text-white font-black text-lg glass hover:bg-white/10 transition-all")}
-          >
-            {lang === 'bn' ? "ফিরে যান" : "Go Back"}
-          </button>
         </div>
       );
     }
 
     return (
-      <div className="card-glass p-10 text-center space-y-8 transition-colors duration-300">
+      <div className={cn(
+        "p-12 text-center space-y-8 border",
+        theme === 'holographic' ? "bg-black/40 backdrop-blur-3xl border-[rgba(var(--accent-rgb),0.2)] rounded-3xl shadow-[0_0_30px_rgba(var(--accent-rgb),0.1)]" : "glass rounded-3xl"
+      )}>
         <motion.div 
-          animate={{ scale: [1, 1.2, 1], rotate: [0, 10, -10, 0] }}
-          transition={{ duration: 0.5, repeat: 2 }}
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          className={cn(
+            "w-24 h-24 rounded-full flex items-center justify-center mx-auto border",
+            theme === 'holographic' ? "bg-[rgba(var(--accent-rgb),0.1)] border-[var(--accent)] text-[var(--accent)] shadow-[0_0_20px_rgba(var(--accent-rgb),0.3)]" : "bg-white/10 text-white border-white/10"
+          )}
         >
-          <Trophy size={80} className="mx-auto text-amber-400" />
+          <Trophy size={48} />
         </motion.div>
-        <h2 className="text-4xl font-black text-white">{t.quiz} Finished!</h2>
-        <div className="p-8 rounded-3xl glass">
-          <p className="text-white/40 font-black uppercase tracking-widest mb-2">{t.score}</p>
-          <p className={cn("text-7xl font-black text-white")}>{score}</p>
+        <div>
+          <h2 className={cn(
+            "text-5xl font-black mb-2",
+            theme === 'holographic' ? "text-white" : "text-white"
+          )} style={theme === 'holographic' ? { textShadow: '0 0 15px var(--accent)' } : {}}>{score}%</h2>
+          <p className={cn(
+            "font-bold text-xl",
+            theme === 'holographic' ? "text-[var(--accent)] opacity-80" : "text-white/60"
+          )}>{lang === 'bn' ? "কুইজ সম্পন্ন হয়েছে!" : "Quiz Completed!"}</p>
         </div>
-        
-        <div className="grid grid-cols-1 gap-4">
+        <div className="flex flex-wrap justify-center gap-4">
           <button 
-            onClick={() => setShowAnswers(true)}
-            className="w-full py-5 rounded-2xl glass text-white font-black text-lg hover:bg-white/10 transition-all"
+            onClick={startQuiz}
+            className={cn(
+              "px-8 py-4 rounded-2xl font-black transition-all border",
+              theme === 'holographic' ? "bg-[var(--accent)] text-black border-[var(--accent)] shadow-[0_0_20px_var(--accent)]" : "bg-white text-stone-900"
+            )}
           >
-            {lang === 'bn' ? "উত্তর দেখুন" : "View Answers"}
+            {lang === 'bn' ? "আবার শুরু করুন" : "Try Again"}
           </button>
           <button 
-            onClick={startQuiz} 
-            disabled={isLoading}
-            className={cn("w-full text-white py-5 rounded-2xl font-black text-lg flex items-center justify-center gap-2", quizConfig.bg, isLoading && "opacity-70 cursor-not-allowed")}
+            onClick={() => setShowAnswers(true)}
+            className={cn(
+              "px-8 py-4 rounded-2xl font-black transition-all border",
+              theme === 'holographic' ? "bg-transparent text-[var(--accent)] border-[var(--accent)] shadow-[0_0_15px_rgba(var(--accent-rgb),0.2)]" : "bg-white/10 text-white border-white/20"
+            )}
           >
-            {isLoading ? <Loader2 size={24} className="animate-spin" /> : "Try Again"}
+            {lang === 'bn' ? "উত্তর দেখুন" : "View Answers"}
           </button>
         </div>
       </div>
@@ -3072,17 +3988,32 @@ function QuizTab({ t, lang, config, dept }: { t: any, lang: 'bn' | 'en', config:
 
   if (!started) {
     return (
-      <div className="card-glass p-10 text-center space-y-8 transition-colors duration-300">
-        <div className={cn("w-24 h-24 rounded-[2rem] flex items-center justify-center mx-auto", quizConfig.bg, "text-white")}>
+      <div className={cn(
+        "p-12 text-center space-y-8 border",
+        theme === 'holographic' ? "bg-black/40 backdrop-blur-3xl border-[rgba(var(--accent-rgb),0.2)] rounded-3xl shadow-[0_0_30px_rgba(var(--accent-rgb),0.1)]" : "card-glass rounded-3xl"
+      )}>
+        <div className={cn(
+          "w-24 h-24 rounded-[2.5rem] flex items-center justify-center mx-auto border",
+          theme === 'holographic' ? "bg-[rgba(var(--accent-rgb),0.1)] border-[var(--accent)] text-[var(--accent)] shadow-[0_0_20px_rgba(var(--accent-rgb),0.3)]" : cn(quizConfig.bg, "text-white")
+        )}>
           <Trophy size={48} />
         </div>
         <div>
-          <h2 className="text-3xl font-black mb-2 text-white">{t.quiz}</h2>
-          <p className="text-white/40 font-medium">10 Questions • 100 Seconds</p>
+          <h2 className={cn(
+            "text-3xl font-black mb-2",
+            theme === 'holographic' ? "text-white" : "text-white"
+          )} style={theme === 'holographic' ? { textShadow: '0 0 15px var(--accent)' } : {}}>{t.quiz}</h2>
+          <p className={cn(
+            "font-medium text-lg",
+            theme === 'holographic' ? "text-[var(--accent)] opacity-80" : "text-white/60"
+          )}>{lang === 'bn' ? "আপনার জ্ঞান পরীক্ষা করুন!" : "Test your engineering knowledge!"}</p>
         </div>
-        
-        <div className="space-y-3 text-left">
-          <p className="text-sm font-bold text-white/40 uppercase tracking-wider">Select Department</p>
+
+        <div className="space-y-4 max-w-sm mx-auto">
+          <p className={cn(
+            "text-xs font-bold uppercase tracking-widest text-center",
+            theme === 'holographic' ? "text-[var(--accent)] opacity-60" : "text-white/40"
+          )}>{t.deptSelect}</p>
           <div className="grid grid-cols-2 gap-3">
             {Object.entries(DEPT_CONFIG).map(([key, deptConfig]) => {
               const isSelected = selectedDept === key;
@@ -3091,13 +4022,13 @@ function QuizTab({ t, lang, config, dept }: { t: any, lang: 'bn' | 'en', config:
                   key={key}
                   onClick={() => setSelectedDept(key)}
                   className={cn(
-                    "p-4 rounded-2xl border-2 text-left transition-all flex flex-col gap-2",
+                    "p-4 rounded-2xl border transition-all flex flex-col gap-2",
                     isSelected 
-                      ? cn(deptConfig.border, deptConfig.bg, "text-white") 
-                      : "bg-white/5 border-white/10 text-white/40 hover:border-white/20 hover:bg-white/10"
+                      ? (theme === 'holographic' ? "bg-[rgba(var(--accent-rgb),0.2)] text-white border-[var(--accent)] shadow-[0_0_10px_rgba(var(--accent-rgb),0.3)]" : cn(deptConfig.border, deptConfig.bg, "text-white"))
+                      : (theme === 'holographic' ? "bg-black/40 border-[rgba(var(--accent-rgb),0.2)] text-[var(--accent)] opacity-60 hover:opacity-100" : "bg-white/5 border-white/10 text-white/40 hover:border-white/20 hover:bg-white/10")
                   )}
                 >
-                  <div className={cn(!isSelected && deptConfig.text)}>
+                  <div className={cn(!isSelected && (theme === 'holographic' ? "text-[var(--accent)]" : deptConfig.text))}>
                     {deptConfig.icon}
                   </div>
                   <span className="font-bold text-sm">{key.charAt(0).toUpperCase() + key.slice(1)}</span>
@@ -3108,11 +4039,16 @@ function QuizTab({ t, lang, config, dept }: { t: any, lang: 'bn' | 'en', config:
         </div>
 
         <button 
-          onClick={startQuiz} 
+          onClick={startQuiz}
           disabled={isLoading}
-          className={cn("w-full text-white py-5 rounded-2xl font-black text-lg flex items-center justify-center gap-2", quizConfig.bg, isLoading && "opacity-70 cursor-not-allowed")}
+          className={cn(
+            "w-full py-5 rounded-2xl font-black text-lg transition-all flex items-center justify-center gap-3 mx-auto border",
+            theme === 'holographic' ? "bg-[var(--accent)] text-black border-[var(--accent)] shadow-[0_0_20px_var(--accent)]" : cn(quizConfig.bg, "text-white"),
+            isLoading && "opacity-50 cursor-not-allowed"
+          )}
         >
-          {isLoading ? <Loader2 size={24} className="animate-spin" /> : t.startQuiz}
+          {isLoading ? <Loader2 size={24} className="animate-spin" /> : <Play size={24} />}
+          {isLoading ? (lang === 'bn' ? "লোড হচ্ছে..." : "Loading...") : (lang === 'bn' ? "শুরু করুন" : "Start Quiz")}
         </button>
       </div>
     );
@@ -3122,40 +4058,86 @@ function QuizTab({ t, lang, config, dept }: { t: any, lang: 'bn' | 'en', config:
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center glass p-5 transition-colors duration-300">
-        <p className="font-black text-lg text-white">Q {currentIdx + 1}/{questions.length}</p>
-        <div className="flex items-center gap-3 text-red-400 font-mono font-black text-lg">
-          <Loader2 size={20} className={timeLeft < 20 ? "animate-spin" : ""} />
-          {timeLeft}s
+      <div className={cn(
+        "p-6 flex items-center justify-between border",
+        theme === 'holographic' ? "bg-black/40 backdrop-blur-3xl border-[rgba(var(--accent-rgb),0.2)] rounded-3xl shadow-[0_0_20px_rgba(var(--accent-rgb),0.1)]" : "glass rounded-3xl"
+      )}>
+        <div className="flex items-center gap-4">
+          <div className={cn(
+            "w-12 h-12 rounded-xl flex items-center justify-center font-black border",
+            theme === 'holographic' ? "bg-[rgba(var(--accent-rgb),0.1)] border-[rgba(var(--accent-rgb),0.3)] text-[var(--accent)] shadow-[0_0_10px_rgba(var(--accent-rgb),0.2)]" : "bg-white/10 text-white border-white/10"
+          )}>{currentIdx + 1}/{questions.length}</div>
+          <div>
+            <p className={cn(
+              "text-[10px] font-bold uppercase tracking-widest",
+              theme === 'holographic' ? "text-[var(--accent)] opacity-60" : "text-white/40"
+            )}>{t[selectedDept]}</p>
+            <h4 className="font-bold text-white">{lang === 'bn' ? 'কুইজ চলছে' : 'Quiz in Progress'}</h4>
+          </div>
+        </div>
+        <div className="text-right">
+          <p className={cn(
+            "text-[10px] font-bold uppercase tracking-widest",
+            theme === 'holographic' ? "text-[var(--accent)] opacity-60" : "text-white/40"
+          )}>{lang === 'bn' ? 'সময় বাকি' : 'Time Left'}</p>
+          <h4 className={cn(
+            "font-black text-xl",
+            timeLeft < 20 ? "text-rose-500 animate-pulse" : "text-white"
+          )}>{timeLeft}s</h4>
         </div>
       </div>
 
-      <div className="glass p-8 overflow-hidden relative transition-colors duration-300">
-        <h3 className="text-2xl font-black mb-10 leading-tight text-white">{currentQuestion.question[lang]}</h3>
-        <div className="grid grid-cols-1 gap-4">
-          {currentQuestion.options[lang].map((opt: string, i: number) => {
-            const isSelected = i === userAnswers[currentIdx];
-            
-            return (
-              <motion.button 
-                key={i}
-                whileTap={{ scale: 0.98 }}
-                onClick={() => handleAnswer(i)}
-                className={cn(
-                  "w-full text-left p-5 rounded-2xl border transition-all font-bold text-lg",
-                  isSelected 
-                    ? "bg-white/20 text-white border-white/30"
-                    : "bg-white/5 border-white/10 text-slate-400 hover:border-white/20 hover:bg-white/10"
-                )}
-              >
-                <div className="flex justify-between items-center">
-                  <span>{opt}</span>
-                </div>
-              </motion.button>
-            );
-          })}
-        </div>
+      <div className="relative h-2 bg-white/5 rounded-full overflow-hidden border border-white/5">
+        <motion.div 
+          initial={{ width: 0 }}
+          animate={{ width: `${((currentIdx + 1) / questions.length) * 100}%` }}
+          className={cn(
+            "absolute inset-y-0 left-0",
+            theme === 'holographic' ? "bg-[var(--accent)] shadow-[0_0_10px_var(--accent)]" : "bg-white"
+          )}
+        />
       </div>
+
+      <motion.div 
+        key={currentIdx}
+        initial={{ x: 20, opacity: 0 }}
+        animate={{ x: 0, opacity: 1 }}
+        className={cn(
+          "p-10 border",
+          theme === 'holographic' ? "bg-black/40 backdrop-blur-3xl border-[rgba(var(--accent-rgb),0.2)] rounded-3xl shadow-[0_0_30px_rgba(var(--accent-rgb),0.1)]" : "glass rounded-3xl"
+        )}
+      >
+        <h3 className="text-2xl font-bold text-white mb-10 leading-relaxed">{currentQuestion.question[lang]}</h3>
+        <div className="grid grid-cols-1 gap-4">
+          {currentQuestion.options[lang].map((opt: string, idx: number) => (
+            <button
+              key={idx}
+              onClick={() => handleAnswer(idx)}
+              className={cn(
+                "p-6 rounded-2xl text-left font-bold transition-all border group relative overflow-hidden",
+                userAnswers[currentIdx] === idx
+                  ? (theme === 'holographic' ? "bg-[rgba(var(--accent-rgb),0.2)] border-[var(--accent)] text-white shadow-[0_0_15px_rgba(var(--accent-rgb),0.3)]" : "bg-white text-stone-900")
+                  : (theme === 'holographic' ? "bg-black/40 border-[rgba(var(--accent-rgb),0.2)] text-white/80 hover:border-[var(--accent)] hover:bg-[rgba(var(--accent-rgb),0.1)]" : "glass text-white hover:bg-white/10")
+              )}
+            >
+              <div className="flex items-center gap-4 relative z-10">
+                <div className={cn(
+                  "w-8 h-8 rounded-lg flex items-center justify-center text-sm border",
+                  userAnswers[currentIdx] === idx
+                    ? (theme === 'holographic' ? "bg-[var(--accent)] text-black border-[var(--accent)]" : "bg-stone-900 text-white border-stone-800")
+                    : (theme === 'holographic' ? "bg-[rgba(var(--accent-rgb),0.1)] border-[rgba(var(--accent-rgb),0.2)] text-[var(--accent)]" : "bg-white/10 text-white border-white/10")
+                )}>
+                  {String.fromCharCode(65 + idx)}
+                </div>
+                {opt}
+              </div>
+              {theme === 'holographic' && userAnswers[currentIdx] === idx && (
+                <div className="absolute inset-0 bg-gradient-to-r from-[var(--accent)]/10 to-transparent" />
+              )}
+            </button>
+          ))}
+        </div>
+      </motion.div>
     </div>
   );
 }

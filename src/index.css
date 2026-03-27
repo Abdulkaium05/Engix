@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Poppins:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Poppins:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&family=Orbitron:wght@400;500;600;700;800;900&display=swap');
 @import url('https://unpkg.com/leaflet@1.9.4/dist/leaflet.css');
 @import "tailwindcss";
 
@@ -25,9 +25,418 @@
     color: #E2E8F0;
     @apply antialiased min-h-[100dvh] overflow-x-hidden;
   }
+  
+  body.theme-industrial {
+    background: #0F172A;
+    color: #E5E7EB;
+  }
+
+  body.theme-brutal {
+    background: #FFFFFF;
+    color: #000000;
+  }
+
+  body.theme-holographic {
+    background: radial-gradient(circle at center, #020617, #000000);
+    color: #E2E8F0;
+  }
 }
 
 @layer components {
+  /* Brutal Theme */
+  .theme-brutal .grid-bg {
+    display: none;
+  }
+
+  .theme-brutal .glass, .theme-brutal .card-glass {
+    background: #FFFFFF !important;
+    border: 2px solid #000000 !important;
+    border-radius: 6px !important;
+    box-shadow: 6px 6px 0px #000000 !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    color: #000000 !important;
+  }
+
+  .theme-brutal .card-glass::before {
+    display: none !important;
+  }
+
+  .theme-brutal .glass:hover, .theme-brutal .card-glass:hover {
+    transform: translate(-2px, -2px) !important;
+    box-shadow: 8px 8px 0px #000000 !important;
+  }
+
+  .theme-brutal .btn-glass, .theme-brutal button.glass {
+    background: #FFFFFF !important;
+    color: #000000 !important;
+    border: 2px solid #000000 !important;
+    border-radius: 4px !important;
+    box-shadow: 4px 4px 0px #000000 !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    transition: all 0.1s !important;
+  }
+
+  .theme-brutal .btn-glass:hover, .theme-brutal button.glass:hover {
+    transform: translate(-2px, -2px) !important;
+    box-shadow: 6px 6px 0px #000000 !important;
+  }
+
+  .theme-brutal .btn-glass:active, .theme-brutal button.glass:active {
+    transform: translate(4px, 4px) !important;
+    box-shadow: none !important;
+  }
+
+  .theme-brutal .user-msg {
+    background: #000000 !important;
+    color: #FFFFFF !important;
+    padding: 10px !important;
+    border: 2px solid #000000 !important;
+    border-radius: 0 !important;
+    box-shadow: 4px 4px 0px rgba(0,0,0,0.2) !important;
+  }
+
+  .theme-brutal .user-msg p, .theme-brutal .user-msg .text-white {
+    color: #FFFFFF !important;
+  }
+
+  .theme-brutal .ai-msg {
+    background: #FFFFFF !important;
+    color: #000000 !important;
+    border: 2px solid #000000 !important;
+    border-radius: 0 !important;
+    box-shadow: 4px 4px 0px #000000 !important;
+    padding: 10px !important;
+  }
+
+  .theme-brutal input {
+    border: 2px solid #000000 !important;
+    padding: 12px !important;
+    border-radius: 4px !important;
+    background: #FFFFFF !important;
+    color: #000000 !important;
+    box-shadow: 4px 4px 0px #000000 !important;
+  }
+
+  .theme-brutal input:focus {
+    outline: none !important;
+    box-shadow: 6px 6px 0px #000000 !important;
+    transform: translate(-2px, -2px) !important;
+  }
+
+  .theme-brutal .chat-panel {
+    background: #FFFFFF !important;
+    border: 2px solid #000000 !important;
+    border-radius: 6px !important;
+    box-shadow: 6px 6px 0px #000000 !important;
+    padding: 16px !important;
+  }
+
+  /* Department Color System (Bold Version) */
+  .theme-brutal.civil-theme { --accent: #22C55E; --accent-glow: #052E16; --surface-tint: #052E16; }
+  .theme-brutal.electrical-theme { --accent: #2563EB; --accent-glow: #0B1F3A; --surface-tint: #0B1F3A; }
+  .theme-brutal.mechanical-theme { --accent: #F97316; --accent-glow: #3A1405; --surface-tint: #3A1405; }
+  .theme-brutal.computer-theme { --accent: #9333EA; --accent-glow: #24063A; --surface-tint: #24063A; }
+
+  /* Typography */
+  .theme-brutal h1, .theme-brutal h2, .theme-brutal h3, .theme-brutal h4, .theme-brutal h5, .theme-brutal h6, .theme-brutal p, .theme-brutal span, .theme-brutal div {
+    font-family: "Space Grotesk", "IBM Plex Mono", monospace, sans-serif;
+  }
+  .theme-brutal .font-mono, .theme-brutal input[type="number"] {
+    font-family: "IBM Plex Mono", monospace;
+  }
+  
+  /* Brutal Theme overrides for text colors */
+  .theme-brutal .text-white:not(.bg-black):not(.user-msg),
+  .theme-brutal .text-white\/90:not(.bg-black),
+  .theme-brutal .text-white\/80:not(.bg-black) {
+    color: #000000 !important;
+  }
+  .theme-brutal .text-white\/60:not(.bg-black),
+  .theme-brutal .text-white\/50:not(.bg-black),
+  .theme-brutal .text-white\/40:not(.bg-black),
+  .theme-brutal .text-white\/30:not(.bg-black),
+  .theme-brutal .text-white\/20:not(.bg-black),
+  .theme-brutal .text-white\/10:not(.bg-black),
+  .theme-brutal .placeholder\:text-white\/30::placeholder,
+  .theme-brutal .placeholder\:text-white\/40::placeholder {
+    color: #333333 !important;
+  }
+
+  /* Override stone/slate text colors */
+  .theme-brutal .text-stone-100,
+  .theme-brutal .text-stone-300,
+  .theme-brutal .text-stone-400,
+  .theme-brutal .text-stone-500,
+  .theme-brutal .text-slate-300,
+  .theme-brutal .text-slate-400 {
+    color: #333333 !important;
+  }
+
+  /* Override background white variants to white (since body is white) */
+  .theme-brutal .bg-white\/5,
+  .theme-brutal .bg-white\/10,
+  .theme-brutal .bg-white\/20,
+  .theme-brutal .bg-white\/30,
+  .theme-brutal .bg-black\/10,
+  .theme-brutal .bg-black\/20,
+  .theme-brutal .bg-black\/40 {
+    background-color: #FFFFFF !important;
+    border: 2px solid #000000 !important;
+  }
+
+  /* Override border white variants */
+  .theme-brutal .border-white\/10,
+  .theme-brutal .border-white\/20,
+  .theme-brutal .border-white\/30 {
+    border-color: #000000 !important;
+  }
+
+  /* Fix specific elements that need to be inverted back (like user messages or active buttons) */
+  .theme-brutal .user-msg,
+  .theme-brutal .user-msg .text-white,
+  .theme-brutal .user-msg p {
+    background-color: #000000 !important;
+    color: #FFFFFF !important;
+  }
+
+  /* Department Badges / Logos */
+  .theme-brutal .bg-emerald-600,
+  .theme-brutal .bg-orange-600,
+  .theme-brutal .bg-blue-600,
+  .theme-brutal .bg-purple-600 {
+    background-color: #FFFFFF !important;
+    color: #000000 !important;
+    border: 2px solid #000000 !important;
+    box-shadow: 4px 4px 0px #000000 !important;
+  }
+  
+  .theme-brutal .text-emerald-600,
+  .theme-brutal .text-orange-600,
+  .theme-brutal .text-blue-600,
+  .theme-brutal .text-purple-600,
+  .theme-brutal .text-orange-400,
+  .theme-brutal .text-blue-400,
+  .theme-brutal .text-purple-400,
+  .theme-brutal .text-amber-400 {
+    color: #000000 !important;
+  }
+  
+  /* Quiz result colors */
+  .theme-brutal .bg-emerald-500\/20 {
+    background-color: #22C55E !important;
+    color: #000000 !important;
+    border: 2px solid #000000 !important;
+  }
+  .theme-brutal .text-emerald-400 {
+    color: #000000 !important;
+  }
+  .theme-brutal .bg-red-500\/20 {
+    background-color: #EF4444 !important;
+    color: #000000 !important;
+    border: 2px solid #000000 !important;
+  }
+  .theme-brutal .text-red-400 {
+    color: #000000 !important;
+  }
+
+  .theme-brutal .border-emerald-200,
+  .theme-brutal .border-orange-200,
+  .theme-brutal .border-blue-200,
+  .theme-brutal .border-purple-200 {
+    border-color: #000000 !important;
+  }
+
+  .theme-brutal .backdrop-blur-sm, .theme-brutal .backdrop-blur-md, .theme-brutal .backdrop-blur-xl {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+
+  /* Holographic Theme */
+  .theme-holographic.civil-theme { --accent: #00FF9C; --accent-glow: #00FF9C; --surface-tint: #003B2F; --accent-rgb: 0, 255, 156; }
+  .theme-holographic.electrical-theme { --accent: #00D4FF; --accent-glow: #00D4FF; --surface-tint: #002A3A; --accent-rgb: 0, 212, 255; }
+  .theme-holographic.mechanical-theme { --accent: #FF7A00; --accent-glow: #FF7A00; --surface-tint: #3A1F00; --accent-rgb: 255, 122, 0; }
+  .theme-holographic.computer-theme { --accent: #B026FF; --accent-glow: #B026FF; --surface-tint: #2A003A; --accent-rgb: 176, 38, 255; }
+
+  .theme-holographic h1, .theme-holographic h2, .theme-holographic h3, .theme-holographic h4, .theme-holographic h5, .theme-holographic h6 {
+    font-family: "Orbitron", sans-serif;
+    letter-spacing: 0.05em;
+  }
+
+  .theme-holographic .glass, .theme-holographic .card-glass {
+    background: rgba(255,255,255,0.03) !important;
+    border: 1px solid rgba(var(--accent-rgb), 0.3) !important;
+    border-radius: 16px !important;
+    box-shadow: 0 0 20px rgba(var(--accent-rgb), 0.2) !important;
+    backdrop-filter: blur(10px) !important;
+    -webkit-backdrop-filter: blur(10px) !important;
+  }
+
+  .theme-holographic .btn-glass, .theme-holographic button.glass {
+    border: 1px solid var(--accent) !important;
+    color: var(--accent) !important;
+    background: transparent !important;
+    box-shadow: 0 0 10px var(--accent) !important;
+    border-radius: 8px !important;
+    transition: all 0.2s !important;
+  }
+
+  .theme-holographic .btn-glass:hover, .theme-holographic button.glass:hover {
+    box-shadow: 0 0 20px var(--accent) !important;
+    background: rgba(255,255,255,0.05) !important;
+  }
+
+  .theme-holographic .user-msg {
+    background: rgba(var(--accent-rgb), 0.1) !important;
+    border: 1px solid var(--accent) !important;
+    box-shadow: 0 0 10px rgba(var(--accent-rgb), 0.3) !important;
+    border-radius: 16px !important;
+  }
+
+  .theme-holographic .ai-msg {
+    background: rgba(255,255,255,0.05) !important;
+    border: 1px solid rgba(255,255,255,0.2) !important;
+    border-radius: 16px !important;
+  }
+
+  .theme-holographic input {
+    background: rgba(255,255,255,0.05) !important;
+    border: 1px solid rgba(var(--accent-rgb), 0.3) !important;
+    color: white !important;
+    border-radius: 8px !important;
+  }
+  
+  .theme-holographic input:focus {
+    border-color: var(--accent) !important;
+    box-shadow: 0 0 15px var(--accent) !important;
+    outline: none !important;
+  }
+
+  .theme-holographic .chat-panel {
+    background: rgba(255,255,255,0.03) !important;
+    border: 1px solid rgba(var(--accent-rgb), 0.3) !important;
+    border-radius: 16px !important;
+    box-shadow: 0 0 20px rgba(var(--accent-rgb), 0.2) !important;
+  }
+
+  .theme-holographic .bg-white\/5,
+  .theme-holographic .bg-white\/10,
+  .theme-holographic .bg-white\/20 {
+    background: rgba(255,255,255,0.03) !important;
+    border: 1px solid rgba(var(--accent-rgb), 0.3) !important;
+  }
+
+  .theme-holographic .border-white\/10,
+  .theme-holographic .border-white\/20 {
+    border-color: rgba(var(--accent-rgb), 0.3) !important;
+  }
+
+  .theme-holographic .glow-bg {
+    position: absolute;
+    width: 400px;
+    height: 400px;
+    background: var(--accent);
+    filter: blur(150px);
+    opacity: 0.2;
+    animation: float 6s infinite ease-in-out;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  @keyframes float {
+    0% { transform: translate(0, 0) scale(1); }
+    33% { transform: translate(30px, -50px) scale(1.1); }
+    66% { transform: translate(-20px, 20px) scale(0.9); }
+    100% { transform: translate(0, 0) scale(1); }
+  }
+
+  .theme-holographic .pulse-anim {
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(var(--accent-rgb), 0.4); }
+    70% { box-shadow: 0 0 0 10px rgba(var(--accent-rgb), 0); }
+    100% { box-shadow: 0 0 0 0 rgba(var(--accent-rgb), 0); }
+  }
+
+  /* Industrial Theme */
+  .theme-industrial .grid-bg {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    background-image: linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+                      linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+  }
+
+  .theme-industrial .glass {
+    background: rgba(255,255,255,0.05);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px;
+  }
+
+  .theme-industrial .card-glass {
+    background: #020617;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 14px;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .theme-industrial .card-glass::before {
+    display: none;
+  }
+
+  .theme-industrial .btn-glass {
+    background: #1F2937;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 10px;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .theme-industrial .btn-glass:hover {
+    border-color: var(--accent);
+  }
+
+  .theme-industrial .ai-msg {
+    border-left: 3px solid var(--accent);
+    padding-left: 12px;
+    background: transparent;
+    border-radius: 0;
+  }
+
+  .theme-industrial .user-msg {
+    background: #1F2937;
+    border: 1px solid rgba(255,255,255,0.05);
+    color: #E5E7EB;
+  }
+
+  .theme-industrial .chat-panel {
+    background: #020617;
+    border-radius: 12px;
+    padding: 16px;
+  }
+
+  /* Department Color System (Muted Version) */
+  .theme-industrial .civil-theme { --accent: #16A34A; --accent-glow: #86EFAC; --surface-tint: rgba(22,163,74,0.06); }
+  .theme-industrial .electrical-theme { --accent: #2563EB; --accent-glow: #93C5FD; --surface-tint: rgba(37,99,235,0.06); }
+  .theme-industrial .mechanical-theme { --accent: #EA580C; --accent-glow: #FDBA74; --surface-tint: rgba(234,88,12,0.06); }
+  .theme-industrial .computer-theme { --accent: #7C3AED; --accent-glow: #C4B5FD; --surface-tint: rgba(124,58,237,0.06); }
+
+  /* Typography */
+  .theme-industrial h1, .theme-industrial h2, .theme-industrial h3, .theme-industrial h4, .theme-industrial h5, .theme-industrial h6, .theme-industrial p, .theme-industrial span, .theme-industrial div {
+    font-family: "Inter", sans-serif;
+  }
+  .theme-industrial .font-mono, .theme-industrial input[type="number"] {
+    font-family: "JetBrains Mono", monospace;
+  }
+
   .glass {
     background: rgba(255, 255, 255, 0.08);
     backdrop-filter: blur(14px);
