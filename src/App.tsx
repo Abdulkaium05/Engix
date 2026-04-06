@@ -130,11 +130,26 @@ export default function App() {
   const [lang, setLang] = useState<'bn' | 'en'>(() => (localStorage.getItem('engix_lang') as 'bn' | 'en') || 'bn');
   const [dept, setDept] = useState<Dept>(() => (localStorage.getItem('engix_dept') as Dept) || 'civil');
   const [theme, setTheme] = useState<'glass' | 'industrial' | 'brutal' | 'holographic'>(() => (localStorage.getItem('engix_theme') as 'glass' | 'industrial' | 'brutal' | 'holographic') || 'glass');
+  const [credits, setCredits] = useState<number>(() => Number(localStorage.getItem('engix_credits')) || 10);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [showCreditModal, setShowCreditModal] = useState(false);
   const mainRef = useRef<HTMLElement>(null);
 
   const t = translations[lang];
   const config = DEPT_CONFIG[dept];
+
+  useEffect(() => {
+    localStorage.setItem('engix_credits', credits.toString());
+  }, [credits]);
+
+  const useCredit = () => {
+    if (credits <= 0) {
+      setShowCreditModal(true);
+      return false;
+    }
+    setCredits(prev => prev - 1);
+    return true;
+  };
 
   useEffect(() => {
     // Force dark mode for Glass Engineering UI
@@ -216,17 +231,98 @@ export default function App() {
               <p className={cn("text-[8px] font-bold uppercase tracking-widest mt-1", theme === 'brutal' ? "text-black/60" : config.text)}>{t[dept]}</p>
             </div>
           </motion.div>
-          <button 
-            onClick={toggleMenu}
-            className={cn(
-              "p-2.5 transition-all",
-              theme === 'brutal' ? "bg-white text-black border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none" : "btn-glass"
-            )}
-          >
-            <Menu size={20} className={theme === 'brutal' ? "text-black" : "text-white"} />
-          </button>
+          
+          <div className="flex items-center gap-3">
+            <div 
+              onClick={() => setShowCreditModal(true)}
+              className={cn(
+                "px-3 py-1.5 rounded-xl border flex items-center gap-2 cursor-pointer transition-all",
+                theme === 'holographic' ? "bg-[rgba(var(--accent-rgb),0.1)] border-[rgba(var(--accent-rgb),0.2)] text-[var(--accent)]" : "glass border-white/10 text-white"
+              )}
+            >
+              <Zap size={14} className={credits < 3 ? "text-rose-500 animate-pulse" : "text-amber-400"} />
+              <span className="text-xs font-black">{credits}</span>
+            </div>
+            <button 
+              onClick={toggleMenu}
+              className={cn(
+                "p-2.5 transition-all",
+                theme === 'brutal' ? "bg-white text-black border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none" : "btn-glass"
+              )}
+            >
+              <Menu size={20} className={theme === 'brutal' ? "text-black" : "text-white"} />
+            </button>
+          </div>
         </nav>
       )}
+
+      {/* Credit Modal */}
+      <AnimatePresence>
+        {showCreditModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowCreditModal(false)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className={cn(
+                "relative w-full max-w-md p-8 border transition-all duration-300",
+                theme === 'holographic' ? "bg-black/80 backdrop-blur-2xl border-[rgba(var(--accent-rgb),0.2)] rounded-3xl shadow-[0_0_50px_rgba(var(--accent-rgb),0.2)]" : "glass rounded-3xl border-white/10"
+              )}
+            >
+              <button 
+                onClick={() => setShowCreditModal(false)}
+                className="absolute top-4 right-4 p-2 text-white/40 hover:text-white transition-colors"
+              >
+                <X size={20} />
+              </button>
+
+              <div className="text-center space-y-6">
+                <div className="w-20 h-20 bg-amber-400/20 rounded-full flex items-center justify-center mx-auto border border-amber-400/40">
+                  <Zap size={40} className="text-amber-400" />
+                </div>
+                
+                <div className="space-y-2">
+                  <h2 className="text-2xl font-black text-white">{t.needMoreCredits}</h2>
+                  <p className="text-white/60 text-sm">{lang === 'bn' ? "আপনার এআই ব্যবহারের লিমিট শেষ হয়ে গেছে। আরও ব্যবহারের জন্য সাবস্ক্রিপশন নিন।" : "You have reached your AI usage limit. Please upgrade to continue using AI features."}</p>
+                </div>
+
+                <div className="space-y-3">
+                  <div className={cn(
+                    "p-4 rounded-2xl border flex items-center justify-between",
+                    theme === 'holographic' ? "bg-[rgba(var(--accent-rgb),0.1)] border-[rgba(var(--accent-rgb),0.2)]" : "bg-white/5 border-white/10"
+                  )}>
+                    <div className="text-left">
+                      <p className="text-xs font-bold text-white/40 uppercase tracking-widest">{t.currentCredits}</p>
+                      <p className="text-xl font-black text-white">{credits}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs font-bold text-white/40 uppercase tracking-widest">{t.dailyLimit}</p>
+                      <p className="text-xl font-black text-white">10</p>
+                    </div>
+                  </div>
+                </div>
+
+                <button 
+                  onClick={() => { setActiveTab('settings'); setShowCreditModal(false); }}
+                  className={cn(
+                    "w-full py-4 rounded-2xl font-black text-lg transition-all border",
+                    theme === 'holographic' ? "bg-[var(--accent)] text-black border-[var(--accent)] shadow-[0_0_20px_var(--accent)]" : cn(config.bg, "text-white")
+                  )}
+                >
+                  {t.upgradeNow}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Sidebar Menu */}
       <AnimatePresence>
@@ -361,16 +457,16 @@ export default function App() {
               >
                 {activeTab === 'home' && <HomeTab t={t} lang={lang} dept={dept} config={config} setActiveTab={setActiveTab} theme={theme} />}
                 {activeTab === 'survey' && <SurveyTab t={t} config={config} theme={theme} />}
-                {activeTab === 'land' && <LandTab t={t} lang={lang} config={config} theme={theme} />}
+                {activeTab === 'land' && <LandTab t={t} lang={lang} config={config} theme={theme} useCredit={useCredit} />}
                 {activeTab === 'plot_planner' && <PlotPlannerTab t={t} config={config} theme={theme} />}
                 {activeTab === 'slab_design' && <SlabDesignTab t={t} lang={lang} config={config} theme={theme} />}
                 {activeTab === 'beam_design' && <BeamDesignTab t={t} lang={lang} config={config} theme={theme} />}
                 {activeTab === 'unit_converter' && <UnitConverterTab t={t} config={config} theme={theme} />}
-                {activeTab === 'estimating' && <EstimatingTab t={t} config={config} theme={theme} />}
+                {activeTab === 'estimating' && <EstimatingTab t={t} config={config} theme={theme} useCredit={useCredit} />}
                 {activeTab === 'materials' && <MaterialsTab t={t} lang={lang} config={config} theme={theme} />}
-                {activeTab === 'quiz' && <QuizTab t={t} lang={lang} config={config} dept={dept} theme={theme} />}
-                {activeTab === 'chat' && <ChatTab t={t} lang={lang} config={config} dept={dept} setActiveTab={setActiveTab} toggleMenu={toggleMenu} theme={theme} />}
-                {activeTab === 'settings' && <SettingsTab t={t} lang={lang} setLang={setLang} dept={dept} setDept={setDept} theme={theme} setTheme={setTheme} saveUserSettings={saveUserSettings} config={config} />}
+                {activeTab === 'quiz' && <QuizTab t={t} lang={lang} config={config} dept={dept} theme={theme} useCredit={useCredit} />}
+                {activeTab === 'chat' && <ChatTab t={t} lang={lang} config={config} dept={dept} setActiveTab={setActiveTab} toggleMenu={toggleMenu} theme={theme} useCredit={useCredit} />}
+                {activeTab === 'settings' && <SettingsTab t={t} lang={lang} setLang={setLang} dept={dept} setDept={setDept} theme={theme} setTheme={setTheme} saveUserSettings={saveUserSettings} config={config} credits={credits} setCredits={setCredits} />}
                 {['mech_design', 'thermo', 'fluids', 'circuits', 'power', 'control', 'software', 'data', 'network'].includes(activeTab) && (
                   <ComingSoonTab t={t} config={config} tabId={activeTab} theme={theme} />
                 )}
@@ -509,7 +605,7 @@ function DeptButton({ active, onClick, icon, label, color, theme }: { active: bo
 
 // --- Tab Components ---
 
-function ChatTab({ t, lang, config, dept, setActiveTab, toggleMenu, theme }: { t: any, lang: 'bn' | 'en', config: any, dept: string, setActiveTab: (tab: Tab) => void, toggleMenu: () => void, theme: string }) {
+function ChatTab({ t, lang, config, dept, setActiveTab, toggleMenu, theme, useCredit }: { t: any, lang: 'bn' | 'en', config: any, dept: string, setActiveTab: (tab: Tab) => void, toggleMenu: () => void, theme: string, useCredit: () => boolean }) {
   const [messages, setMessages] = useState<{ role: 'user' | 'ai', content: string }[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -531,6 +627,8 @@ function ChatTab({ t, lang, config, dept, setActiveTab, toggleMenu, theme }: { t
   const handleSend = async () => {
     if (!input.trim()) return;
     
+    if (!useCredit()) return;
+
     const userMsg = input;
     setInput('');
     setMessages(prev => [...prev, { role: 'user', content: userMsg }]);
@@ -699,9 +797,171 @@ function ChatTab({ t, lang, config, dept, setActiveTab, toggleMenu, theme }: { t
   );
 }
 
-function SettingsTab({ t, lang, setLang, dept, setDept, theme, setTheme, saveUserSettings, config }: any) {
+function SettingsTab({ t, lang, setLang, dept, setDept, theme, setTheme, saveUserSettings, config, credits, setCredits }: { t: any, lang: 'bn' | 'en', setLang: (l: 'bn' | 'en') => void, dept: Dept, setDept: (d: Dept) => void, theme: string, setTheme: (t: any) => void, saveUserSettings: (l: any, d: any, th: any) => void, config: any, credits: number, setCredits: (c: number) => void }) {
+  const plans = [
+    {
+      id: 'free',
+      name: t.freeCredits,
+      price: '0',
+      credits: '10',
+      period: t.dailyLimit,
+      features: lang === 'bn' ? ['বেসিক এআই চ্যাট', 'লিমিটেড কুইজ', 'কমিউনিটি সাপোর্ট'] : ['Basic AI Chat', 'Limited Quiz', 'Community Support'],
+      color: 'bg-slate-500',
+      current: true
+    },
+    {
+      id: 'basic',
+      name: t.basicPlan,
+      price: '১৯৯',
+      credits: '৫০০',
+      period: t.perMonth,
+      features: lang === 'bn' ? ['৫০০ এআই ক্রেডিট', 'সবগুলো টুলস অ্যাক্সেস', 'প্রায়োরিটি সাপোর্ট'] : ['500 AI Credits', 'Access to all tools', 'Priority Support'],
+      color: 'bg-blue-500'
+    },
+    {
+      id: 'pro',
+      name: t.proPlan,
+      price: '৪৯৯',
+      credits: '২০০০',
+      period: t.perMonth,
+      features: lang === 'bn' ? ['২০০০ এআই ক্রেডিট', 'অ্যাডভান্সড এনালাইসিস', '২৪/৭ সাপোর্ট'] : ['2000 AI Credits', 'Advanced Analysis', '24/7 Support'],
+      color: 'bg-purple-500',
+      popular: true
+    },
+    {
+      id: 'enterprise',
+      name: t.enterprisePlan,
+      price: '৯৯৯',
+      credits: t.unlimited,
+      period: t.perMonth,
+      features: lang === 'bn' ? ['আনলিমিটেড ক্রেডিট', 'কাস্টম সলিউশন', 'ডেডিকেটেড ম্যানেজার'] : ['Unlimited Credits', 'Custom Solutions', 'Dedicated Manager'],
+      color: 'bg-amber-500'
+    }
+  ];
+
   return (
-    <div className="space-y-6">
+    <div className="tab-content pb-24 space-y-8">
+      {/* User Profile Summary */}
+      <div className={cn(
+        "p-8 border relative overflow-hidden",
+        theme === 'holographic' ? "bg-black/40 backdrop-blur-3xl border-[rgba(var(--accent-rgb),0.2)] rounded-[2rem] shadow-[0_0_30px_rgba(var(--accent-rgb),0.1)]" : "glass rounded-[2rem] border-white/10"
+      )}>
+        {theme === 'holographic' && (
+          <div className="absolute -top-24 -right-24 w-48 h-48 bg-[var(--accent)] opacity-10 blur-[80px] rounded-full" />
+        )}
+        
+        <div className="flex flex-col md:flex-row items-center gap-8 relative z-10">
+          <div className="relative">
+            <div className={cn(
+              "w-24 h-24 rounded-full flex items-center justify-center text-3xl font-black",
+              theme === 'holographic' ? "bg-[rgba(255,255,255,0.05)] text-[var(--accent)] border-2 border-[var(--accent)] shadow-[0_0_20px_rgba(var(--accent-rgb),0.3)]" : cn(config.bg, "text-white")
+            )}>
+              {dept[0].toUpperCase()}
+            </div>
+            <div className="absolute -bottom-1 -right-1 w-8 h-8 bg-emerald-500 rounded-full border-4 border-black flex items-center justify-center">
+              <Check size={14} className="text-white" />
+            </div>
+          </div>
+          
+          <div className="text-center md:text-left flex-1 space-y-2">
+            <h2 className="text-2xl font-black text-white">{lang === 'bn' ? 'প্রকৌশলী' : 'Engineer'}</h2>
+            <div className="flex flex-wrap justify-center md:justify-start gap-3">
+              <span className="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[10px] font-bold uppercase tracking-widest text-white/60">
+                {t[dept]}
+              </span>
+              <span className="px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-[10px] font-bold uppercase tracking-widest text-amber-400">
+                {t.freeCredits}
+              </span>
+            </div>
+          </div>
+
+          <div className={cn(
+            "p-4 rounded-2xl border flex flex-col items-center justify-center min-w-[120px]",
+            theme === 'holographic' ? "bg-[rgba(var(--accent-rgb),0.1)] border-[rgba(var(--accent-rgb),0.2)]" : "bg-white/5 border-white/10"
+          )}>
+            <Zap size={20} className="text-amber-400 mb-1" />
+            <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest">{t.credits}</p>
+            <p className="text-2xl font-black text-white">{credits}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Subscription Plans */}
+      <div className="space-y-6">
+        <div className="flex items-center gap-3 px-2">
+          <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center", theme === 'holographic' ? "bg-[rgba(var(--accent-rgb),0.1)] text-[var(--accent)]" : "bg-purple-500/20 text-purple-400")}>
+            <Zap size={20} />
+          </div>
+          <h3 className="text-xl font-black text-white">{t.subscription} {t.plans}</h3>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {plans.map((plan) => (
+            <motion.div
+              key={plan.id}
+              whileHover={{ y: -5 }}
+              className={cn(
+                "p-6 border relative flex flex-col transition-all duration-300",
+                theme === 'holographic' 
+                  ? cn("bg-black/40 backdrop-blur-xl rounded-3xl", plan.popular ? "border-[var(--accent)] shadow-[0_0_20px_rgba(var(--accent-rgb),0.2)]" : "border-[rgba(var(--accent-rgb),0.2)]")
+                  : cn("glass rounded-3xl", plan.popular ? "border-purple-500/50 shadow-lg shadow-purple-500/10" : "border-white/10")
+              )}
+            >
+              {plan.popular && (
+                <div className={cn(
+                  "absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest",
+                  theme === 'holographic' ? "bg-[var(--accent)] text-black" : "bg-purple-500 text-white"
+                )}>
+                  {lang === 'bn' ? 'জনপ্রিয়' : 'Popular'}
+                </div>
+              )}
+
+              <div className="mb-6">
+                <p className="text-xs font-bold text-white/40 uppercase tracking-widest mb-1">{plan.name}</p>
+                <div className="flex items-baseline gap-1">
+                  <span className="text-3xl font-black text-white">৳{plan.price}</span>
+                  <span className="text-xs text-white/40">{plan.period}</span>
+                </div>
+              </div>
+
+              <div className="flex-1 space-y-4 mb-8">
+                <div className="flex items-center gap-2">
+                  <Zap size={14} className="text-amber-400" />
+                  <span className="text-sm font-bold text-white">{plan.credits} {t.credits}</span>
+                </div>
+                <div className="space-y-2">
+                  {plan.features.map((feature, i) => (
+                    <div key={i} className="flex items-start gap-2">
+                      <Check size={12} className="text-emerald-400 mt-1 shrink-0" />
+                      <span className="text-[11px] text-white/60 leading-tight">{feature}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <button 
+                onClick={() => {
+                  if (plan.id !== 'free') {
+                    // Mock purchase
+                    setCredits(credits + (plan.id === 'basic' ? 500 : plan.id === 'pro' ? 2000 : 10000));
+                  }
+                }}
+                className={cn(
+                  "w-full py-3 rounded-xl text-xs font-black transition-all border",
+                  plan.current 
+                    ? "bg-white/5 border-white/10 text-white/40 cursor-default"
+                    : theme === 'holographic'
+                      ? "bg-[rgba(var(--accent-rgb),0.1)] border-[rgba(var(--accent-rgb),0.2)] text-[var(--accent)] hover:bg-[var(--accent)] hover:text-black"
+                      : "bg-white/5 border-white/10 text-white hover:bg-white/10"
+                )}
+              >
+                {plan.current ? (lang === 'bn' ? 'বর্তমান' : 'Current') : t.upgradeNow}
+              </button>
+            </motion.div>
+          ))}
+        </div>
+      </div>
+
       <div className={cn(
         "p-8 transition-all duration-300 border",
         theme === 'holographic' ? "bg-black/40 backdrop-blur-3xl border-[rgba(var(--accent-rgb),0.2)] rounded-3xl shadow-[0_0_30px_rgba(var(--accent-rgb),0.1)]" : "card-glass rounded-3xl"
@@ -762,7 +1022,7 @@ function SettingsTab({ t, lang, setLang, dept, setDept, theme, setTheme, saveUse
                 className={cn(
                   "py-4 rounded-2xl font-bold border transition-all flex flex-col items-center justify-center gap-2", 
                   theme === 'glass' 
-                    ? (theme === 'holographic' ? "bg-[rgba(var(--accent-rgb),0.2)] text-white border-[var(--accent)] shadow-[0_0_15px_rgba(var(--accent-rgb),0.3)] scale-105" : "bg-white/20 text-white border-white/30 scale-105")
+                    ? "bg-white/20 text-white border-white/30 scale-105"
                     : (theme === 'holographic' ? "bg-black/40 border-[rgba(var(--accent-rgb),0.2)] text-[var(--accent)] opacity-60 hover:opacity-100" : "glass border-white/10 text-white/40 hover:bg-white/10 hover:text-white")
                 )}
               >
@@ -774,7 +1034,7 @@ function SettingsTab({ t, lang, setLang, dept, setDept, theme, setTheme, saveUse
                 className={cn(
                   "py-4 rounded-2xl font-bold border transition-all flex flex-col items-center justify-center gap-2", 
                   theme === 'industrial' 
-                    ? (theme === 'holographic' ? "bg-[rgba(var(--accent-rgb),0.2)] text-white border-[var(--accent)] shadow-[0_0_15px_rgba(var(--accent-rgb),0.3)] scale-105" : "bg-white/20 text-white border-white/30 scale-105")
+                    ? "bg-white/20 text-white border-white/30 scale-105"
                     : (theme === 'holographic' ? "bg-black/40 border-[rgba(var(--accent-rgb),0.2)] text-[var(--accent)] opacity-60 hover:opacity-100" : "glass border-white/10 text-white/40 hover:bg-white/10 hover:text-white")
                 )}
               >
@@ -786,7 +1046,7 @@ function SettingsTab({ t, lang, setLang, dept, setDept, theme, setTheme, saveUse
                 className={cn(
                   "py-4 rounded-2xl font-bold border transition-all flex flex-col items-center justify-center gap-2", 
                   theme === 'brutal' 
-                    ? (theme === 'holographic' ? "bg-[rgba(var(--accent-rgb),0.2)] text-white border-[var(--accent)] shadow-[0_0_15px_rgba(var(--accent-rgb),0.3)] scale-105" : "bg-white/20 text-white border-white/30 scale-105")
+                    ? "bg-white/20 text-white border-white/30 scale-105"
                     : (theme === 'holographic' ? "bg-black/40 border-[rgba(var(--accent-rgb),0.2)] text-[var(--accent)] opacity-60 hover:opacity-100" : "glass border-white/10 text-white/40 hover:bg-white/10 hover:text-white")
                 )}
               >
@@ -2664,7 +2924,7 @@ function SurveyCard({ label, value, config, theme }: { label: string, value: str
   );
 }
 
-function LandTab({ t, lang, config, theme }: { t: any, lang: 'bn' | 'en', config: any, theme: string }) {
+function LandTab({ t, lang, config, theme, useCredit }: { t: any, lang: 'bn' | 'en', config: any, theme: string, useCredit: () => boolean }) {
   const [points, setPoints] = useState<[number, number][]>([]);
   const [areaInfo, setAreaInfo] = useState<{
     sqm: number;
@@ -2772,6 +3032,9 @@ function LandTab({ t, lang, config, theme }: { t: any, lang: 'bn' | 'en', config
 
   const handleAiCommand = async () => {
     if (!aiCommand.trim() || points.length < 3) return;
+    
+    if (!useCredit()) return;
+
     setIsProcessing(true);
     try {
       const prompt = `
@@ -3256,7 +3519,7 @@ function ResultCard({ label, value, unit, config, theme }: { label: string, valu
   );
 }
 
-function EstimatingTab({ t, config, theme }: { t: any, config: any, theme: string }) {
+function EstimatingTab({ t, config, theme, useCredit }: { t: any, config: any, theme: string, useCredit: () => boolean }) {
   const [image, setImage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
@@ -3276,6 +3539,8 @@ function EstimatingTab({ t, config, theme }: { t: any, config: any, theme: strin
   };
 
   const handleEstimate = async () => {
+    if (!useCredit()) return;
+
     setLoading(true);
     try {
       const base64 = image ? image.split(',')[1] : null;
@@ -3804,7 +4069,7 @@ function MaterialsTab({ t, lang, config, theme }: { t: any, lang: 'bn' | 'en', c
   );
 }
 
-function QuizTab({ t, lang, config, dept, theme }: { t: any, lang: 'bn' | 'en', config: any, dept: string, theme: string }) {
+function QuizTab({ t, lang, config, dept, theme, useCredit }: { t: any, lang: 'bn' | 'en', config: any, dept: string, theme: string, useCredit: () => boolean }) {
   const [started, setStarted] = useState(false);
   const [currentIdx, setCurrentIdx] = useState(0);
   const [score, setScore] = useState(0);
@@ -3828,6 +4093,8 @@ function QuizTab({ t, lang, config, dept, theme }: { t: any, lang: 'bn' | 'en', 
   }, [started, timeLeft, finished]);
 
   const startQuiz = async () => {
+    if (!useCredit()) return;
+    
     setIsLoading(true);
     const generatedQuestions = await generateQuizQuestions(selectedDept, lang);
     
