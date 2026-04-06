@@ -133,10 +133,21 @@ export default function App() {
   const [credits, setCredits] = useState<number>(() => Number(localStorage.getItem('engix_credits')) || 10);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [showCreditModal, setShowCreditModal] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
   const mainRef = useRef<HTMLElement>(null);
 
   const t = translations[lang];
   const config = DEPT_CONFIG[dept];
+
+  useEffect(() => {
+    const lastReset = localStorage.getItem('engix_last_reset');
+    const today = new Date().toDateString();
+    
+    if (lastReset !== today) {
+      setCredits(10);
+      localStorage.setItem('engix_last_reset', today);
+    }
+  }, []);
 
   useEffect(() => {
     localStorage.setItem('engix_credits', credits.toString());
@@ -324,6 +335,59 @@ export default function App() {
         )}
       </AnimatePresence>
 
+      {/* Success Modal */}
+      <AnimatePresence>
+        {showSuccessModal && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-6">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowSuccessModal(false)}
+              className="absolute inset-0 bg-black/80 backdrop-blur-md"
+            />
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className={cn(
+                "relative w-full max-w-sm p-8 border text-center space-y-6 overflow-hidden",
+                theme === 'holographic' ? "bg-black/90 border-[var(--accent)] rounded-[2.5rem] shadow-[0_0_50px_rgba(var(--accent-rgb),0.3)]" : "glass rounded-[2.5rem] border-white/20"
+              )}
+            >
+              <div className="absolute -top-12 -left-12 w-32 h-32 bg-emerald-500/20 blur-3xl rounded-full" />
+              <div className="absolute -bottom-12 -right-12 w-32 h-32 bg-blue-500/20 blur-3xl rounded-full" />
+
+              <motion.div 
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ type: "spring", damping: 12, stiffness: 200, delay: 0.2 }}
+                className="w-20 h-20 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto border-2 border-emerald-500/50 relative z-10"
+              >
+                <Check size={40} className="text-emerald-400" />
+              </motion.div>
+              
+              <div className="space-y-2 relative z-10">
+                <h2 className="text-2xl font-black text-white">{lang === 'bn' ? "অভিনন্দন!" : "Congratulations!"}</h2>
+                <p className="text-white/60 text-sm leading-relaxed">
+                  {lang === 'bn' ? "আপনার সাবস্ক্রিপশন সফলভাবে কেনা হয়েছে। এখন আপনি বর্ধিত ক্রেডিট উপভোগ করতে পারবেন।" : "Your subscription has been purchased successfully. You can now enjoy increased credits."}
+                </p>
+              </div>
+
+              <button 
+                onClick={() => setShowSuccessModal(false)}
+                className={cn(
+                  "w-full py-4 rounded-2xl font-black text-lg transition-all relative z-10",
+                  theme === 'holographic' ? "bg-[var(--accent)] text-black shadow-[0_0_20px_var(--accent)]" : "bg-emerald-500 text-white"
+                )}
+              >
+                {lang === 'bn' ? "ধন্যবাদ" : "Thank You"}
+              </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       {/* Sidebar Menu */}
       <AnimatePresence>
         {isMenuOpen && (
@@ -464,9 +528,9 @@ export default function App() {
                 {activeTab === 'unit_converter' && <UnitConverterTab t={t} config={config} theme={theme} />}
                 {activeTab === 'estimating' && <EstimatingTab t={t} config={config} theme={theme} useCredit={useCredit} />}
                 {activeTab === 'materials' && <MaterialsTab t={t} lang={lang} config={config} theme={theme} />}
-                {activeTab === 'quiz' && <QuizTab t={t} lang={lang} config={config} dept={dept} theme={theme} useCredit={useCredit} />}
+                {activeTab === 'quiz' && <QuizTab t={t} lang={lang} config={config} dept={dept} theme={theme} />}
                 {activeTab === 'chat' && <ChatTab t={t} lang={lang} config={config} dept={dept} setActiveTab={setActiveTab} toggleMenu={toggleMenu} theme={theme} useCredit={useCredit} />}
-                {activeTab === 'settings' && <SettingsTab t={t} lang={lang} setLang={setLang} dept={dept} setDept={setDept} theme={theme} setTheme={setTheme} saveUserSettings={saveUserSettings} config={config} credits={credits} setCredits={setCredits} />}
+                {activeTab === 'settings' && <SettingsTab t={t} lang={lang} setLang={setLang} dept={dept} setDept={setDept} theme={theme} setTheme={setTheme} saveUserSettings={saveUserSettings} config={config} credits={credits} setCredits={setCredits} setShowSuccessModal={setShowSuccessModal} />}
                 {['mech_design', 'thermo', 'fluids', 'circuits', 'power', 'control', 'software', 'data', 'network'].includes(activeTab) && (
                   <ComingSoonTab t={t} config={config} tabId={activeTab} theme={theme} />
                 )}
@@ -797,7 +861,7 @@ function ChatTab({ t, lang, config, dept, setActiveTab, toggleMenu, theme, useCr
   );
 }
 
-function SettingsTab({ t, lang, setLang, dept, setDept, theme, setTheme, saveUserSettings, config, credits, setCredits }: { t: any, lang: 'bn' | 'en', setLang: (l: 'bn' | 'en') => void, dept: Dept, setDept: (d: Dept) => void, theme: string, setTheme: (t: any) => void, saveUserSettings: (l: any, d: any, th: any) => void, config: any, credits: number, setCredits: (c: number) => void }) {
+function SettingsTab({ t, lang, setLang, dept, setDept, theme, setTheme, saveUserSettings, config, credits, setCredits, setShowSuccessModal }: { t: any, lang: 'bn' | 'en', setLang: (l: 'bn' | 'en') => void, dept: Dept, setDept: (d: Dept) => void, theme: string, setTheme: (t: any) => void, saveUserSettings: (l: any, d: any, th: any) => void, config: any, credits: number, setCredits: (c: number) => void, setShowSuccessModal: (s: boolean) => void }) {
   const plans = [
     {
       id: 'free',
@@ -944,6 +1008,7 @@ function SettingsTab({ t, lang, setLang, dept, setDept, theme, setTheme, saveUse
                   if (plan.id !== 'free') {
                     // Mock purchase
                     setCredits(credits + (plan.id === 'basic' ? 500 : plan.id === 'pro' ? 2000 : 10000));
+                    setShowSuccessModal(true);
                   }
                 }}
                 className={cn(
@@ -4069,7 +4134,7 @@ function MaterialsTab({ t, lang, config, theme }: { t: any, lang: 'bn' | 'en', c
   );
 }
 
-function QuizTab({ t, lang, config, dept, theme, useCredit }: { t: any, lang: 'bn' | 'en', config: any, dept: string, theme: string, useCredit: () => boolean }) {
+function QuizTab({ t, lang, config, dept, theme }: { t: any, lang: 'bn' | 'en', config: any, dept: string, theme: string }) {
   const [started, setStarted] = useState(false);
   const [currentIdx, setCurrentIdx] = useState(0);
   const [score, setScore] = useState(0);
@@ -4093,8 +4158,6 @@ function QuizTab({ t, lang, config, dept, theme, useCredit }: { t: any, lang: 'b
   }, [started, timeLeft, finished]);
 
   const startQuiz = async () => {
-    if (!useCredit()) return;
-    
     setIsLoading(true);
     const generatedQuestions = await generateQuizQuestions(selectedDept, lang);
     
