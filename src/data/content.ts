@@ -149,6 +149,9 @@ export const translations = {
     upgradeNow: "এখনই আপগ্রেড করুন",
     dailyLimit: "দৈনিক লিমিট",
     aiRequests: "এআই রিকোয়েস্ট",
+    shortAnswer: "সংক্ষিপ্ত উত্তর",
+    detailedAnswer: "বিস্তারিত ব্যাখ্যা",
+    estimatingProgress: "এস্টিমেটিং হচ্ছে...",
   },
   en: {
     home: "Home",
@@ -300,6 +303,9 @@ export const translations = {
     upgradeNow: "Upgrade Now",
     dailyLimit: "Daily Limit",
     aiRequests: "AI Requests",
+    shortAnswer: "Short Answer",
+    detailedAnswer: "Detailed Explanation",
+    estimatingProgress: "Estimating...",
   }
 };
 

@@ -84,7 +84,7 @@ function ChangeView({ center, zoom }: { center: [number, number], zoom: number }
   return null;
 }
 
-type Tab = 'home' | 'survey' | 'land' | 'estimating' | 'materials' | 'quiz' | 'chat' | 'mech_design' | 'thermo' | 'fluids' | 'circuits' | 'power' | 'control' | 'software' | 'data' | 'network' | 'settings' | 'plot_planner' | 'slab_design' | 'unit_converter' | 'beam_design';
+type Tab = 'home' | 'survey' | 'land' | 'estimating' | 'materials' | 'quiz' | 'chat' | 'mech_design' | 'thermo' | 'fluids' | 'circuits' | 'power' | 'control' | 'software' | 'data' | 'network' | 'settings' | 'subscription' | 'plot_planner' | 'slab_design' | 'unit_converter' | 'beam_design';
 type Dept = 'civil' | 'mechanical' | 'electrical' | 'computer';
 
 const DEPT_CONFIG = {
@@ -114,6 +114,7 @@ const TAB_ICONS: Record<string, any> = {
   quiz: <Trophy size={20} />,
   chat: <MessageSquare size={20} />,
   settings: <Settings size={20} />,
+  subscription: <Zap size={20} />,
   mech_design: <Wrench size={20} />,
   thermo: <Thermometer size={20} />,
   fluids: <Droplets size={20} />,
@@ -153,12 +154,12 @@ export default function App() {
     localStorage.setItem('engix_credits', credits.toString());
   }, [credits]);
 
-  const useCredit = () => {
-    if (credits <= 0) {
+  const useCredit = (amount: number = 1) => {
+    if (credits < amount) {
       setShowCreditModal(true);
       return false;
     }
-    setCredits(prev => prev - 1);
+    setCredits(prev => prev - amount);
     return true;
   };
 
@@ -486,8 +487,18 @@ export default function App() {
                 </div>
               </div>
               
-              {/* User / Settings at bottom */}
-              <div className="mt-8 pt-6 border-t border-white/10 space-y-4">
+              {/* User / Subscription / Settings at bottom */}
+              <div className="mt-8 pt-6 border-t border-white/10 space-y-2">
+                <button
+                  onClick={() => { setActiveTab('subscription'); setIsMenuOpen(false); }}
+                  className={cn(
+                    "w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all",
+                    activeTab === 'subscription' ? "bg-white/20 text-white border border-white/10" : "text-white/60 hover:bg-white/10 hover:text-white"
+                  )}
+                >
+                  <Zap size={18} className={activeTab === 'subscription' ? config.text : "text-white/40"} />
+                  {t.subscription}
+                </button>
                 <button
                   onClick={() => { setActiveTab('settings'); setIsMenuOpen(false); }}
                   className={cn(
@@ -528,9 +539,10 @@ export default function App() {
                 {activeTab === 'unit_converter' && <UnitConverterTab t={t} config={config} theme={theme} />}
                 {activeTab === 'estimating' && <EstimatingTab t={t} config={config} theme={theme} useCredit={useCredit} />}
                 {activeTab === 'materials' && <MaterialsTab t={t} lang={lang} config={config} theme={theme} />}
-                {activeTab === 'quiz' && <QuizTab t={t} lang={lang} config={config} dept={dept} theme={theme} />}
-                {activeTab === 'chat' && <ChatTab t={t} lang={lang} config={config} dept={dept} setActiveTab={setActiveTab} toggleMenu={toggleMenu} theme={theme} useCredit={useCredit} />}
-                {activeTab === 'settings' && <SettingsTab t={t} lang={lang} setLang={setLang} dept={dept} setDept={setDept} theme={theme} setTheme={setTheme} saveUserSettings={saveUserSettings} config={config} credits={credits} setCredits={setCredits} setShowSuccessModal={setShowSuccessModal} />}
+                {activeTab === 'quiz' && <QuizTab t={t} lang={lang} config={config} dept={dept} theme={theme} useCredit={useCredit} />}
+                {activeTab === 'chat' && <ChatTab t={t} lang={lang} config={config} dept={dept} setActiveTab={setActiveTab} toggleMenu={toggleMenu} theme={theme} useCredit={useCredit} credits={credits} />}
+                {activeTab === 'settings' && <SettingsTab t={t} lang={lang} setLang={setLang} dept={dept} setDept={setDept} theme={theme} setTheme={setTheme} saveUserSettings={saveUserSettings} config={config} credits={credits} />}
+                {activeTab === 'subscription' && <SubscriptionTab t={t} lang={lang} credits={credits} setCredits={setCredits} theme={theme} setShowSuccessModal={setShowSuccessModal} />}
                 {['mech_design', 'thermo', 'fluids', 'circuits', 'power', 'control', 'software', 'data', 'network'].includes(activeTab) && (
                   <ComingSoonTab t={t} config={config} tabId={activeTab} theme={theme} />
                 )}
@@ -669,10 +681,11 @@ function DeptButton({ active, onClick, icon, label, color, theme }: { active: bo
 
 // --- Tab Components ---
 
-function ChatTab({ t, lang, config, dept, setActiveTab, toggleMenu, theme, useCredit }: { t: any, lang: 'bn' | 'en', config: any, dept: string, setActiveTab: (tab: Tab) => void, toggleMenu: () => void, theme: string, useCredit: () => boolean }) {
+function ChatTab({ t, lang, config, dept, setActiveTab, toggleMenu, theme, useCredit, credits }: { t: any, lang: 'bn' | 'en', config: any, dept: string, setActiveTab: (tab: Tab) => void, toggleMenu: () => void, theme: string, useCredit: (amount?: number) => boolean, credits: number }) {
   const [messages, setMessages] = useState<{ role: 'user' | 'ai', content: string }[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [responseType, setResponseType] = useState<'short' | 'long'>('long');
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -691,14 +704,14 @@ function ChatTab({ t, lang, config, dept, setActiveTab, toggleMenu, theme, useCr
   const handleSend = async () => {
     if (!input.trim()) return;
     
-    if (!useCredit()) return;
+    if (!useCredit(responseType === 'short' ? 1 : 2)) return;
 
     const userMsg = input;
     setInput('');
     setMessages(prev => [...prev, { role: 'user', content: userMsg }]);
     setIsLoading(true);
 
-    const response = await getChatResponse(userMsg, messages, 'long');
+    const response = await getChatResponse(userMsg, messages, responseType);
     
     setMessages(prev => [...prev, { role: 'ai', content: response || "Sorry, I couldn't process that." }]);
     setIsLoading(false);
@@ -706,36 +719,19 @@ function ChatTab({ t, lang, config, dept, setActiveTab, toggleMenu, theme, useCr
 
   return (
     <div className="flex-1 flex flex-col min-h-0 w-full bg-black/10 backdrop-blur-sm relative">
-      {/* Minimal Header */}
-      {theme === 'holographic' ? (
-        <div className="shrink-0 flex flex-col items-center justify-center p-6 border-b bg-[rgba(255,255,255,0.02)] backdrop-blur-md z-10 relative overflow-hidden" style={{ borderColor: 'rgba(var(--accent-rgb), 0.2)' }}>
-          <button onClick={() => setActiveTab('home')} className="absolute left-4 top-1/2 -translate-y-1/2 p-2 rounded-full text-[var(--accent)] hover:bg-[rgba(255,255,255,0.05)] transition-colors border border-[var(--accent)] shadow-[0_0_10px_var(--accent)]">
-            <ArrowLeft size={20} />
-          </button>
-          
-          <div className="relative flex flex-col items-center justify-center">
-            <div className="absolute inset-0 bg-[var(--accent)] blur-[40px] opacity-20 rounded-full pulse-anim" />
-            <div className="w-12 h-12 rounded-full border-2 border-[var(--accent)] flex items-center justify-center shadow-[0_0_20px_var(--accent)] bg-black/50 mb-2 z-10">
-              <Cpu size={24} className="text-[var(--accent)] animate-pulse" />
-            </div>
-            <h2 className="text-lg font-black text-white tracking-[0.2em] uppercase z-10" style={{ textShadow: '0 0 10px var(--accent)' }}>
-              ⚡ ENGIX AI CORE
-            </h2>
-            <p className="text-[10px] font-bold text-[var(--accent)] uppercase tracking-[0.3em] mt-1 z-10">
-              {dept} // ONLINE
-            </p>
-          </div>
-        </div>
-      ) : (
-        <div className={cn(
-          "shrink-0 flex items-center gap-3 p-4 border-b z-10",
-          theme === 'brutal' ? "bg-white border-black border-b-2" : "border-white/10 bg-white/5 backdrop-blur-md"
-        )}>
+      {/* Header */}
+      <div className={cn(
+        "shrink-0 flex items-center justify-between p-4 border-b z-10",
+        theme === 'brutal' ? "bg-white border-black border-b-2" : 
+        theme === 'holographic' ? "bg-black/40 backdrop-blur-xl border-[rgba(var(--accent-rgb),0.2)]" : "border-white/10 bg-white/5 backdrop-blur-md"
+      )}>
+        <div className="flex items-center gap-3">
           <button 
             onClick={() => setActiveTab('home')} 
             className={cn(
               "p-2 rounded-full transition-colors",
-              theme === 'brutal' ? "bg-white text-black border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]" : "glass text-white hover:bg-white/20"
+              theme === 'brutal' ? "bg-white text-black border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]" : 
+              theme === 'holographic' ? "bg-[rgba(var(--accent-rgb),0.1)] text-[var(--accent)] border border-[var(--accent)]" : "glass text-white hover:bg-white/20"
             )}
           >
             <ArrowLeft size={20} />
@@ -751,7 +747,26 @@ function ChatTab({ t, lang, config, dept, setActiveTab, toggleMenu, theme, useCr
             )}>{dept}</p>
           </div>
         </div>
-      )}
+
+        <div className="flex items-center gap-2">
+          <div className={cn(
+            "px-3 py-1.5 rounded-xl border flex items-center gap-2",
+            theme === 'holographic' ? "bg-[rgba(var(--accent-rgb),0.1)] border-[rgba(var(--accent-rgb),0.2)]" : "bg-white/5 border-white/10"
+          )}>
+            <Zap size={14} className="text-amber-400" />
+            <span className="text-xs font-black text-white">{credits}</span>
+          </div>
+          <button 
+            onClick={() => setActiveTab('subscription')}
+            className={cn(
+              "p-1.5 rounded-xl border transition-all",
+              theme === 'holographic' ? "bg-[rgba(var(--accent-rgb),0.1)] border-[rgba(var(--accent-rgb),0.2)] text-[var(--accent)]" : "bg-white/5 border-white/10 text-white/60 hover:text-white"
+            )}
+          >
+            <Plus size={16} />
+          </button>
+        </div>
+      </div>
 
       {/* Chat Messages */}
       <div ref={scrollContainerRef} className="flex-1 min-h-0 overflow-y-auto p-4 md:p-6 space-y-6 no-scrollbar">
@@ -785,11 +800,6 @@ function ChatTab({ t, lang, config, dept, setActiveTab, toggleMenu, theme, useCr
               )}>
                 {msg.role === 'ai' ? (
                   <div className="prose prose-invert prose-sm max-w-none">
-                    {theme === 'holographic' && (
-                      <div className="text-[10px] font-bold text-[var(--accent)] uppercase tracking-widest mb-2 border-b border-[rgba(255,255,255,0.1)] pb-1">
-                        &gt; SIGNAL RECEIVED
-                      </div>
-                    )}
                     <ReactMarkdown>{msg.content}</ReactMarkdown>
                   </div>
                 ) : (
@@ -825,11 +835,36 @@ function ChatTab({ t, lang, config, dept, setActiveTab, toggleMenu, theme, useCr
       {/* Input Area */}
       <div 
         className={cn(
-          "shrink-0 p-4 z-10",
-          theme === 'holographic' ? "bg-black/80 border-t" : "bg-black/40 backdrop-blur-xl border-t border-white/10"
+          "shrink-0 p-4 z-10 space-y-4",
+          theme === 'holographic' ? "bg-black/80 border-t border-[rgba(var(--accent-rgb),0.2)]" : "bg-black/40 backdrop-blur-xl border-t border-white/10"
         )}
-        style={theme === 'holographic' ? { borderColor: 'rgba(var(--accent-rgb), 0.2)' } : {}}
       >
+        {/* Response Type Toggle */}
+        <div className="flex items-center justify-center gap-2 max-w-3xl mx-auto">
+          <button 
+            onClick={() => setResponseType('short')}
+            className={cn(
+              "flex-1 py-2 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border",
+              responseType === 'short' 
+                ? (theme === 'holographic' ? "bg-[var(--accent)] text-black border-[var(--accent)]" : cn("text-white border-transparent", config.bg))
+                : (theme === 'holographic' ? "bg-black/40 border-[rgba(var(--accent-rgb),0.2)] text-[var(--accent)]" : "bg-white/5 border-white/10 text-white/40")
+            )}
+          >
+            {t.shortAnswer}
+          </button>
+          <button 
+            onClick={() => setResponseType('long')}
+            className={cn(
+              "flex-1 py-2 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border",
+              responseType === 'long' 
+                ? (theme === 'holographic' ? "bg-[var(--accent)] text-black border-[var(--accent)]" : cn("text-white border-transparent", config.bg))
+                : (theme === 'holographic' ? "bg-black/40 border-[rgba(var(--accent-rgb),0.2)] text-[var(--accent)]" : "bg-white/5 border-white/10 text-white/40")
+            )}
+          >
+            {t.detailedAnswer}
+          </button>
+        </div>
+
         <div className="relative flex items-center max-w-3xl mx-auto">
           <input
             type="text"
@@ -861,48 +896,7 @@ function ChatTab({ t, lang, config, dept, setActiveTab, toggleMenu, theme, useCr
   );
 }
 
-function SettingsTab({ t, lang, setLang, dept, setDept, theme, setTheme, saveUserSettings, config, credits, setCredits, setShowSuccessModal }: { t: any, lang: 'bn' | 'en', setLang: (l: 'bn' | 'en') => void, dept: Dept, setDept: (d: Dept) => void, theme: string, setTheme: (t: any) => void, saveUserSettings: (l: any, d: any, th: any) => void, config: any, credits: number, setCredits: (c: number) => void, setShowSuccessModal: (s: boolean) => void }) {
-  const plans = [
-    {
-      id: 'free',
-      name: t.freeCredits,
-      price: '0',
-      credits: '10',
-      period: t.dailyLimit,
-      features: lang === 'bn' ? ['বেসিক এআই চ্যাট', 'লিমিটেড কুইজ', 'কমিউনিটি সাপোর্ট'] : ['Basic AI Chat', 'Limited Quiz', 'Community Support'],
-      color: 'bg-slate-500',
-      current: true
-    },
-    {
-      id: 'basic',
-      name: t.basicPlan,
-      price: '১৯৯',
-      credits: '৫০০',
-      period: t.perMonth,
-      features: lang === 'bn' ? ['৫০০ এআই ক্রেডিট', 'সবগুলো টুলস অ্যাক্সেস', 'প্রায়োরিটি সাপোর্ট'] : ['500 AI Credits', 'Access to all tools', 'Priority Support'],
-      color: 'bg-blue-500'
-    },
-    {
-      id: 'pro',
-      name: t.proPlan,
-      price: '৪৯৯',
-      credits: '২০০০',
-      period: t.perMonth,
-      features: lang === 'bn' ? ['২০০০ এআই ক্রেডিট', 'অ্যাডভান্সড এনালাইসিস', '২৪/৭ সাপোর্ট'] : ['2000 AI Credits', 'Advanced Analysis', '24/7 Support'],
-      color: 'bg-purple-500',
-      popular: true
-    },
-    {
-      id: 'enterprise',
-      name: t.enterprisePlan,
-      price: '৯৯৯',
-      credits: t.unlimited,
-      period: t.perMonth,
-      features: lang === 'bn' ? ['আনলিমিটেড ক্রেডিট', 'কাস্টম সলিউশন', 'ডেডিকেটেড ম্যানেজার'] : ['Unlimited Credits', 'Custom Solutions', 'Dedicated Manager'],
-      color: 'bg-amber-500'
-    }
-  ];
-
+function SettingsTab({ t, lang, setLang, dept, setDept, theme, setTheme, saveUserSettings, config, credits }: { t: any, lang: 'bn' | 'en', setLang: (l: 'bn' | 'en') => void, dept: Dept, setDept: (d: Dept) => void, theme: string, setTheme: (t: any) => void, saveUserSettings: (l: any, d: any, th: any) => void, config: any, credits: number }) {
   return (
     <div className="tab-content pb-24 space-y-8">
       {/* User Profile Summary */}
@@ -947,83 +941,6 @@ function SettingsTab({ t, lang, setLang, dept, setDept, theme, setTheme, saveUse
             <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest">{t.credits}</p>
             <p className="text-2xl font-black text-white">{credits}</p>
           </div>
-        </div>
-      </div>
-
-      {/* Subscription Plans */}
-      <div className="space-y-6">
-        <div className="flex items-center gap-3 px-2">
-          <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center", theme === 'holographic' ? "bg-[rgba(var(--accent-rgb),0.1)] text-[var(--accent)]" : "bg-purple-500/20 text-purple-400")}>
-            <Zap size={20} />
-          </div>
-          <h3 className="text-xl font-black text-white">{t.subscription} {t.plans}</h3>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {plans.map((plan) => (
-            <motion.div
-              key={plan.id}
-              whileHover={{ y: -5 }}
-              className={cn(
-                "p-6 border relative flex flex-col transition-all duration-300",
-                theme === 'holographic' 
-                  ? cn("bg-black/40 backdrop-blur-xl rounded-3xl", plan.popular ? "border-[var(--accent)] shadow-[0_0_20px_rgba(var(--accent-rgb),0.2)]" : "border-[rgba(var(--accent-rgb),0.2)]")
-                  : cn("glass rounded-3xl", plan.popular ? "border-purple-500/50 shadow-lg shadow-purple-500/10" : "border-white/10")
-              )}
-            >
-              {plan.popular && (
-                <div className={cn(
-                  "absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest",
-                  theme === 'holographic' ? "bg-[var(--accent)] text-black" : "bg-purple-500 text-white"
-                )}>
-                  {lang === 'bn' ? 'জনপ্রিয়' : 'Popular'}
-                </div>
-              )}
-
-              <div className="mb-6">
-                <p className="text-xs font-bold text-white/40 uppercase tracking-widest mb-1">{plan.name}</p>
-                <div className="flex items-baseline gap-1">
-                  <span className="text-3xl font-black text-white">৳{plan.price}</span>
-                  <span className="text-xs text-white/40">{plan.period}</span>
-                </div>
-              </div>
-
-              <div className="flex-1 space-y-4 mb-8">
-                <div className="flex items-center gap-2">
-                  <Zap size={14} className="text-amber-400" />
-                  <span className="text-sm font-bold text-white">{plan.credits} {t.credits}</span>
-                </div>
-                <div className="space-y-2">
-                  {plan.features.map((feature, i) => (
-                    <div key={i} className="flex items-start gap-2">
-                      <Check size={12} className="text-emerald-400 mt-1 shrink-0" />
-                      <span className="text-[11px] text-white/60 leading-tight">{feature}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <button 
-                onClick={() => {
-                  if (plan.id !== 'free') {
-                    // Mock purchase
-                    setCredits(credits + (plan.id === 'basic' ? 500 : plan.id === 'pro' ? 2000 : 10000));
-                    setShowSuccessModal(true);
-                  }
-                }}
-                className={cn(
-                  "w-full py-3 rounded-xl text-xs font-black transition-all border",
-                  plan.current 
-                    ? "bg-white/5 border-white/10 text-white/40 cursor-default"
-                    : theme === 'holographic'
-                      ? "bg-[rgba(var(--accent-rgb),0.1)] border-[rgba(var(--accent-rgb),0.2)] text-[var(--accent)] hover:bg-[var(--accent)] hover:text-black"
-                      : "bg-white/5 border-white/10 text-white hover:bg-white/10"
-                )}
-              >
-                {plan.current ? (lang === 'bn' ? 'বর্তমান' : 'Current') : t.upgradeNow}
-              </button>
-            </motion.div>
-          ))}
         </div>
       </div>
 
@@ -2116,6 +2033,128 @@ function SlabDesignTab({ t, config, lang, theme }: { t: any, config: any, lang: 
   );
 }
 
+function SubscriptionTab({ t, lang, credits, setCredits, theme, setShowSuccessModal }: { t: any, lang: 'bn' | 'en', credits: number, setCredits: (c: number) => void, theme: string, setShowSuccessModal: (s: boolean) => void }) {
+  const plans = [
+    {
+      id: 'free',
+      name: t.freeCredits,
+      price: '0',
+      credits: '10',
+      period: t.dailyLimit,
+      features: lang === 'bn' ? ['বেসিক এআই চ্যাট', 'লিমিটেড কুইজ', 'কমিউনিটি সাপোর্ট'] : ['Basic AI Chat', 'Limited Quiz', 'Community Support'],
+      color: 'bg-slate-500',
+      current: true
+    },
+    {
+      id: 'basic',
+      name: t.basicPlan,
+      price: '১৯৯',
+      credits: '৫০০',
+      period: t.perMonth,
+      features: lang === 'bn' ? ['৫০০ এআই ক্রেডিট', 'সবগুলো টুলস অ্যাক্সেস', 'প্রায়োরিটি সাপোর্ট'] : ['500 AI Credits', 'Access to all tools', 'Priority Support'],
+      color: 'bg-blue-500'
+    },
+    {
+      id: 'pro',
+      name: t.proPlan,
+      price: '৪৯৯',
+      credits: '২০০০',
+      period: t.perMonth,
+      features: lang === 'bn' ? ['২০০০ এআই ক্রেডিট', 'অ্যাডভান্সড এনালাইসিস', '২৪/৭ সাপোর্ট'] : ['2000 AI Credits', 'Advanced Analysis', '24/7 Support'],
+      color: 'bg-purple-500',
+      popular: true
+    },
+    {
+      id: 'enterprise',
+      name: t.enterprisePlan,
+      price: '৯৯৯',
+      credits: t.unlimited,
+      period: t.perMonth,
+      features: lang === 'bn' ? ['আনলিমিটেড ক্রেডিট', 'কাস্টম সলিউশন', 'ডেডিকেটেড ম্যানেজার'] : ['Unlimited Credits', 'Custom Solutions', 'Dedicated Manager'],
+      color: 'bg-amber-500'
+    }
+  ];
+
+  return (
+    <div className="tab-content pb-24 space-y-8">
+      <div className="space-y-6">
+        <div className="flex items-center gap-3 px-2">
+          <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center", theme === 'holographic' ? "bg-[rgba(var(--accent-rgb),0.1)] text-[var(--accent)]" : "bg-purple-500/20 text-purple-400")}>
+            <Zap size={20} />
+          </div>
+          <h3 className="text-xl font-black text-white">{t.subscription} {t.plans}</h3>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {plans.map((plan) => (
+            <motion.div
+              key={plan.id}
+              whileHover={{ y: -5 }}
+              className={cn(
+                "p-6 border relative flex flex-col transition-all duration-300",
+                theme === 'holographic' 
+                  ? cn("bg-black/40 backdrop-blur-xl rounded-3xl", plan.popular ? "border-[var(--accent)] shadow-[0_0_20px_rgba(var(--accent-rgb),0.2)]" : "border-[rgba(var(--accent-rgb),0.2)]")
+                  : cn("glass rounded-3xl", plan.popular ? "border-purple-500/50 shadow-lg shadow-purple-500/10" : "border-white/10")
+              )}
+            >
+              {plan.popular && (
+                <div className={cn(
+                  "absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest",
+                  theme === 'holographic' ? "bg-[var(--accent)] text-black" : "bg-purple-500 text-white"
+                )}>
+                  {lang === 'bn' ? 'জনপ্রিয়' : 'Popular'}
+                </div>
+              )}
+
+              <div className="mb-6">
+                <p className="text-xs font-bold text-white/40 uppercase tracking-widest mb-1">{plan.name}</p>
+                <div className="flex items-baseline gap-1">
+                  <span className="text-3xl font-black text-white">৳{plan.price}</span>
+                  <span className="text-xs text-white/40">{plan.period}</span>
+                </div>
+              </div>
+
+              <div className="flex-1 space-y-4 mb-8">
+                <div className="flex items-center gap-2">
+                  <Zap size={14} className="text-amber-400" />
+                  <span className="text-sm font-bold text-white">{plan.credits} {t.credits}</span>
+                </div>
+                <div className="space-y-2">
+                  {plan.features.map((feature, i) => (
+                    <div key={i} className="flex items-start gap-2">
+                      <Check size={12} className="text-emerald-400 mt-1 shrink-0" />
+                      <span className="text-[11px] text-white/60 leading-tight">{feature}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <button 
+                onClick={() => {
+                  if (plan.id !== 'free') {
+                    setCredits(credits + (plan.id === 'basic' ? 500 : plan.id === 'pro' ? 2000 : 10000));
+                    setShowSuccessModal(true);
+                  }
+                }}
+                className={cn(
+                  "w-full py-3 rounded-xl text-xs font-black transition-all border",
+                  plan.current 
+                    ? "bg-white/5 border-white/10 text-white/40 cursor-default"
+                    : theme === 'holographic'
+                      ? "bg-[rgba(var(--accent-rgb),0.1)] border-[rgba(var(--accent-rgb),0.2)] text-[var(--accent)] hover:bg-[var(--accent)] hover:text-black"
+                      : "bg-white/5 border-white/10 text-white hover:bg-white/10"
+                )}
+              >
+                {plan.current ? (lang === 'bn' ? 'বর্তমান' : 'Current') : t.upgradeNow}
+              </button>
+            </motion.div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ComingSoonTab({ t, config, tabId, theme }: { t: any, config: any, tabId: string, theme: string }) {
   return (
     <div className={cn(
@@ -2989,7 +3028,7 @@ function SurveyCard({ label, value, config, theme }: { label: string, value: str
   );
 }
 
-function LandTab({ t, lang, config, theme, useCredit }: { t: any, lang: 'bn' | 'en', config: any, theme: string, useCredit: () => boolean }) {
+function LandTab({ t, lang, config, theme, useCredit }: { t: any, lang: 'bn' | 'en', config: any, theme: string, useCredit: (amount?: number) => boolean }) {
   const [points, setPoints] = useState<[number, number][]>([]);
   const [areaInfo, setAreaInfo] = useState<{
     sqm: number;
@@ -3584,7 +3623,7 @@ function ResultCard({ label, value, unit, config, theme }: { label: string, valu
   );
 }
 
-function EstimatingTab({ t, config, theme, useCredit }: { t: any, config: any, theme: string, useCredit: () => boolean }) {
+function EstimatingTab({ t, config, theme, useCredit }: { t: any, config: any, theme: string, useCredit: (amount?: number) => boolean }) {
   const [image, setImage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
@@ -3604,7 +3643,7 @@ function EstimatingTab({ t, config, theme, useCredit }: { t: any, config: any, t
   };
 
   const handleEstimate = async () => {
-    if (!useCredit()) return;
+    if (!useCredit(5)) return;
 
     setLoading(true);
     try {
@@ -3749,8 +3788,17 @@ function EstimatingTab({ t, config, theme, useCredit }: { t: any, config: any, t
             theme === 'holographic' ? "bg-[var(--accent)] text-black shadow-[0_0_20px_var(--accent)]" : cn("text-white", config.bg)
           )}
         >
-          {loading ? <Loader2 className="animate-spin" /> : <Calculator size={24} />}
-          {t.estimate}
+          {loading ? (
+            <>
+              <Loader2 className="animate-spin" size={24} />
+              <span>{t.estimatingProgress || "Estimating..."}</span>
+            </>
+          ) : (
+            <>
+              <Calculator size={24} />
+              <span>{t.estimate}</span>
+            </>
+          )}
         </button>
       </div>
 
@@ -4134,7 +4182,7 @@ function MaterialsTab({ t, lang, config, theme }: { t: any, lang: 'bn' | 'en', c
   );
 }
 
-function QuizTab({ t, lang, config, dept, theme }: { t: any, lang: 'bn' | 'en', config: any, dept: string, theme: string }) {
+function QuizTab({ t, lang, config, dept, theme, useCredit }: { t: any, lang: 'bn' | 'en', config: any, dept: string, theme: string, useCredit: (amount?: number) => boolean }) {
   const [started, setStarted] = useState(false);
   const [currentIdx, setCurrentIdx] = useState(0);
   const [score, setScore] = useState(0);
@@ -4158,6 +4206,7 @@ function QuizTab({ t, lang, config, dept, theme }: { t: any, lang: 'bn' | 'en', 
   }, [started, timeLeft, finished]);
 
   const startQuiz = async () => {
+    if (!useCredit(5)) return;
     setIsLoading(true);
     const generatedQuestions = await generateQuizQuestions(selectedDept, lang);
     
