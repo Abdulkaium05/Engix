@@ -4191,7 +4191,9 @@ function QuizTab({ t, lang, config, dept, theme, useCredit }: { t: any, lang: 'b
   const [questions, setQuestions] = useState<any[]>([]);
   const [userAnswers, setUserAnswers] = useState<(number | null)[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [loadingProgress, setLoadingProgress] = useState(0);
   const [showAnswers, setShowAnswers] = useState(false);
+  const [difficulty, setDifficulty] = useState<'easy' | 'hard'>('easy');
 
   const [selectedDept, setSelectedDept] = useState(dept);
   const quizConfig = DEPT_CONFIG[selectedDept as keyof typeof DEPT_CONFIG] || config;
@@ -4208,10 +4210,25 @@ function QuizTab({ t, lang, config, dept, theme, useCredit }: { t: any, lang: 'b
   const startQuiz = async () => {
     if (!useCredit(5)) return;
     setIsLoading(true);
-    const generatedQuestions = await generateQuizQuestions(selectedDept, lang);
+    setLoadingProgress(0);
     
-    const finalQuestions = (generatedQuestions && generatedQuestions.length > 0) 
-      ? generatedQuestions 
+    const allGenerated: any[] = [];
+    const totalQuestions = 10;
+    
+    try {
+      for (let i = 0; i < totalQuestions; i++) {
+        const q = await generateQuizQuestions(selectedDept, lang, difficulty, 1);
+        if (q && q.length > 0) {
+          allGenerated.push(q[0]);
+          setLoadingProgress(i + 1);
+        }
+      }
+    } catch (error) {
+      console.error("Error generating questions:", error);
+    }
+    
+    const finalQuestions = (allGenerated.length > 0) 
+      ? allGenerated 
       : [...quizQuestions].sort(() => Math.random() - 0.5).slice(0, 10);
 
     setQuestions(finalQuestions);
@@ -4365,11 +4382,49 @@ function QuizTab({ t, lang, config, dept, theme, useCredit }: { t: any, lang: 'b
     );
   }
 
+  if (isLoading) {
+    return (
+      <div className={cn(
+        "flex-1 flex flex-col items-center justify-center p-12 text-center space-y-8 border",
+        theme === 'holographic' ? "bg-black/40 backdrop-blur-3xl border-[rgba(var(--accent-rgb),0.2)] rounded-3xl shadow-[0_0_30px_rgba(var(--accent-rgb),0.1)]" : "glass rounded-3xl"
+      )}>
+        <div className="relative">
+          <Loader2 size={64} className={cn("animate-spin", theme === 'holographic' ? "text-[var(--accent)]" : "text-white")} />
+          <div className="absolute inset-0 flex items-center justify-center">
+            <span className={cn("text-xs font-black", theme === 'holographic' ? "text-[var(--accent)]" : "text-white")}>
+              {loadingProgress}/10
+            </span>
+          </div>
+        </div>
+        <div className="space-y-2">
+          <h3 className={cn("text-2xl font-black", theme === 'holographic' ? "text-white" : "text-white")}>
+            {t.loadingQuestions}
+          </h3>
+          <p className={cn("font-bold", theme === 'holographic' ? "text-[var(--accent)] opacity-60" : "text-white/40")}>
+            {lang === 'bn' ? `${loadingProgress}টি প্রশ্ন লোড হয়েছে...` : `${loadingProgress} questions loaded...`}
+          </p>
+        </div>
+        
+        {/* Progress Bar */}
+        <div className={cn(
+          "w-full max-w-xs h-2 rounded-full overflow-hidden border",
+          theme === 'holographic' ? "bg-black/40 border-[rgba(var(--accent-rgb),0.2)]" : "bg-white/10 border-white/5"
+        )}>
+          <motion.div 
+            className={cn("h-full", theme === 'holographic' ? "bg-[var(--accent)] shadow-[0_0_10px_var(--accent)]" : "bg-white")}
+            initial={{ width: 0 }}
+            animate={{ width: `${(loadingProgress / 10) * 100}%` }}
+          />
+        </div>
+      </div>
+    );
+  }
+
   if (!started) {
     return (
       <div className={cn(
         "p-12 text-center space-y-8 border",
-        theme === 'holographic' ? "bg-black/40 backdrop-blur-3xl border-[rgba(var(--accent-rgb),0.2)] rounded-3xl shadow-[0_0_30px_rgba(var(--accent-rgb),0.1)]" : "card-glass rounded-3xl"
+        theme === 'holographic' ? "bg-black/40 backdrop-blur-3xl border-[rgba(var(--accent-rgb),0.2)] rounded-3xl shadow-[0_0_30px_rgba(var(--accent-rgb),0.1)]" : "glass rounded-3xl"
       )}>
         <div className={cn(
           "w-24 h-24 rounded-[2.5rem] flex items-center justify-center mx-auto border",
@@ -4388,32 +4443,67 @@ function QuizTab({ t, lang, config, dept, theme, useCredit }: { t: any, lang: 'b
           )}>{lang === 'bn' ? "আপনার জ্ঞান পরীক্ষা করুন!" : "Test your engineering knowledge!"}</p>
         </div>
 
-        <div className="space-y-4 max-w-sm mx-auto">
-          <p className={cn(
-            "text-xs font-bold uppercase tracking-widest text-center",
-            theme === 'holographic' ? "text-[var(--accent)] opacity-60" : "text-white/40"
-          )}>{t.deptSelect}</p>
-          <div className="grid grid-cols-2 gap-3">
-            {Object.entries(DEPT_CONFIG).map(([key, deptConfig]) => {
-              const isSelected = selectedDept === key;
-              return (
-                <button
-                  key={key}
-                  onClick={() => setSelectedDept(key)}
-                  className={cn(
-                    "p-4 rounded-2xl border transition-all flex flex-col gap-2",
-                    isSelected 
-                      ? (theme === 'holographic' ? "bg-[rgba(var(--accent-rgb),0.2)] text-white border-[var(--accent)] shadow-[0_0_10px_rgba(var(--accent-rgb),0.3)]" : cn(deptConfig.border, deptConfig.bg, "text-white"))
-                      : (theme === 'holographic' ? "bg-black/40 border-[rgba(var(--accent-rgb),0.2)] text-[var(--accent)] opacity-60 hover:opacity-100" : "bg-white/5 border-white/10 text-white/40 hover:border-white/20 hover:bg-white/10")
-                  )}
-                >
-                  <div className={cn(!isSelected && (theme === 'holographic' ? "text-[var(--accent)]" : deptConfig.text))}>
-                    {deptConfig.icon}
-                  </div>
-                  <span className="font-bold text-sm">{key.charAt(0).toUpperCase() + key.slice(1)}</span>
-                </button>
-              );
-            })}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-2xl mx-auto">
+          <div className="space-y-4">
+            <p className={cn(
+              "text-xs font-bold uppercase tracking-widest text-center",
+              theme === 'holographic' ? "text-[var(--accent)] opacity-60" : "text-white/40"
+            )}>{t.deptSelect}</p>
+            <div className="grid grid-cols-2 gap-3">
+              {Object.entries(DEPT_CONFIG).map(([key, deptConfig]) => {
+                const isSelected = selectedDept === key;
+                return (
+                  <button
+                    key={key}
+                    onClick={() => setSelectedDept(key)}
+                    className={cn(
+                      "p-4 rounded-2xl border transition-all flex flex-col gap-2 items-center",
+                      isSelected 
+                        ? (theme === 'holographic' ? "bg-[rgba(var(--accent-rgb),0.2)] text-white border-[var(--accent)] shadow-[0_0_10px_rgba(var(--accent-rgb),0.3)]" : cn(deptConfig.border, deptConfig.bg, "text-white"))
+                        : (theme === 'holographic' ? "bg-black/40 border-[rgba(var(--accent-rgb),0.2)] text-[var(--accent)] opacity-60 hover:opacity-100" : "bg-white/5 border-white/10 text-white/40 hover:border-white/20 hover:bg-white/10")
+                    )}
+                  >
+                    <div className={cn(!isSelected && (theme === 'holographic' ? "text-[var(--accent)]" : deptConfig.text))}>
+                      {deptConfig.icon}
+                    </div>
+                    <span className="font-bold text-xs">{key.charAt(0).toUpperCase() + key.slice(1)}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <p className={cn(
+              "text-xs font-bold uppercase tracking-widest text-center",
+              theme === 'holographic' ? "text-[var(--accent)] opacity-60" : "text-white/40"
+            )}>{t.difficulty}</p>
+            <div className="grid grid-cols-1 gap-3">
+              <button
+                onClick={() => setDifficulty('easy')}
+                className={cn(
+                  "p-4 rounded-2xl border transition-all flex items-center justify-between px-6",
+                  difficulty === 'easy'
+                    ? (theme === 'holographic' ? "bg-[rgba(var(--accent-rgb),0.2)] text-white border-[var(--accent)] shadow-[0_0_10px_rgba(var(--accent-rgb),0.3)]" : "bg-white text-stone-900 border-white")
+                    : (theme === 'holographic' ? "bg-black/40 border-[rgba(var(--accent-rgb),0.2)] text-[var(--accent)] opacity-60 hover:opacity-100" : "bg-white/5 border-white/10 text-white/40 hover:border-white/20 hover:bg-white/10")
+                )}
+              >
+                <span className="font-bold">{t.easy}</span>
+                {difficulty === 'easy' && <Check size={16} />}
+              </button>
+              <button
+                onClick={() => setDifficulty('hard')}
+                className={cn(
+                  "p-4 rounded-2xl border transition-all flex items-center justify-between px-6",
+                  difficulty === 'hard'
+                    ? (theme === 'holographic' ? "bg-[rgba(var(--accent-rgb),0.2)] text-white border-[var(--accent)] shadow-[0_0_10px_rgba(var(--accent-rgb),0.3)]" : "bg-white text-stone-900 border-white")
+                    : (theme === 'holographic' ? "bg-black/40 border-[rgba(var(--accent-rgb),0.2)] text-[var(--accent)] opacity-60 hover:opacity-100" : "bg-white/5 border-white/10 text-white/40 hover:border-white/20 hover:bg-white/10")
+                )}
+              >
+                <span className="font-bold">{t.hard}</span>
+                {difficulty === 'hard' && <Check size={16} />}
+              </button>
+            </div>
           </div>
         </div>
 
@@ -4421,13 +4511,13 @@ function QuizTab({ t, lang, config, dept, theme, useCredit }: { t: any, lang: 'b
           onClick={startQuiz}
           disabled={isLoading}
           className={cn(
-            "w-full py-5 rounded-2xl font-black text-lg transition-all flex items-center justify-center gap-3 mx-auto border",
+            "w-full max-w-md py-5 rounded-2xl font-black text-lg transition-all flex items-center justify-center gap-3 mx-auto border",
             theme === 'holographic' ? "bg-[var(--accent)] text-black border-[var(--accent)] shadow-[0_0_20px_var(--accent)]" : cn(quizConfig.bg, "text-white"),
             isLoading && "opacity-50 cursor-not-allowed"
           )}
         >
-          {isLoading ? <Loader2 size={24} className="animate-spin" /> : <Play size={24} />}
-          {isLoading ? (lang === 'bn' ? "লোড হচ্ছে..." : "Loading...") : (lang === 'bn' ? "শুরু করুন" : "Start Quiz")}
+          <Play size={24} fill="currentColor" />
+          {lang === 'bn' ? "শুরু করুন" : "Start Quiz"} (5 {t.credits})
         </button>
       </div>
     );

@@ -152,6 +152,10 @@ export const translations = {
     shortAnswer: "সংক্ষিপ্ত উত্তর",
     detailedAnswer: "বিস্তারিত ব্যাখ্যা",
     estimatingProgress: "এস্টিমেটিং হচ্ছে...",
+    easy: "সহজ",
+    hard: "কঠিন",
+    difficulty: "লেভেল",
+    loadingQuestions: "কুইজ লোড হচ্ছে...",
   },
   en: {
     home: "Home",
@@ -306,7 +310,11 @@ export const translations = {
     shortAnswer: "Short Answer",
     detailedAnswer: "Detailed Explanation",
     estimatingProgress: "Estimating...",
-  }
+    easy: "Easy",
+    hard: "Hard",
+    difficulty: "Difficulty",
+    loadingQuestions: "Loading questions...",
+  },
 };
 
 export const homeTopics: any = {

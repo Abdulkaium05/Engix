@@ -116,16 +116,16 @@ export async function analyzeLand(description: string) {
   }
 }
 
-export async function generateQuizQuestions(dept: string, lang: string) {
+export async function generateQuizQuestions(dept: string, lang: string, difficulty: 'easy' | 'hard' = 'easy', count: number = 10) {
   try {
-    const promptText = `Generate 10 multiple-choice quiz questions for a ${dept} engineering student in ${lang === 'bn' ? 'Bengali' : 'English'}.
+    const promptText = `Generate ${count} ${difficulty} multiple-choice quiz questions for a ${dept} engineering student in ${lang === 'bn' ? 'Bengali' : 'English'}.
 Return ONLY a JSON array of objects. Each object must have:
 - question: { bn: string, en: string }
 - options: { bn: string[], en: string[] } (exactly 4 options)
 - answer: number (index of the correct option, 0 to 3)
 - explanation: { bn: string, en: string } (brief explanation of why the answer is correct)
 
-Ensure the questions are relevant to ${dept} engineering.`;
+Ensure the questions are relevant to ${dept} engineering and match the ${difficulty} difficulty level.`;
 
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
