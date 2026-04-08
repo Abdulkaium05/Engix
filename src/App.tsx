@@ -2817,8 +2817,6 @@ function SurveyTab({ t, config, theme }: { t: any, config: any, theme: string })
             <div className="grid grid-cols-2 gap-4">
               <SurveyCard label={t.lat} value={coords?.lat.toFixed(6) || "---"} config={config} theme={theme} />
               <SurveyCard label={t.lng} value={coords?.lng.toFixed(6) || "---"} config={config} theme={theme} />
-              <SurveyCard label={t.rl} value="12.45 m" config={config} theme={theme} />
-              <SurveyCard label={t.msl} value="15.20 m" config={config} theme={theme} />
               <div className="col-span-2">
                 <SurveyCard label={t.currentTime} value={currentTime || "---"} config={config} theme={theme} />
               </div>
