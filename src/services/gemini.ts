@@ -13,9 +13,14 @@ export async function getChatResponse(prompt: string, history: any[] = [], respo
       ? "Keep your response concise, brief, and to the point. Avoid unnecessary details." 
       : "Provide a highly detailed, comprehensive, and in-depth explanation with examples if possible.";
 
+    const formattedHistory = history.map(msg => ({
+      role: msg.role === 'user' ? 'user' : 'model',
+      parts: [{ text: msg.content }]
+    }));
+
     const chat = ai.chats.create({
       model: "gemini-3-flash-preview",
-      history: history,
+      history: formattedHistory,
       config: {
         systemInstruction: `You are Engix AI, a professional engineering assistant. You help engineers with calculations, design principles, and technical questions across Civil, Mechanical, Electrical, and Computer engineering. Provide clear, accurate, and professional advice. Use Markdown for formatting. ${lengthInstruction}`,
       },

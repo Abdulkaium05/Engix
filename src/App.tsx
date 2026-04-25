@@ -16,6 +16,7 @@ import {
   Info,
   Menu,
   X,
+  History,
   Building2,
   Ruler,
   Compass,
@@ -45,7 +46,8 @@ import {
   Plus,
   ArrowLeft,
   Check,
-  Play
+  Play,
+  ChevronDown
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { translations, materialTests, quizQuestions, homeTopics } from './data/content';
@@ -84,7 +86,7 @@ function ChangeView({ center, zoom }: { center: [number, number], zoom: number }
   return null;
 }
 
-type Tab = 'home' | 'survey' | 'land' | 'estimating' | 'materials' | 'quiz' | 'chat' | 'mech_design' | 'thermo' | 'fluids' | 'circuits' | 'power' | 'control' | 'software' | 'data' | 'network' | 'settings' | 'subscription' | 'plot_planner' | 'slab_design' | 'unit_converter' | 'beam_design';
+type Tab = 'home' | 'survey' | 'land' | 'estimating' | 'materials' | 'quiz' | 'chat' | 'chat_history' | 'mech_design' | 'thermo' | 'fluids' | 'circuits' | 'power' | 'control' | 'software' | 'data' | 'network' | 'settings' | 'subscription' | 'plot_planner' | 'slab_design' | 'unit_converter' | 'beam_design';
 type Dept = 'civil' | 'mechanical' | 'electrical' | 'computer';
 
 const DEPT_CONFIG = {
@@ -541,6 +543,7 @@ export default function App() {
                 {activeTab === 'materials' && <MaterialsTab t={t} lang={lang} config={config} theme={theme} />}
                 {activeTab === 'quiz' && <QuizTab t={t} lang={lang} config={config} dept={dept} theme={theme} useCredit={useCredit} />}
                 {activeTab === 'chat' && <ChatTab t={t} lang={lang} config={config} dept={dept} setActiveTab={setActiveTab} toggleMenu={toggleMenu} theme={theme} useCredit={useCredit} credits={credits} />}
+                {activeTab === 'chat_history' && <ChatHistoryTab t={t} lang={lang} theme={theme} setActiveTab={setActiveTab} />}
                 {activeTab === 'settings' && <SettingsTab t={t} lang={lang} setLang={setLang} dept={dept} setDept={setDept} theme={theme} setTheme={setTheme} saveUserSettings={saveUserSettings} config={config} credits={credits} />}
                 {activeTab === 'subscription' && <SubscriptionTab t={t} lang={lang} credits={credits} setCredits={setCredits} theme={theme} setShowSuccessModal={setShowSuccessModal} />}
                 {['mech_design', 'thermo', 'fluids', 'circuits', 'power', 'control', 'software', 'data', 'network'].includes(activeTab) && (
@@ -682,7 +685,7 @@ function DeptButton({ active, onClick, icon, label, color, theme }: { active: bo
 // --- Tab Components ---
 
 function ChatTab({ t, lang, config, dept, setActiveTab, toggleMenu, theme, useCredit, credits }: { t: any, lang: 'bn' | 'en', config: any, dept: string, setActiveTab: (tab: Tab) => void, toggleMenu: () => void, theme: string, useCredit: (amount?: number) => boolean, credits: number }) {
-  const [messages, setMessages] = useState<{ role: 'user' | 'ai', content: string }[]>([]);
+  const [messages, setMessages] = useState<{ role: 'user' | 'model', content: string }[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [responseType, setResponseType] = useState<'short' | 'long'>('long');
@@ -712,9 +715,21 @@ function ChatTab({ t, lang, config, dept, setActiveTab, toggleMenu, theme, useCr
     setIsLoading(true);
 
     const response = await getChatResponse(userMsg, messages, responseType);
+    const aiResponse = response || "Sorry, I couldn't process that.";
     
-    setMessages(prev => [...prev, { role: 'ai', content: response || "Sorry, I couldn't process that." }]);
+    setMessages(prev => [...prev, { role: 'model', content: aiResponse }]);
     setIsLoading(false);
+
+    // Save to history
+    const history = JSON.parse(localStorage.getItem('engix_chat_history') || '[]');
+    history.unshift({
+      id: Date.now(),
+      timestamp: new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString(),
+      question: userMsg,
+      answer: aiResponse,
+      dept
+    });
+    localStorage.setItem('engix_chat_history', JSON.stringify(history.slice(0, 100))); // Keep last 100
   };
 
   return (
@@ -749,6 +764,15 @@ function ChatTab({ t, lang, config, dept, setActiveTab, toggleMenu, theme, useCr
         </div>
 
         <div className="flex items-center gap-2">
+          <button 
+            onClick={() => setActiveTab('chat_history')}
+            className={cn(
+              "p-1.5 rounded-xl border transition-all",
+              theme === 'holographic' ? "bg-[rgba(var(--accent-rgb),0.1)] border-[rgba(var(--accent-rgb),0.2)] text-[var(--accent)]" : "bg-white/5 border-white/10 text-white/60 hover:text-white"
+            )}
+          >
+            <History size={16} />
+          </button>
           <div className={cn(
             "px-3 py-1.5 rounded-xl border flex items-center gap-2",
             theme === 'holographic' ? "bg-[rgba(var(--accent-rgb),0.1)] border-[rgba(var(--accent-rgb),0.2)]" : "bg-white/5 border-white/10"
@@ -798,7 +822,7 @@ function ChatTab({ t, lang, config, dept, setActiveTab, toggleMenu, theme, useCr
                   ? cn("text-white rounded-2xl rounded-tr-sm user-msg", theme === 'glass' && config.bg) 
                   : cn("text-white/90 ai-msg", theme === 'glass' && "glass border border-white/10 rounded-2xl rounded-tl-sm")
               )}>
-                {msg.role === 'ai' ? (
+                {msg.role === 'model' ? (
                   <div className="prose prose-invert prose-sm max-w-none">
                     <ReactMarkdown>{msg.content}</ReactMarkdown>
                   </div>
@@ -2029,6 +2053,129 @@ function SlabDesignTab({ t, config, lang, theme }: { t: any, config: any, lang: 
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function ChatHistoryTab({ t, lang, theme, setActiveTab }: { t: any, lang: 'bn' | 'en', theme: string, setActiveTab: (tab: Tab) => void }) {
+  const [history, setHistory] = useState<any[]>([]);
+  const [expandedId, setExpandedId] = useState<number | null>(null);
+
+  useEffect(() => {
+    const saved = JSON.parse(localStorage.getItem('engix_chat_history') || '[]');
+    setHistory(saved);
+  }, []);
+
+  const clearHistory = () => {
+    if (confirm(lang === 'bn' ? "আপনি কি নিশ্চিত যে আপনি সমস্ত ইতিহাস মুছে ফেলতে চান?" : "Are you sure you want to clear all history?")) {
+      localStorage.removeItem('engix_chat_history');
+      setHistory([]);
+    }
+  };
+
+  return (
+    <div className="tab-content pb-24 space-y-6">
+       {/* Header with Back Button */}
+       <div className="flex items-center justify-between mb-2">
+         <div className="flex items-center gap-3">
+            <button 
+              onClick={() => setActiveTab('chat')} 
+              className={cn(
+                "p-2 rounded-full transition-colors",
+                theme === 'holographic' ? "bg-[rgba(var(--accent-rgb),0.1)] text-[var(--accent)] border border-[var(--accent)]" : "glass text-white/60 hover:text-white"
+              )}
+            >
+              <ArrowLeft size={20} />
+            </button>
+            <h2 className="text-xl font-black text-white">{lang === 'bn' ? "কথোপকথনের ইতিহাস" : "Chat History"}</h2>
+         </div>
+         {history.length > 0 && (
+           <button 
+             onClick={clearHistory}
+             className="text-[10px] font-black uppercase tracking-widest text-red-500/80 hover:text-red-500 transition-colors"
+           >
+             {lang === 'bn' ? "ইতিহাস মুছুন" : "Clear History"}
+           </button>
+         )}
+       </div>
+
+       {history.length === 0 ? (
+         <div className="py-20 flex flex-col items-center justify-center text-center opacity-40">
+           <History size={48} className={cn("mb-4", theme === 'holographic' ? "text-[var(--accent)]" : "text-white")} />
+           <p className={cn("text-sm font-bold uppercase tracking-widest", theme === 'holographic' ? "text-[var(--accent)]" : "text-white")}>
+             {lang === 'bn' ? "কোন ইতিহাস পাওয়া যায়নি" : "No history found"}
+           </p>
+         </div>
+       ) : (
+         <div className="space-y-4">
+           {history.map((item) => (
+             <motion.div 
+               key={item.id}
+               layout
+               initial={{ opacity: 0, x: -10 }}
+               animate={{ opacity: 1, x: 0 }}
+               onClick={() => setExpandedId(expandedId === item.id ? null : item.id)}
+               className={cn(
+                 "p-6 rounded-3xl border transition-all duration-300 cursor-pointer overflow-hidden",
+                 theme === 'holographic' ? "bg-black/40 border-[rgba(var(--accent-rgb),0.2)] shadow-[0_0_20px_rgba(var(--accent-rgb),0.05)]" : "glass border-white/10",
+                 expandedId === item.id ? (theme === 'holographic' ? "ring-1 ring-[var(--accent)] bg-black/60" : "bg-white/5 border-white/20") : ""
+               )}
+             >
+               <div className="flex justify-between items-start gap-4 mb-4">
+                 <div className="space-y-1">
+                   {theme === 'holographic' ? (
+                     <p className="text-[10px] font-black text-[var(--accent)] uppercase tracking-[0.2em]">{item.dept} // SYS_LOG</p>
+                   ) : (
+                     <p className="text-[10px] font-black text-white/40 uppercase tracking-widest">{item.dept}</p>
+                   )}
+                   <p className="text-[10px] text-white/30 font-bold uppercase tracking-tighter">{item.timestamp}</p>
+                 </div>
+                 <div className={cn(
+                   "w-8 h-8 rounded-full flex items-center justify-center border transition-transform duration-300",
+                   theme === 'holographic' ? "border-[rgba(var(--accent-rgb),0.2)] text-[var(--accent)]" : "border-white/5 text-white/20",
+                   expandedId === item.id ? "rotate-180" : ""
+                 )}>
+                   <ChevronDown size={14} />
+                 </div>
+               </div>
+
+               <div className="space-y-4">
+                 <div className="space-y-2">
+                   <div className="flex items-center gap-2">
+                     <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                     <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.2em]">{lang === 'bn' ? "প্রশ্ন" : "Question"}</p>
+                   </div>
+                   <p className="text-sm font-bold text-white leading-relaxed pl-3.5 border-l border-white/5 italic">{item.question}</p>
+                 </div>
+                 
+                 <AnimatePresence>
+                   {expandedId === item.id && (
+                     <motion.div 
+                       initial={{ opacity: 0, height: 0, marginTop: 0 }}
+                       animate={{ opacity: 1, height: 'auto', marginTop: 16 }}
+                       exit={{ opacity: 0, height: 0, marginTop: 0 }}
+                       className="space-y-4 pt-4 border-t border-white/5 overflow-hidden"
+                     >
+                       <div className="space-y-2">
+                         <div className="flex items-center gap-2">
+                           <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                           <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.2em]">{lang === 'bn' ? "উত্তর" : "Answer"}</p>
+                         </div>
+                         <div className={cn(
+                           "prose prose-invert prose-sm max-w-none p-4 rounded-2xl",
+                           theme === 'holographic' ? "bg-white/5 border border-white/5" : "bg-black/20"
+                         )}>
+                           <ReactMarkdown>{item.answer}</ReactMarkdown>
+                         </div>
+                       </div>
+                     </motion.div>
+                   )}
+                 </AnimatePresence>
+               </div>
+             </motion.div>
+           ))}
+         </div>
+       )}
     </div>
   );
 }
