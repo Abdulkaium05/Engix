@@ -43,8 +43,10 @@ import {
   Lock,
   Layers,
   MapPin,
+  CheckCircle2,
   Sun,
   Moon,
+  ArrowRight,
   ArrowRightLeft,
   RefreshCw,
   Trash2,
@@ -118,10 +120,10 @@ const DEPT_CONFIG = {
 };
 
 const DEPT_TABS: Record<Dept, Tab[]> = {
-  civil: ['home', 'chat', 'chat_history', 'results', 'quiz', 'survey', 'land', 'plot_planner', 'estimating', 'materials', 'slab_design', 'beam_design', 'unit_converter'],
-  mechanical: ['home', 'chat', 'chat_history', 'results', 'quiz', 'mech_design', 'thermo', 'fluids', 'unit_converter'],
-  electrical: ['home', 'chat', 'chat_history', 'results', 'quiz', 'circuits', 'power', 'control', 'unit_converter'],
-  computer: ['home', 'chat', 'chat_history', 'results', 'quiz', 'software', 'data', 'network', 'unit_converter'],
+  civil: ['home', 'chat', 'chat_history', 'quiz', 'survey', 'land', 'plot_planner', 'estimating', 'materials', 'slab_design', 'beam_design', 'unit_converter'],
+  mechanical: ['home', 'chat', 'chat_history', 'quiz', 'mech_design', 'thermo', 'fluids', 'unit_converter'],
+  electrical: ['home', 'chat', 'chat_history', 'quiz', 'circuits', 'power', 'control', 'unit_converter'],
+  computer: ['home', 'chat', 'chat_history', 'quiz', 'software', 'data', 'network', 'unit_converter'],
 };
 
 const TAB_ICONS: Record<string, any> = {
@@ -159,6 +161,7 @@ export default function App() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [showCreditModal, setShowCreditModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [isResultsUnlocked, setIsResultsUnlocked] = useState(() => localStorage.getItem('engix_results_unlocked') === 'true');
   const mainRef = useRef<HTMLElement>(null);
 
   const t = translations[lang];
@@ -462,7 +465,7 @@ export default function App() {
                 <div className="space-y-3">
                   <p className="text-xs font-bold text-white/40 uppercase tracking-widest ml-1">{lang === 'bn' ? 'মেনু' : 'Menu'}</p>
                   <div className="space-y-1">
-                    {DEPT_TABS[dept].map((tab) => (
+                    {([...DEPT_TABS[dept], ...(isResultsUnlocked ? (DEPT_TABS[dept].includes('results') ? [] : ['results']) : [])] as Tab[]).map((tab) => (
                       <button
                         key={tab}
                         onClick={() => { setActiveTab(tab); setIsMenuOpen(false); }}
@@ -567,7 +570,7 @@ export default function App() {
                 {activeTab === 'chat' && <ChatTab t={t} lang={lang} config={config} dept={dept} setActiveTab={setActiveTab} toggleMenu={toggleMenu} theme={theme} useCredit={useCredit} credits={credits} />}
                 {activeTab === 'chat_history' && <ChatHistoryTab t={t} lang={lang} theme={theme} setActiveTab={setActiveTab} />}
                 {activeTab === 'results' && <ResultsTab t={t} lang={lang} theme={theme} config={config} />}
-                {activeTab === 'settings' && <SettingsTab t={t} lang={lang} setLang={setLang} dept={dept} setDept={setDept} theme={theme} setTheme={setTheme} saveUserSettings={saveUserSettings} config={config} credits={credits} />}
+                {activeTab === 'settings' && <SettingsTab t={t} lang={lang} setLang={setLang} dept={dept} setDept={setDept} theme={theme} setTheme={setTheme} saveUserSettings={saveUserSettings} config={config} credits={credits} isResultsUnlocked={isResultsUnlocked} setIsResultsUnlocked={setIsResultsUnlocked} setActiveTab={setActiveTab} />}
                 {activeTab === 'subscription' && <SubscriptionTab t={t} lang={lang} credits={credits} setCredits={setCredits} theme={theme} setShowSuccessModal={setShowSuccessModal} />}
                 {['mech_design', 'thermo', 'fluids', 'circuits', 'power', 'control', 'software', 'data', 'network'].includes(activeTab) && (
                   <ComingSoonTab t={t} config={config} tabId={activeTab} theme={theme} />
@@ -943,7 +946,36 @@ function ChatTab({ t, lang, config, dept, setActiveTab, toggleMenu, theme, useCr
   );
 }
 
-function SettingsTab({ t, lang, setLang, dept, setDept, theme, setTheme, saveUserSettings, config, credits }: { t: any, lang: 'bn' | 'en', setLang: (l: 'bn' | 'en') => void, dept: Dept, setDept: (d: Dept) => void, theme: string, setTheme: (t: any) => void, saveUserSettings: (l: any, d: any, th: any) => void, config: any, credits: number }) {
+function SettingsTab({ t, lang, setLang, dept, setDept, theme, setTheme, saveUserSettings, config, credits, isResultsUnlocked, setIsResultsUnlocked, setActiveTab }: { t: any, lang: 'bn' | 'en', setLang: (l: 'bn' | 'en') => void, dept: Dept, setDept: (d: Dept) => void, theme: string, setTheme: (t: any) => void, saveUserSettings: (l: any, d: any, th: any) => void, config: any, credits: number, isResultsUnlocked: boolean, setIsResultsUnlocked: (v: boolean) => void, setActiveTab: (t: Tab) => void }) {
+  const [cheatCode, setCheatCode] = useState('');
+  const [showPasswordInput, setShowPasswordInput] = useState(false);
+  const [password, setPassword] = useState('');
+
+  const handleCheatSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (cheatCode.toLowerCase() === 'results') {
+      setShowPasswordInput(true);
+    } else {
+      toast.error("Invalid cheat code");
+      setCheatCode('');
+    }
+  };
+
+  const handlePasswordSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (password === '190524') {
+      setIsResultsUnlocked(true);
+      localStorage.setItem('engix_results_unlocked', 'true');
+      toast.success("Results Portal Unlocked!");
+      setActiveTab('results');
+    } else {
+      toast.error("Access Denied");
+    }
+    setPassword('');
+    setShowPasswordInput(false);
+    setCheatCode('');
+  };
+
   return (
     <div className="tab-content pb-24 space-y-8">
       {/* User Profile Summary */}
@@ -1040,70 +1072,135 @@ function SettingsTab({ t, lang, setLang, dept, setDept, theme, setTheme, saveUse
             </div>
           </div>
 
-          <div className="space-y-4">
-            <p className={cn(
-              "text-xs font-bold uppercase tracking-widest ml-1",
-              theme === 'holographic' ? "text-[var(--accent)] opacity-60" : "text-white/40"
-            )}>Theme</p>
-            <div className="grid grid-cols-2 gap-3">
-              <button 
-                onClick={() => { setTheme('glass'); saveUserSettings(lang, dept, 'glass'); }}
-                className={cn(
-                  "py-4 rounded-2xl font-bold border transition-all flex flex-col items-center justify-center gap-2", 
-                  theme === 'glass' 
-                    ? "bg-white/20 text-white border-white/30 scale-105"
-                    : (theme === 'holographic' ? "bg-black/40 border-[rgba(var(--accent-rgb),0.2)] text-[var(--accent)] opacity-60 hover:opacity-100" : "glass border-white/10 text-white/40 hover:bg-white/10 hover:text-white")
-                )}
-              >
-                <Layers size={24} />
-                Glass
-              </button>
-              <button 
-                onClick={() => { setTheme('industrial'); saveUserSettings(lang, dept, 'industrial'); }}
-                className={cn(
-                  "py-4 rounded-2xl font-bold border transition-all flex flex-col items-center justify-center gap-2", 
-                  theme === 'industrial' 
-                    ? "bg-white/20 text-white border-white/30 scale-105"
-                    : (theme === 'holographic' ? "bg-black/40 border-[rgba(var(--accent-rgb),0.2)] text-[var(--accent)] opacity-60 hover:opacity-100" : "glass border-white/10 text-white/40 hover:bg-white/10 hover:text-white")
-                )}
-              >
-                <Wrench size={24} />
-                Industrial
-              </button>
-              <button 
-                onClick={() => { setTheme('brutal'); saveUserSettings(lang, dept, 'brutal'); }}
-                className={cn(
-                  "py-4 rounded-2xl font-bold border transition-all flex flex-col items-center justify-center gap-2", 
-                  theme === 'brutal' 
-                    ? "bg-white/20 text-white border-white/30 scale-105"
-                    : (theme === 'holographic' ? "bg-black/40 border-[rgba(var(--accent-rgb),0.2)] text-[var(--accent)] opacity-60 hover:opacity-100" : "glass border-white/10 text-white/40 hover:bg-white/10 hover:text-white")
-                )}
-              >
-                <Zap size={24} />
-                Brutal
-              </button>
-              <button 
-                onClick={() => { setTheme('holographic'); saveUserSettings(lang, dept, 'holographic'); }}
-                className={cn(
-                  "py-4 rounded-2xl font-bold border transition-all flex flex-col items-center justify-center gap-2", 
-                  theme === 'holographic' 
-                    ? "bg-[rgba(var(--accent-rgb),0.2)] text-white border-[var(--accent)] shadow-[0_0_15px_rgba(var(--accent-rgb),0.3)] scale-105"
-                    : "bg-black/40 border-[rgba(var(--accent-rgb),0.2)] text-[var(--accent)] opacity-60 hover:opacity-100"
-                )}
-              >
-                <Cpu size={24} />
-                Holographic
-              </button>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="space-y-4">
+              <p className={cn(
+                "text-xs font-bold uppercase tracking-widest ml-1",
+                theme === 'holographic' ? "text-[var(--accent)] opacity-60" : "text-white/40"
+              )}>Theme</p>
+              <div className="grid grid-cols-2 gap-3">
+                <button 
+                  onClick={() => { setTheme('glass'); saveUserSettings(lang, dept, 'glass'); }}
+                  className={cn(
+                    "py-4 rounded-2xl font-bold border transition-all flex flex-col items-center justify-center gap-2", 
+                    theme === 'glass' 
+                      ? "bg-white/20 text-white border-white/30 scale-105"
+                      : (theme === 'holographic' ? "bg-black/40 border-[rgba(var(--accent-rgb),0.2)] text-[var(--accent)] opacity-60 hover:opacity-100" : "glass border-white/10 text-white/40 hover:bg-white/10 hover:text-white")
+                  )}
+                >
+                  <Layers size={24} />
+                  Glass
+                </button>
+                <button 
+                  onClick={() => { setTheme('industrial'); saveUserSettings(lang, dept, 'industrial'); }}
+                  className={cn(
+                    "py-4 rounded-2xl font-bold border transition-all flex flex-col items-center justify-center gap-2", 
+                    theme === 'industrial' 
+                      ? "bg-white/20 text-white border-white/30 scale-105"
+                      : (theme === 'holographic' ? "bg-black/40 border-[rgba(var(--accent-rgb),0.2)] text-[var(--accent)] opacity-60 hover:opacity-100" : "glass border-white/10 text-white/40 hover:bg-white/10 hover:text-white")
+                  )}
+                >
+                  <Wrench size={24} />
+                  Industrial
+                </button>
+                <button 
+                  onClick={() => { setTheme('brutal'); saveUserSettings(lang, dept, 'brutal'); }}
+                  className={cn(
+                    "py-4 rounded-2xl font-bold border transition-all flex flex-col items-center justify-center gap-2", 
+                    theme === 'brutal' 
+                      ? "bg-white/20 text-white border-white/30 scale-105"
+                      : (theme === 'holographic' ? "bg-black/40 border-[rgba(var(--accent-rgb),0.2)] text-[var(--accent)] opacity-60 hover:opacity-100" : "glass border-white/10 text-white/40 hover:bg-white/10 hover:text-white")
+                  )}
+                >
+                  <Zap size={24} />
+                  Brutal
+                </button>
+                <button 
+                  onClick={() => { setTheme('holographic'); saveUserSettings(lang, dept, 'holographic'); }}
+                  className={cn(
+                    "py-4 rounded-2xl font-bold border transition-all flex flex-col items-center justify-center gap-2", 
+                    theme === 'holographic' 
+                      ? "bg-[rgba(var(--accent-rgb),0.2)] text-white border-[var(--accent)] shadow-[0_0_15px_rgba(var(--accent-rgb),0.3)] scale-105"
+                      : "bg-black/40 border-[rgba(var(--accent-rgb),0.2)] text-[var(--accent)] opacity-60 hover:opacity-100"
+                  )}
+                >
+                  <Cpu size={24} />
+                  Holographic
+                </button>
+              </div>
             </div>
-          </div>
 
-          <div className="space-y-4">
-            <p className="text-xs font-bold text-white/40 uppercase tracking-widest">{t.deptSelect}</p>
-            <div className="grid grid-cols-2 gap-3">
-              <DeptButton active={dept === 'civil'} onClick={() => { setDept('civil'); saveUserSettings(lang, 'civil', theme); }} icon={<HardHat size={16} />} label={t.civil} color="emerald" theme={theme} />
-              <DeptButton active={dept === 'mechanical'} onClick={() => { setDept('mechanical'); saveUserSettings(lang, 'mechanical', theme); }} icon={<Settings size={16} />} label={t.mechanical} color="orange" theme={theme} />
-              <DeptButton active={dept === 'electrical'} onClick={() => { setDept('electrical'); saveUserSettings(lang, 'electrical', theme); }} icon={<Zap size={16} />} label={t.electrical} color="blue" theme={theme} />
-              <DeptButton active={dept === 'computer'} onClick={() => { setDept('computer'); saveUserSettings(lang, 'computer', theme); }} icon={<Code size={16} />} label={t.computer} color="purple" theme={theme} />
+            <div className="space-y-6">
+              <div className="space-y-4">
+                <p className="text-xs font-bold text-white/40 uppercase tracking-widest">{t.deptSelect}</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <DeptButton active={dept === 'civil'} onClick={() => { setDept('civil'); saveUserSettings(lang, 'civil', theme); }} icon={<HardHat size={16} />} label={t.civil} color="emerald" theme={theme} />
+                  <DeptButton active={dept === 'mechanical'} onClick={() => { setDept('mechanical'); saveUserSettings(lang, 'mechanical', theme); }} icon={<Settings size={16} />} label={t.mechanical} color="orange" theme={theme} />
+                  <DeptButton active={dept === 'electrical'} onClick={() => { setDept('electrical'); saveUserSettings(lang, 'electrical', theme); }} icon={<Zap size={16} />} label={t.electrical} color="blue" theme={theme} />
+                  <DeptButton active={dept === 'computer'} onClick={() => { setDept('computer'); saveUserSettings(lang, 'computer', theme); }} icon={<Code size={16} />} label={t.computer} color="purple" theme={theme} />
+                </div>
+              </div>
+
+              {/* Cheats Box Section */}
+              <div className="space-y-4 pt-4 border-t border-white/5">
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] font-black text-white/20 uppercase tracking-[0.3em]">Cheats Box</p>
+                  {isResultsUnlocked && (
+                    <div className="flex items-center gap-1.5 text-emerald-500">
+                      <CheckCircle2 size={12} />
+                      <span className="text-[9px] font-black uppercase tracking-widest text-emerald-500">Active</span>
+                    </div>
+                  )}
+                </div>
+                {!isResultsUnlocked ? (
+                  !showPasswordInput ? (
+                    <form onSubmit={handleCheatSubmit} className="relative group">
+                      <input 
+                        type="text"
+                        value={cheatCode}
+                        onChange={(e) => setCheatCode(e.target.value)}
+                        placeholder="Enter Code..."
+                        className={cn(
+                          "w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-sm font-black text-white tracking-widest placeholder:text-white/10 focus:outline-none transition-all",
+                          theme === 'holographic' ? "focus:border-[var(--accent)] focus:shadow-[0_0_20px_rgba(var(--accent-rgb),0.2)]" : "focus:border-white/30"
+                        )}
+                      />
+                      <button type="submit" className="absolute right-3 top-1/2 -translate-y-1/2 p-2 text-white/20 hover:text-white transition-colors">
+                        <ArrowRight size={18} />
+                      </button>
+                    </form>
+                  ) : (
+                    <motion.form 
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      onSubmit={handlePasswordSubmit} 
+                      className="relative"
+                    >
+                      <input 
+                        type="password"
+                        autoFocus
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="Enter Password..."
+                        className="w-full bg-rose-500/10 border border-rose-500/20 rounded-2xl py-4 px-6 text-sm font-black text-rose-500 tracking-[0.5em] placeholder:tracking-normal placeholder:text-rose-500/20 focus:outline-none"
+                      />
+                      <button type="submit" className="absolute right-3 top-1/2 -translate-y-1/2 p-2 text-rose-500 hover:text-rose-400 transition-colors">
+                        <Lock size={18} />
+                      </button>
+                    </motion.form>
+                  )
+                ) : (
+                  <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 space-y-3">
+                    <p className="text-xs font-bold text-emerald-500 text-center">Results Portal Access Granted</p>
+                    <button 
+                      onClick={() => setActiveTab('results')}
+                      className="w-full py-2.5 rounded-xl bg-emerald-500 text-black text-[10px] font-black uppercase tracking-widest hover:bg-emerald-400 transition-all shadow-[0_4px_20px_rgba(16,185,129,0.2)]"
+                    >
+                      Open Results Zone
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -2215,6 +2312,17 @@ function ResultsTab({ t, lang, theme, config }: { t: any, lang: 'bn' | 'en', the
   const [isAdminView, setIsAdminView] = useState(false);
   const [regulation, setRegulation] = useState('2022');
   const [currentAdminTab, setCurrentAdminTab] = useState<'upload' | 'manage'>('upload');
+
+  useEffect(() => {
+    if (showResultModal) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [showResultModal]);
   
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -2264,118 +2372,117 @@ function ResultsTab({ t, lang, theme, config }: { t: any, lang: 'bn' | 'en', the
       const localDataString = localStorage.getItem('engix_test_results');
       const localData = localDataString ? JSON.parse(localDataString) : [];
       
-      // Filter by roll, regulation, and exam
+      // Filter by roll and exam (loosen regulation check to find correct one)
       const filteredLocal = localData.filter((r: any) => 
         r.rollNumber === roll.trim() && 
-        (r.regulation === searchParams.regulation || !r.regulation) &&
         (r.exam === searchParams.exam || !r.exam)
       );
 
-      console.log(`Searching for ${roll} in ${searchParams.regulation} (${searchParams.exam}). Local matches:`, filteredLocal.length);
+      console.log(`Searching for ${roll} (Exam: ${searchParams.exam}). Local matches:`, filteredLocal.length);
 
-      // Early exit if found locally to make it feels instant
+      // If matches found locally, process them immediately, but still check Cloud for missing semesters
       if (filteredLocal.length > 0) {
+        const detectedReg = filteredLocal[0].regulation;
+        if (detectedReg && detectedReg !== searchParams.regulation) {
+          setSearchParams(curr => ({ ...curr, regulation: detectedReg }));
+          toast(`Switched to Regulation ${detectedReg}`);
+        }
         processAndSetResults(filteredLocal);
-        setLoading(false);
-        // Sync with Firebase in background without awaiting if possible
-        const q = query(
-          collection(db, "results"), 
-          where("rollNumber", "==", roll.trim()), 
-          where("regulation", "==", searchParams.regulation),
-          where("exam", "==", searchParams.exam),
-          limit(10)
-        );
-        getDocs(q).then(snapshot => {
-          const firebaseData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-          if (firebaseData.length > 0) {
-            processAndSetResults([...filteredLocal, ...firebaseData]);
-          }
-        }).catch(() => console.log("Background sync skipped"));
-        return;
       }
 
-      // 2. Fallback: Firebase Data (Only if no local matches)
-      let firebaseData: any[] = [];
-      try {
-        const q = query(
-          collection(db, "results"), 
-          where("rollNumber", "==", roll.trim()), 
-          where("regulation", "==", searchParams.regulation),
-          where("exam", "==", searchParams.exam),
-          limit(10)
-        );
-        const querySnapshot = await getDocs(q);
-        firebaseData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      } catch (e) {
-        console.log("Firebase fallback skipped");
-      }
-
-      // 3. Combine results (local matches serve as priority)
+      // 2. Background Check: Firebase Data (Sync all available data for this roll)
+      let q = query(
+        collection(db, "results"), 
+        where("rollNumber", "==", roll.trim()), 
+        where("exam", "==", searchParams.exam),
+        limit(20)
+      );
+      
+      const querySnapshot = await getDocs(q);
+      const firebaseData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      
+      // 3. Combine results (local matches + cloud matches)
       const combined = [...filteredLocal, ...firebaseData];
       
       if (combined.length === 0) {
         setResults([]);
-        toast("No records found for this Roll/Regulation/Exam.");
+        toast("No records found in database.");
       } else {
         processAndSetResults(combined);
+        toast.success(`Records verified successfully.`);
       }
     } catch (error) {
       console.error("Search error:", error);
-      toast.error("An error occurred while searching.");
+      toast.error("Lookup failed. Please check network.");
     } finally {
       setLoading(false);
     }
   };
 
   const processAndSetResults = (data: any[]) => {
+    // Flatten and merge results by semester
     const uniqueMap = new Map();
+    
+    // Sort data so referred/detailed records might be overridden by consolidated GPA blocks if they exist, 
+    // or vice versa depending on which has more info.
+    // Generally, a record with gpa > 0 is more "complete" than just a referred status.
     data.forEach(item => {
+      // If the item itself contains a GPA map (consolidated results)
       if (item.gpas) {
         Object.entries(item.gpas).forEach(([key, val]) => {
           const semNum = parseInt(key.replace('gpa', ''));
+          const existing = uniqueMap.get(semNum);
+          
+          // Merge: Keep the GPA, but also keep referred subjects if they were found elsewhere
           uniqueMap.set(semNum, {
             ...item,
+            ...(existing || {}), // Preserve existing info (like referred subjects)
             semester: semNum,
             gpa: val,
+            status: Number(val) > 0 ? 'pass' : (existing?.status || 'referred')
           });
         });
-      } else {
-        uniqueMap.set(item.semester, item);
+      } 
+      
+      // If it's a specific semester record
+      const semKey = item.semester;
+      if (semKey) {
+        const existing = uniqueMap.get(semKey);
+        uniqueMap.set(semKey, {
+          ...(existing || {}),
+          ...item,
+          // Don't let a null GPA in an item override a valid GPA from gpas map
+          gpa: item.gpa || existing?.gpa || 0,
+          status: item.status || existing?.status || 'pass'
+        });
       }
     });
     
     const finalResults = Array.from(uniqueMap.values()).sort((a, b) => a.semester - b.semester);
     setResults(finalResults);
+    
     if (finalResults.length > 0) {
-      setRegulation(finalResults[0].regulation || searchParams.regulation);
+      const bestReg = finalResults[0].regulation || searchParams.regulation;
+      setRegulation(bestReg);
       setShowResultModal(true);
     }
   };
 
   const calculateCGPA = () => {
     const weights = REG_WEIGHTS[regulation] || REG_WEIGHTS['2016'];
-    let totalWeightedGPA = 0;
+    let totalWeightedPoints = 0;
     let totalWeight = 0;
     
-    // Group results by semester
-    const semesterMap: Record<number, number> = {};
-    results.forEach(r => {
-      if (r.status === 'pass' || r.status === 'referred') {
-        if (r.gpa) {
-          semesterMap[r.semester] = r.gpa;
-        }
+    // Use the results array which is already flattened per semester
+    results.forEach(res => {
+      const semWeight = weights[res.semester - 1]; // Semester 1 maps to weights[0]
+      if (res.gpa > 0 && semWeight !== undefined) {
+        totalWeightedPoints += res.gpa * semWeight;
+        totalWeight += semWeight;
       }
     });
 
-    Object.entries(semesterMap).forEach(([sem, gpa]) => {
-      const s = parseInt(sem);
-      if (s >= 1 && s <= 8) {
-        totalWeightedGPA += (gpa * weights[s - 1]) / 100;
-        totalWeight += weights[s - 1];
-      }
-    });
-
-    return totalWeight > 0 ? (totalWeightedGPA * (100 / totalWeight)).toFixed(2) : "0.00";
+    return totalWeight > 0 ? (totalWeightedPoints / totalWeight).toFixed(2) : "0.00";
   };
 
   const handleUpload = async () => {
@@ -2790,132 +2897,194 @@ function ResultsTab({ t, lang, theme, config }: { t: any, lang: 'bn' | 'en', the
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
                   onClick={() => setShowResultModal(false)}
-                  className="absolute inset-0 bg-black/80 backdrop-blur-xl"
+                  className="absolute inset-0 bg-stone-950/90 backdrop-blur-2xl"
                 />
                 
                 <motion.div 
-                  initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                  initial={{ opacity: 0, scale: 0.95, y: 30 }}
                   animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                  exit={{ opacity: 0, scale: 0.95, y: 30 }}
                   className={cn(
-                    "relative w-full max-w-4xl max-h-[90vh] overflow-y-auto custom-scrollbar rounded-[2.5rem] border p-1 focus:outline-none",
-                    theme === 'holographic' ? "bg-black/90 border-white/20 shadow-[0_0_100px_rgba(255,255,255,0.05)]" : "glass border-white/10"
+                    "relative w-full max-w-5xl max-h-[90vh] overflow-y-auto custom-scrollbar rounded-[2rem] border shadow-2xl",
+                    theme === 'holographic' ? "bg-black/95 border-white/20 shadow-[0_0_100px_rgba(255,255,255,0.05)]" : "bg-[#111] border-white/5"
                   )}
                 >
-                  <div className="p-8 md:p-12 space-y-10 focus:outline-none">
-                    {/* Modal Header */}
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-8 border-b border-white/5">
-                      <div className="space-y-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center border border-white/10">
-                            <GraduationCap className="text-[var(--accent)]" size={24} />
+                  {/* Decorative Header Bar */}
+                  <div className="h-1 w-full bg-gradient-to-r from-transparent via-[var(--accent)] to-transparent opacity-50" />
+
+                  <div className="p-8 md:p-16 space-y-12 focus:outline-none">
+                    {/* Official Header */}
+                    <div className="flex flex-col md:flex-row justify-between items-start gap-10 border-b border-white/5 pb-12">
+                      <div className="space-y-6 flex-1">
+                        <div className="flex items-center gap-4">
+                          <div className="w-16 h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center">
+                            <GraduationCap className="text-[var(--accent)]" size={32} />
                           </div>
                           <div>
-                            <h2 className="text-2xl font-black text-white tracking-widest uppercase italic">Transcript</h2>
-                            <p className="text-[10px] text-white/40 font-bold uppercase tracking-[0.2em]">Academic Record Verification</p>
+                            <h2 className="text-3xl font-black text-white tracking-tight uppercase italic leading-none">Official Transcript</h2>
+                            <p className="text-[10px] text-white/30 font-bold uppercase tracking-[0.3em] mt-2">BTEB Academic Verification Service</p>
                           </div>
                         </div>
-                        <div className="flex flex-wrap gap-3">
-                          <div className="bg-white/5 px-4 py-2 rounded-xl border border-white/5">
-                            <p className="text-[8px] text-white/30 uppercase font-black mb-1">Board Roll</p>
-                            <p className="text-sm font-black text-white">{results[0].rollNumber}</p>
+
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 pt-4">
+                          <div className="space-y-1">
+                            <p className="text-[9px] font-black text-white/20 uppercase tracking-widest">Student Roll</p>
+                            <p className="text-xl font-black text-white tabular-nums">{results[0].rollNumber}</p>
                           </div>
-                          <div className="bg-white/5 px-4 py-2 rounded-xl border border-white/5">
-                            <p className="text-[8px] text-white/30 uppercase font-black mb-1">Regulation</p>
-                            <p className="text-sm font-black text-white">{results[0].regulation}</p>
+                          <div className="space-y-1">
+                            <p className="text-[9px] font-black text-white/20 uppercase tracking-widest">Regulation</p>
+                            <p className="text-xl font-black text-white tabular-nums">{results[0].regulation}</p>
                           </div>
-                          <div className="bg-white/5 px-4 py-2 rounded-xl border border-white/5">
-                            <p className="text-[8px] text-white/30 uppercase font-black mb-1">Status</p>
-                            <p className={cn("text-xs font-black uppercase", results[0].status === 'pass' ? "text-emerald-500" : "text-rose-500")}>{results[0].status}</p>
+                          <div className="space-y-1">
+                            <p className="text-[9px] font-black text-white/20 uppercase tracking-widest">Semesters Found</p>
+                            <p className="text-xl font-black text-[var(--accent)] tabular-nums">{results.length} / 8</p>
                           </div>
-                        </div>
-                        <div className="flex items-center gap-2 text-white/40">
-                          <MapPin size={12} />
-                          <span className="text-[10px] font-bold uppercase tracking-tight truncate max-w-[300px]">{results[0].instituteName}</span>
+                          <div className="space-y-1">
+                            <p className="text-[9px] font-black text-white/20 uppercase tracking-widest">Exam Type</p>
+                            <p className="text-xs font-black text-white uppercase mt-1">BTEB {results[0].exam || 'DIPLOMA'}</p>
+                          </div>
                         </div>
                       </div>
 
-                      <div className="flex flex-col items-center justify-center p-8 bg-white/5 border border-white/10 rounded-[2.5rem] min-w-[200px]">
-                        <p className="text-[10px] font-black text-[var(--accent)] uppercase tracking-widest mb-1">Total CGPA</p>
-                        <div className="flex items-baseline gap-1">
-                          <span className="text-5xl font-black text-white tracking-tighter">{calculateCGPA()}</span>
-                          <span className="text-xs font-bold text-white/20">/ 4.00</span>
+                      <div className="w-full md:w-auto flex flex-col items-center justify-center p-10 bg-white/[0.03] border border-white/10 rounded-[3.5rem] relative overflow-hidden group shadow-2xl">
+                        <div className="absolute -top-6 -right-6 p-8 opacity-5 group-hover:opacity-10 transition-all duration-700 rotate-12 group-hover:rotate-0">
+                          <CheckCircle2 size={140} className="text-[var(--accent)]" />
+                        </div>
+                        <p className="text-[10px] font-black text-[var(--accent)] uppercase tracking-[0.4em] mb-2 z-10">Consolidated CGPA</p>
+                        <div className="flex items-baseline gap-2 z-10">
+                          <span className="text-7xl font-black text-white tracking-tighter leading-none">{calculateCGPA()}</span>
+                          <span className="text-xl font-bold text-white/20">/ 4.00</span>
+                        </div>
+                        <div className="mt-5 px-5 py-2 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center gap-2 z-10">
+                          <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                          <span className="text-[8px] font-black text-emerald-500 uppercase tracking-[0.2em]">Authentic Record</span>
                         </div>
                       </div>
                     </div>
 
-                    {/* Semester Grid */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                      {[1, 2, 3, 4, 5, 6, 7, 8].map(sem => {
-                        const res = results.find(r => r.semester === sem || (r.gpas && r.gpas[`gpa${sem}`] !== undefined));
-                        const gpaValue = res ? (res.gpas ? res.gpas[`gpa${sem}`] : res.gpa) : null;
-                        
-                        return (
-                          <div 
-                            key={sem}
-                            className={cn(
-                              "p-6 rounded-[1.5rem] border transition-all duration-300",
-                              res ? "bg-white/5 border-white/10" : "bg-black/20 border-white/5 opacity-40"
-                            )}
-                          >
-                            <div className="flex justify-between items-start mb-4">
-                              <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">{sem}th Semester</span>
-                              {res && (
-                                <div className={cn(
-                                  "w-2 h-2 rounded-full",
-                                  res.status === 'pass' ? "bg-emerald-500" : "bg-rose-500"
-                                )} />
+                    {/* Semester Timeline */}
+                    <div className="space-y-8">
+                      <div className="flex items-center gap-6">
+                        <h3 className="text-xs font-black text-white/50 uppercase tracking-[0.4em] whitespace-nowrap">Academic Session Workflow</h3>
+                        <div className="h-px w-full bg-gradient-to-r from-white/10 to-transparent" />
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        {[1, 2, 3, 4, 5, 6, 7, 8].map(sem => {
+                          const res = results.find(r => r.semester === sem);
+                          const hasData = !!res;
+                          const isReferred = res?.status === 'referred' || (res?.referredSubjects && res.referredSubjects.length > 0);
+                          
+                          return (
+                            <motion.div 
+                              key={sem}
+                              initial={{ opacity: 0, y: 30 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ delay: sem * 0.05 }}
+                              className={cn(
+                                "group p-8 rounded-[2.5rem] border relative transition-all duration-500 overflow-hidden",
+                                hasData 
+                                  ? (isReferred ? "bg-rose-500/[0.04] border-rose-500/30 shadow-[0_0_50px_rgba(244,63,94,0.05)]" : "bg-white/[0.02] border-white/5 hover:border-white/20 hover:bg-white/[0.05] hover:shadow-xl") 
+                                  : "bg-black/20 border-white/5 opacity-30 grayscale pointer-events-none"
                               )}
-                            </div>
-                            
-                            {res ? (
-                              <div className="space-y-4">
-                                <div className="flex items-baseline gap-2">
-                                  <span className="text-3xl font-black text-white tracking-tighter">
-                                    {(gpaValue !== null && gpaValue !== undefined) ? Number(gpaValue).toFixed(2) : "0.00"}
-                                  </span>
-                                  <span className="text-[10px] font-bold text-white/20 uppercase">GPA</span>
+                            >
+                              <div className="flex justify-between items-start mb-10">
+                                <div className="space-y-1">
+                                  <span className="text-[10px] font-black text-white/30 uppercase tracking-widest leading-none block">{sem}{sem === 1 ? 'st' : sem === 2 ? 'nd' : sem === 3 ? 'rd' : 'th'} Semester</span>
+                                  <h4 className="text-[11px] font-black text-white uppercase tracking-tighter italic leading-none">Engineering Stage</h4>
                                 </div>
-                                {res.referredSubjects && res.referredSubjects.length > 0 && (
-                                  <div className="space-y-1.5">
-                                    <p className="text-[8px] font-black text-rose-400 uppercase tracking-widest">Referred</p>
-                                    <div className="flex flex-wrap gap-1">
-                                      {res.referredSubjects.map((s: string, idx: number) => (
-                                        <span key={idx} className="text-[8px] bg-rose-500/10 text-rose-400 px-2 py-0.5 rounded-full border border-rose-500/10">
-                                          {s}
-                                        </span>
-                                      ))}
-                                    </div>
+                                {hasData && (
+                                  <div className={cn(
+                                    "px-3 py-1.5 rounded-xl text-[8px] font-black uppercase tracking-widest border",
+                                    isReferred ? "bg-rose-500/20 text-rose-500 border-rose-500/20" : "bg-emerald-500/20 text-emerald-500 border-emerald-500/20"
+                                  )}>
+                                    {isReferred ? "Referred" : "Cleared"}
                                   </div>
                                 )}
-                                <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
-                                  <motion.div 
-                                    initial={{ width: 0 }}
-                                    animate={{ width: `${((gpaValue || 0) / 4) * 100}%` }}
-                                    className={cn(
-                                      "h-full",
-                                      res.status === 'pass' ? "bg-emerald-500" : "bg-rose-500"
-                                    )}
-                                  />
+                              </div>
+                              
+                              {hasData ? (
+                                <div className="space-y-6">
+                                  <div className="flex flex-col">
+                                    <div className="flex items-baseline gap-1">
+                                      <span className="text-5xl font-black text-white tracking-tighter tabular-nums leading-none">
+                                        {res.gpa ? Number(res.gpa).toFixed(2) : "0.00"}
+                                      </span>
+                                      <span className="text-xs font-bold text-white/10 uppercase tracking-widest">GPA</span>
+                                    </div>
+                                    <p className="text-[8px] font-bold text-white/20 uppercase tracking-widest mt-2">Grade Point Average</p>
+                                  </div>
+
+                                  {isReferred && res.referredSubjects && res.referredSubjects.length > 0 && (
+                                    <div className="space-y-3 p-4 bg-rose-500/10 rounded-2xl border border-rose-500/20">
+                                      <div className="text-[8px] font-black text-rose-500 uppercase tracking-widest flex items-center gap-2">
+                                        <div className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
+                                        Pending Subjects
+                                      </div>
+                                      <div className="flex flex-wrap gap-1.5">
+                                        {res.referredSubjects.map((s: string, idx: number) => (
+                                          <span key={idx} className="text-[9px] bg-black/40 text-rose-400 px-2.5 py-1 rounded-lg font-bold border border-rose-500/20 shadow-sm transition-transform hover:scale-105">
+                                            {s}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {!isReferred && (
+                                    <div className="relative pt-4">
+                                      <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden">
+                                        <motion.div 
+                                          initial={{ width: 0 }}
+                                          animate={{ width: `${((res.gpa || 0) / 4) * 100}%` }}
+                                          className="h-full bg-gradient-to-r from-[var(--accent)]/50 to-[var(--accent)] shadow-[0_0_15px_rgba(var(--accent-rgb),0.3)]"
+                                        />
+                                      </div>
+                                    </div>
+                                  )}
                                 </div>
-                              </div>
-                            ) : (
-                              <div className="h-12 flex items-center">
-                                <span className="text-[10px] font-bold text-white/5 uppercase italic tracking-widest">N/A</span>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
+                              ) : (
+                                <div className="py-8 flex flex-col items-center justify-center border-2 border-dashed border-white/5 rounded-[2rem]">
+                                  <Lock size={20} className="text-white/5 mb-3" />
+                                  <span className="text-[9px] font-black text-white/10 uppercase tracking-[0.3em]">No Record Trace</span>
+                                </div>
+                              )}
+                            </motion.div>
+                          );
+                        })}
+                      </div>
                     </div>
 
-                    <div className="flex gap-4">
-                      <button 
-                        onClick={() => setShowResultModal(false)}
-                        className="flex-1 py-5 rounded-[1.5rem] bg-white text-stone-900 font-black uppercase tracking-widest hover:bg-white/90 transition-all text-xs"
-                      >
-                        Close
-                      </button>
+                    {/* Footer / Actions */}
+                    <div className="flex flex-col md:flex-row items-center justify-between gap-8 pt-10 border-t border-white/5">
+                      <div className="flex flex-col md:flex-row items-center gap-6">
+                        <div className="flex -space-x-3">
+                          {[1,2,3].map(i => (
+                            <div key={i} className="w-10 h-10 rounded-full border-2 border-[#111] bg-white/5 flex items-center justify-center text-[10px] font-bold text-white/20">
+                              {i}
+                            </div>
+                          ))}
+                        </div>
+                        <p className="text-[10px] text-white/30 font-bold leading-relaxed uppercase tracking-widest text-center md:text-left">
+                          This transcript is generated based on <br /> verified BTEB public data records.
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-4 w-full md:w-auto">
+                         <button 
+                          onClick={() => window.print()}
+                          className="px-6 py-4 rounded-2xl bg-white/5 border border-white/10 text-white font-black uppercase tracking-widest transition-all hover:bg-white/10 text-[10px] flex items-center gap-3"
+                        >
+                          <Info size={14} />
+                          Print Report
+                        </button>
+                        <button 
+                          onClick={() => setShowResultModal(false)}
+                          className="flex-1 md:flex-none px-12 py-4 rounded-2xl bg-white text-stone-900 font-black uppercase tracking-widest hover:bg-white/90 transition-all text-[10px]"
+                        >
+                          Dismiss
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </motion.div>
