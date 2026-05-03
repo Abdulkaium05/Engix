@@ -15,12 +15,33 @@
         "createdAt": { "type": "string", "format": "date-time", "description": "The time the profile was created." }
       },
       "required": ["uid", "displayName", "email", "lang", "dept", "theme", "createdAt"]
+    },
+    "Result": {
+      "title": "Result",
+      "description": "Student semester result.",
+      "type": "object",
+      "properties": {
+        "rollNumber": { "type": "string" },
+        "semester": { "type": "integer" },
+        "gpa": { "type": "number" },
+        "status": { "type": "string", "enum": ["pass", "referred", "fail"] },
+        "referredSubjects": { "type": "array" },
+        "instituteName": { "type": "string" },
+        "instituteCode": { "type": "string" },
+        "regulation": { "type": "string" },
+        "batch": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
     }
   },
   "firestore": {
     "/users/{userId}": {
       "schema": "UserProfile",
       "description": "User profile document."
+    },
+    "/results/{resultId}": {
+      "schema": "Result",
+      "description": "Individual result for a student."
     }
   }
 }

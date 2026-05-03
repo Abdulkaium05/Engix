@@ -1,5 +1,5 @@
 {
   "name": "Engix",
-  "description": "A comprehensive engineering assistant with digital survey, material estimation, AI-powered land analysis, and educational resources for all engineering disciplines in Bangla and English.",
+  "description": "A comprehensive engineering assistant with digital survey, material estimation, BTEB Result Zone for students, AI-powered land analysis, and educational resources in Bangla and English.",
   "requestFramePermissions": ["geolocation", "camera"]
 }

@@ -37,6 +37,15 @@ service cloud.firestore {
           (request.auth.token.email == "abdulkaiumiqbel2005@gmail.com" && request.auth.token.email_verified == true));
     }
 
+    function isValidResult(data) {
+      return data.rollNumber is string && data.rollNumber.size() >= 6 && data.rollNumber.size() <= 10 &&
+             data.semester >= 1 && data.semester <= 8 &&
+             (data.gpa == null || (data.gpa >= 0.0 && data.gpa <= 4.0)) &&
+             data.status in ['pass', 'referred', 'fail'] &&
+             data.instituteCode is string &&
+             data.regulation in ['2010', '2016', '2022'];
+    }
+
     function isValidEmail(email) {
       return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
     }
@@ -84,6 +93,12 @@ service cloud.firestore {
                         request.resource.data.createdAt == resource.data.createdAt &&
                         (!('role' in request.resource.data) || request.resource.data.role == resource.data.role)) || 
                       isAdmin();
+    }
+
+    match /results/{resultId} {
+      allow read: if true;
+      allow create, update: if isAdmin() && isValidResult(request.resource.data);
+      allow delete: if isAdmin();
     }
 
     match /test/connection {

@@ -17,6 +17,7 @@ import {
   Menu,
   X,
   History,
+  FileText,
   Building2,
   Ruler,
   Compass,
@@ -37,7 +38,11 @@ import {
   LogOut,
   LogIn,
   User as UserIcon,
+  GraduationCap,
+  Search,
+  Lock,
   Layers,
+  MapPin,
   Sun,
   Moon,
   ArrowRightLeft,
@@ -57,6 +62,22 @@ import ReactMarkdown from 'react-markdown';
 import { MapContainer, TileLayer, Marker, Polygon, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import * as turf from '@turf/turf';
+import { parseBTEBPdf, ResultData } from './services/PDFParser';
+import { 
+  collection, 
+  query, 
+  where, 
+  getDocs, 
+  addDoc, 
+  writeBatch, 
+  doc, 
+  serverTimestamp,
+  orderBy,
+  limit 
+} from 'firebase/firestore';
+import { db, auth } from './lib/firebase';
+import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
+import toast from 'react-hot-toast';
 
 import { 
   LineChart, 
@@ -86,7 +107,7 @@ function ChangeView({ center, zoom }: { center: [number, number], zoom: number }
   return null;
 }
 
-type Tab = 'home' | 'survey' | 'land' | 'estimating' | 'materials' | 'quiz' | 'chat' | 'chat_history' | 'mech_design' | 'thermo' | 'fluids' | 'circuits' | 'power' | 'control' | 'software' | 'data' | 'network' | 'settings' | 'subscription' | 'plot_planner' | 'slab_design' | 'unit_converter' | 'beam_design';
+type Tab = 'home' | 'survey' | 'land' | 'estimating' | 'materials' | 'quiz' | 'chat' | 'chat_history' | 'results' | 'mech_design' | 'thermo' | 'fluids' | 'circuits' | 'power' | 'control' | 'software' | 'data' | 'network' | 'settings' | 'subscription' | 'plot_planner' | 'slab_design' | 'unit_converter' | 'beam_design';
 type Dept = 'civil' | 'mechanical' | 'electrical' | 'computer';
 
 const DEPT_CONFIG = {
@@ -97,10 +118,10 @@ const DEPT_CONFIG = {
 };
 
 const DEPT_TABS: Record<Dept, Tab[]> = {
-  civil: ['home', 'chat', 'quiz', 'survey', 'land', 'plot_planner', 'estimating', 'materials', 'slab_design', 'beam_design', 'unit_converter'],
-  mechanical: ['home', 'chat', 'quiz', 'mech_design', 'thermo', 'fluids', 'unit_converter'],
-  electrical: ['home', 'chat', 'quiz', 'circuits', 'power', 'control', 'unit_converter'],
-  computer: ['home', 'chat', 'quiz', 'software', 'data', 'network', 'unit_converter'],
+  civil: ['home', 'chat', 'chat_history', 'results', 'quiz', 'survey', 'land', 'plot_planner', 'estimating', 'materials', 'slab_design', 'beam_design', 'unit_converter'],
+  mechanical: ['home', 'chat', 'chat_history', 'results', 'quiz', 'mech_design', 'thermo', 'fluids', 'unit_converter'],
+  electrical: ['home', 'chat', 'chat_history', 'results', 'quiz', 'circuits', 'power', 'control', 'unit_converter'],
+  computer: ['home', 'chat', 'chat_history', 'results', 'quiz', 'software', 'data', 'network', 'unit_converter'],
 };
 
 const TAB_ICONS: Record<string, any> = {
@@ -115,6 +136,7 @@ const TAB_ICONS: Record<string, any> = {
   materials: <FlaskConical size={20} />,
   quiz: <Trophy size={20} />,
   chat: <MessageSquare size={20} />,
+  results: <FileText size={20} />,
   settings: <Settings size={20} />,
   subscription: <Zap size={20} />,
   mech_design: <Wrench size={20} />,
@@ -544,6 +566,7 @@ export default function App() {
                 {activeTab === 'quiz' && <QuizTab t={t} lang={lang} config={config} dept={dept} theme={theme} useCredit={useCredit} />}
                 {activeTab === 'chat' && <ChatTab t={t} lang={lang} config={config} dept={dept} setActiveTab={setActiveTab} toggleMenu={toggleMenu} theme={theme} useCredit={useCredit} credits={credits} />}
                 {activeTab === 'chat_history' && <ChatHistoryTab t={t} lang={lang} theme={theme} setActiveTab={setActiveTab} />}
+                {activeTab === 'results' && <ResultsTab t={t} lang={lang} theme={theme} config={config} />}
                 {activeTab === 'settings' && <SettingsTab t={t} lang={lang} setLang={setLang} dept={dept} setDept={setDept} theme={theme} setTheme={setTheme} saveUserSettings={saveUserSettings} config={config} credits={credits} />}
                 {activeTab === 'subscription' && <SubscriptionTab t={t} lang={lang} credits={credits} setCredits={setCredits} theme={theme} setShowSuccessModal={setShowSuccessModal} />}
                 {['mech_design', 'thermo', 'fluids', 'circuits', 'power', 'control', 'software', 'data', 'network'].includes(activeTab) && (
@@ -2176,6 +2199,765 @@ function ChatHistoryTab({ t, lang, theme, setActiveTab }: { t: any, lang: 'bn' |
            ))}
          </div>
        )}
+    </div>
+  );
+}
+
+function ResultsTab({ t, lang, theme, config }: { t: any, lang: 'bn' | 'en', theme: string, config: any }) {
+  const [roll, setRoll] = useState('');
+  const [searchParams, setSearchParams] = useState({
+    exam: 'diploma',
+    regulation: '2022'
+  });
+  const [results, setResults] = useState<any[]>([]);
+  const [showResultModal, setShowResultModal] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [isAdminView, setIsAdminView] = useState(false);
+  const [regulation, setRegulation] = useState('2022');
+  const [currentAdminTab, setCurrentAdminTab] = useState<'upload' | 'manage'>('upload');
+  
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadStatus, setUploadStatus] = useState<'parsing' | 'saving' | 'idle'>('idle');
+  const [uploadParams, setUploadParams] = useState({
+    exam: 'diploma',
+    semester: 1,
+    regulation: '2022',
+    batch: new Date().getFullYear().toString()
+  });
+
+  const [allAppData, setAllAppData] = useState<any[]>([]);
+
+  useEffect(() => {
+    // Load local results on mount
+    const dataString = localStorage.getItem('engix_test_results');
+    if (dataString) {
+      const data = JSON.parse(dataString);
+      setAllAppData(data);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isAdminView && currentAdminTab === 'manage') {
+      const data = JSON.parse(localStorage.getItem('engix_test_results') || '[]');
+      setAllAppData(data);
+    }
+  }, [isAdminView, currentAdminTab]);
+
+  const isAdmin = true;
+
+  const REG_WEIGHTS: Record<string, number[]> = {
+    '2010': [2, 2, 5, 10, 15, 20, 25, 21],
+    '2016': [5, 5, 7, 10, 15, 20, 25, 13],
+    '2022': [5, 5, 10, 10, 15, 15, 20, 20]
+  };
+
+  const handleSearch = async () => {
+    if (!roll.trim()) {
+      toast.error("Please enter a roll number");
+      return;
+    }
+    setLoading(true);
+    try {
+      // 1. Immediate Check: Local Testing Data (App Data)
+      const localDataString = localStorage.getItem('engix_test_results');
+      const localData = localDataString ? JSON.parse(localDataString) : [];
+      
+      // Filter by roll, regulation, and exam
+      const filteredLocal = localData.filter((r: any) => 
+        r.rollNumber === roll.trim() && 
+        (r.regulation === searchParams.regulation || !r.regulation) &&
+        (r.exam === searchParams.exam || !r.exam)
+      );
+
+      console.log(`Searching for ${roll} in ${searchParams.regulation} (${searchParams.exam}). Local matches:`, filteredLocal.length);
+
+      // Early exit if found locally to make it feels instant
+      if (filteredLocal.length > 0) {
+        processAndSetResults(filteredLocal);
+        setLoading(false);
+        // Sync with Firebase in background without awaiting if possible
+        const q = query(
+          collection(db, "results"), 
+          where("rollNumber", "==", roll.trim()), 
+          where("regulation", "==", searchParams.regulation),
+          where("exam", "==", searchParams.exam),
+          limit(10)
+        );
+        getDocs(q).then(snapshot => {
+          const firebaseData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          if (firebaseData.length > 0) {
+            processAndSetResults([...filteredLocal, ...firebaseData]);
+          }
+        }).catch(() => console.log("Background sync skipped"));
+        return;
+      }
+
+      // 2. Fallback: Firebase Data (Only if no local matches)
+      let firebaseData: any[] = [];
+      try {
+        const q = query(
+          collection(db, "results"), 
+          where("rollNumber", "==", roll.trim()), 
+          where("regulation", "==", searchParams.regulation),
+          where("exam", "==", searchParams.exam),
+          limit(10)
+        );
+        const querySnapshot = await getDocs(q);
+        firebaseData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      } catch (e) {
+        console.log("Firebase fallback skipped");
+      }
+
+      // 3. Combine results (local matches serve as priority)
+      const combined = [...filteredLocal, ...firebaseData];
+      
+      if (combined.length === 0) {
+        setResults([]);
+        toast("No records found for this Roll/Regulation/Exam.");
+      } else {
+        processAndSetResults(combined);
+      }
+    } catch (error) {
+      console.error("Search error:", error);
+      toast.error("An error occurred while searching.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const processAndSetResults = (data: any[]) => {
+    const uniqueMap = new Map();
+    data.forEach(item => {
+      if (item.gpas) {
+        Object.entries(item.gpas).forEach(([key, val]) => {
+          const semNum = parseInt(key.replace('gpa', ''));
+          uniqueMap.set(semNum, {
+            ...item,
+            semester: semNum,
+            gpa: val,
+          });
+        });
+      } else {
+        uniqueMap.set(item.semester, item);
+      }
+    });
+    
+    const finalResults = Array.from(uniqueMap.values()).sort((a, b) => a.semester - b.semester);
+    setResults(finalResults);
+    if (finalResults.length > 0) {
+      setRegulation(finalResults[0].regulation || searchParams.regulation);
+      setShowResultModal(true);
+    }
+  };
+
+  const calculateCGPA = () => {
+    const weights = REG_WEIGHTS[regulation] || REG_WEIGHTS['2016'];
+    let totalWeightedGPA = 0;
+    let totalWeight = 0;
+    
+    // Group results by semester
+    const semesterMap: Record<number, number> = {};
+    results.forEach(r => {
+      if (r.status === 'pass' || r.status === 'referred') {
+        if (r.gpa) {
+          semesterMap[r.semester] = r.gpa;
+        }
+      }
+    });
+
+    Object.entries(semesterMap).forEach(([sem, gpa]) => {
+      const s = parseInt(sem);
+      if (s >= 1 && s <= 8) {
+        totalWeightedGPA += (gpa * weights[s - 1]) / 100;
+        totalWeight += weights[s - 1];
+      }
+    });
+
+    return totalWeight > 0 ? (totalWeightedGPA * (100 / totalWeight)).toFixed(2) : "0.00";
+  };
+
+  const handleUpload = async () => {
+    if (!uploadFile) return;
+    setUploading(true);
+    setUploadProgress(0);
+    setUploadStatus('parsing');
+    try {
+      const parsedResults = await parseBTEBPdf(
+        uploadFile, 
+        uploadParams.regulation, 
+        uploadParams.semester, 
+        uploadParams.batch,
+        (progress) => setUploadProgress(progress)
+      );
+      
+      if (parsedResults.length === 0) {
+        toast.error("No results found in PDF. Check pattern.");
+        return;
+      }
+
+      setUploadStatus('saving');
+      setUploadProgress(0);
+      
+      // Inject exam type into results
+      const resultsWithExam = parsedResults.map(r => ({
+        ...r,
+        exam: uploadParams.exam
+      }));
+
+      // Save as App Data (Local Storage)
+      const existingLocal = JSON.parse(localStorage.getItem('engix_test_results') || '[]');
+      // Safer limit for localStorage to prevent QuotaExceededError
+      let updatedLocal = [...resultsWithExam, ...existingLocal];
+      const MAX_RECORDS = 2000;
+      if (updatedLocal.length > MAX_RECORDS) {
+        updatedLocal = updatedLocal.slice(0, MAX_RECORDS);
+      }
+
+      try {
+        localStorage.setItem('engix_test_results', JSON.stringify(updatedLocal));
+        if (resultsWithExam.length > 0) {
+          toast.success(`${resultsWithExam.length} results indexed locally!`);
+        }
+      } catch (quotaError) {
+        // Fallback: clear some space or just ignore local cache if full
+        console.warn("Local Storage Full! Full dataset will be available in Cloud.", quotaError);
+        toast.error("Local Cache Full. Cloud sync recommended.");
+      }
+
+      // Also attempt to save to Firebase if possible
+      try {
+        const batchSize = 500;
+        for (let i = 0; i < resultsWithExam.length; i += batchSize) {
+          const batch = writeBatch(db);
+          const chunk = resultsWithExam.slice(i, i + batchSize);
+          chunk.forEach(res => {
+            const id = `${res.exam || 'diploma'}_${res.regulation}_${res.rollNumber}_${res.semester}`;
+            const docRef = doc(db, "results", id);
+            batch.set(docRef, { ...res, timestamp: serverTimestamp() }, { merge: true });
+          });
+          await batch.commit();
+        }
+      } catch (e) {
+        console.warn("Cloud save failed.", e);
+      }
+
+      setAllAppData(updatedLocal);
+      setUploadFile(null);
+    } catch (error) {
+      console.error("Upload error", error);
+      toast.error("Error parsing PDF");
+    } finally {
+      setUploading(false);
+      setUploadStatus('idle');
+    }
+  };
+
+  const clearAllData = () => {
+    if (confirm("Are you sure you want to delete ALL application results data?")) {
+      localStorage.removeItem('engix_test_results');
+      setAllAppData([]);
+      toast.success("All data cleared");
+    }
+  };
+
+  return (
+    <div className="tab-content pb-24 space-y-8">
+      {/* Header */}
+      <div className="flex justify-between items-center">
+        <div>
+          <h2 className="text-3xl font-black text-white tracking-tighter flex items-center gap-3">
+            <FileText className={config.text} />
+            {t.results}
+          </h2>
+          <p className="text-white/40 font-bold text-xs uppercase tracking-widest mt-1">BTEB Result Zone</p>
+        </div>
+        <div className="flex gap-2">
+          <button 
+            onClick={() => setIsAdminView(!isAdminView)}
+            className={cn(
+              "px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border",
+              isAdminView ? "bg-rose-500/20 border-rose-500/40 text-rose-500" : "bg-white/5 border-white/10 text-white/60"
+            )}
+          >
+            {isAdminView ? "Student View" : t.adminPanel}
+          </button>
+        </div>
+      </div>
+
+      {isAdminView ? (
+        <motion.div 
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="space-y-6"
+        >
+          {/* Admin Controls */}
+          <div className={cn(
+            "p-8 border rounded-3xl",
+            theme === 'holographic' ? "bg-black/40 border-[rgba(var(--accent-rgb),0.2)]" : "glass border-white/10"
+          )}>
+            <div className="flex justify-between items-center mb-8">
+              <div className="flex gap-4">
+                <button 
+                  onClick={() => setCurrentAdminTab('upload')}
+                  className={cn("px-6 py-2 rounded-xl text-sm font-bold transition-all", currentAdminTab === 'upload' ? "bg-white text-stone-900" : "text-white/40 hover:text-white")}
+                >
+                  {t.uploadPdf}
+                </button>
+                <button 
+                  onClick={() => setCurrentAdminTab('manage')}
+                  className={cn("px-6 py-2 rounded-xl text-sm font-bold transition-all", currentAdminTab === 'manage' ? "bg-white text-stone-900" : "text-white/40 hover:text-white")}
+                >
+                  Manage Data ({allAppData.length}) {allAppData.length >= 2000 && <span className="text-[10px] text-amber-500 font-black animate-pulse ml-2 underline">Cache Limit!</span>}
+                </button>
+              </div>
+              {currentAdminTab === 'manage' && (
+                <div className="flex flex-col items-end gap-1">
+                  {allAppData.length >= 2000 && (
+                    <p className="text-[9px] text-amber-500/60 font-black uppercase tracking-widest italic">Note: Only the most recent 2,000 records are cached locally. Full records are secure in Cloud.</p>
+                  )}
+                  {allAppData.length > 0 && (
+                    <button onClick={clearAllData} className="text-rose-500 text-[10px] font-black uppercase tracking-widest hover:underline">
+                      Clear Local Cache
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {currentAdminTab === 'upload' && (
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-white/40 uppercase tracking-widest ml-1">Exam Type</label>
+                    <select 
+                      value={uploadParams.exam}
+                      onChange={(e) => setUploadParams({...uploadParams, exam: e.target.value})}
+                      className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-white/20"
+                    >
+                      <option value="diploma">Diploma In Engineering</option>
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-white/40 uppercase tracking-widest ml-1">{t.semester}</label>
+                    <select 
+                      value={uploadParams.semester}
+                      onChange={(e) => setUploadParams({...uploadParams, semester: parseInt(e.target.value)})}
+                      className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-white/20"
+                    >
+                      {[1,2,3,4,5,6,7,8].map(s => <option key={s} value={s}>{s}{s === 1 ? 'st' : s === 2 ? 'nd' : s === 3 ? 'rd' : 'th'} Semester</option>)}
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-white/40 uppercase tracking-widest ml-1">{t.regulation}</label>
+                    <select 
+                      value={uploadParams.regulation}
+                      onChange={(e) => setUploadParams({...uploadParams, regulation: e.target.value})}
+                      className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-white/20"
+                    >
+                      <option value="2022">Regulation 2022</option>
+                      <option value="2016">Regulation 2016</option>
+                      <option value="2010">Regulation 2010</option>
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-white/40 uppercase tracking-widest ml-1">{t.batch}</label>
+                    <input 
+                      type="text"
+                      value={uploadParams.batch}
+                      onChange={(e) => setUploadParams({...uploadParams, batch: e.target.value})}
+                      placeholder="e.g. 2020"
+                      className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-white/20"
+                    />
+                  </div>
+                </div>
+
+                <div className="relative group">
+                  <input 
+                    type="file" 
+                    accept=".pdf"
+                    onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                  />
+                  <div className={cn(
+                    "border-2 border-dashed rounded-3xl p-12 text-center transition-all",
+                    uploadFile ? "border-emerald-500/50 bg-emerald-500/5" : "border-white/10 hover:border-white/20 bg-white/5"
+                  )}>
+                    <Upload className={cn("mx-auto mb-4", uploadFile ? "text-emerald-500" : "text-white/20")} size={40} />
+                    <p className="text-white font-bold">{uploadFile ? uploadFile.name : t.uploadPdf}</p>
+                    <p className="text-white/40 text-xs mt-2 uppercase tracking-widest font-black">Official BTEB PDF Only</p>
+                  </div>
+                </div>
+
+                {uploading && (
+                  <div className="space-y-4">
+                    <div className="h-2 bg-white/5 rounded-full overflow-hidden border border-white/5">
+                      <motion.div 
+                        initial={{ width: 0 }}
+                        animate={{ width: `${uploadProgress}%` }}
+                        className="h-full bg-emerald-500"
+                      />
+                    </div>
+                    <p className="text-center text-xs font-black text-emerald-500 uppercase tracking-widest">
+                      {uploadStatus === 'parsing' ? t.parsingPdf : "Saving to App Data..."} {uploadProgress}%
+                    </p>
+                  </div>
+                )}
+
+                <button 
+                  disabled={!uploadFile || uploading}
+                  onClick={handleUpload}
+                  className={cn(
+                    "w-full py-4 rounded-2xl font-black uppercase tracking-widest transition-all",
+                    uploadFile && !uploading ? "bg-emerald-600 text-white shadow-xl hover:scale-[1.02]" : "bg-white/5 text-white/20 cursor-not-allowed"
+                  )}
+                >
+                  {uploading ? <Loader2 size={24} className="animate-spin mx-auto" /> : "Start Migration"}
+                </button>
+              </div>
+            )}
+
+            {currentAdminTab === 'manage' && (
+              <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
+                {allAppData.length === 0 ? (
+                  <p className="text-white/20 text-center py-20 font-black uppercase tracking-widest">No App Data Available</p>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-5 gap-4 px-6 py-3 border-b border-white/5 text-[10px] font-black text-white/30 uppercase tracking-widest">
+                      <span>Roll</span>
+                      <span>Semester</span>
+                      <span>GPA</span>
+                      <span>Regulation</span>
+                      <span>Institute</span>
+                    </div>
+                    {allAppData.map((item, idx) => (
+                      <div key={idx} className="px-6 py-4 bg-white/2 border border-white/5 rounded-xl text-xs font-bold text-white shadow-sm hover:border-white/10 transition-colors">
+                        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 items-center mb-3">
+                          <div className="flex flex-col">
+                            <span className="text-[10px] text-white/20 uppercase">Roll</span>
+                            <span className={cn("text-white/90", config.text)}>{item.rollNumber}</span>
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-[10px] text-white/20 uppercase">Upload Sem</span>
+                            <span>{item.semester}th</span>
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-[10px] text-white/20 uppercase">Status</span>
+                            <span className={item.status === 'pass' ? "text-emerald-500 font-black" : "text-rose-500 font-black"}>{item.status.toUpperCase()}</span>
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-[10px] text-white/20 uppercase">Regulation</span>
+                            <span className="text-white/40">{item.regulation}</span>
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-[10px] text-white/20 uppercase">Institute</span>
+                            <span className="text-[10px] text-white/30 truncate">{item.instituteName}</span>
+                          </div>
+                        </div>
+                        {item.gpas && (
+                          <div className="flex gap-2 flex-wrap pt-3 border-t border-white/5">
+                            {Object.entries(item.gpas as Record<string, any>).map(([sem, gpa]) => (
+                              <div key={sem} className="bg-white/5 px-2 py-1 rounded text-[9px] flex gap-2 items-center border border-white/5">
+                                <span className="text-white/20 uppercase font-black">{sem}</span>
+                                <span className={gpa ? "text-white/80" : "text-rose-500 font-black"}>
+                                  {gpa !== null && gpa !== undefined ? String(gpa) : 'REF'}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </motion.div>
+      ) : (
+        <div className="space-y-8">
+          {/* Search Interface */}
+          <div className={cn(
+            "p-6 md:p-8 rounded-[2rem] border transition-all duration-500",
+            theme === 'holographic' ? "bg-black/40 border-[rgba(var(--accent-rgb),0.2)] shadow-[0_0_50px_-12px_rgba(var(--accent-rgb),0.2)]" : "glass border-white/10"
+          )}>
+            <div className="space-y-6">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-10 h-10 rounded-2xl bg-white/5 flex items-center justify-center border border-white/10">
+                  <Search size={20} className="text-[var(--accent)]" />
+                </div>
+                <div>
+                  <h2 className="text-sm font-black text-white uppercase tracking-widest">Result lookup</h2>
+                  <p className="text-[10px] text-white/40 uppercase font-bold tracking-tight">Enter details to verify marksheet</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <div className="flex justify-between px-1">
+                    <label className="text-[10px] font-black text-white/40 uppercase tracking-widest">Exam Type</label>
+                  </div>
+                  <div className="relative group">
+                    <select 
+                      value={searchParams.exam}
+                      onChange={(e) => setSearchParams({...searchParams, exam: e.target.value})}
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-white font-bold appearance-none hover:bg-white/10 focus:outline-none focus:border-[var(--accent)] transition-all cursor-pointer"
+                    >
+                      <option value="diploma">Diploma In Engineering</option>
+                    </select>
+                    <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-white/20">
+                      <ChevronDown size={16} />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex justify-between px-1">
+                    <label className="text-[10px] font-black text-white/40 uppercase tracking-widest">Regulation</label>
+                    <span className="text-[8px] font-black text-emerald-500/60 uppercase">System updated</span>
+                  </div>
+                  <div className="relative group">
+                    <select 
+                      value={searchParams.regulation}
+                      onChange={(e) => setSearchParams({...searchParams, regulation: e.target.value})}
+                      className="w-full bg-white/10 border border-white/10 rounded-2xl px-5 py-4 text-sm text-white font-bold appearance-none hover:bg-white/15 focus:outline-none focus:border-[var(--accent)] transition-all cursor-pointer"
+                    >
+                      <option value="2022">Regulation 2022</option>
+                      <option value="2016">Regulation 2016</option>
+                      <option value="2010">Regulation 2010</option>
+                    </select>
+                    <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-white/20">
+                      <ChevronDown size={16} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-white/5">
+                <div className="flex flex-col md:flex-row gap-4">
+                  <div className="flex-1 relative group">
+                    <div className="absolute left-5 top-1/2 -translate-y-1/2 text-white/20 group-focus-within:text-[var(--accent)] transition-colors">
+                      <Target size={20} />
+                    </div>
+                    <input 
+                      type="text"
+                      inputMode="numeric"
+                      value={roll}
+                      onChange={(e) => setRoll(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                      placeholder="Enter Board Roll Number"
+                      className={cn(
+                        "w-full pl-14 pr-4 py-5 rounded-[1.5rem] font-black text-lg bg-white/5 border border-white/10 text-white placeholder:text-white/20 focus:outline-none transition-all",
+                        theme === 'holographic' ? "focus:border-[var(--accent)] focus:ring-4 focus:ring-[var(--accent)]/10" : "focus:border-white/30"
+                      )}
+                    />
+                  </div>
+                  <button 
+                    onClick={handleSearch}
+                    disabled={loading}
+                    className={cn(
+                      "px-10 py-5 rounded-[1.5rem] font-black uppercase tracking-[0.2em] text-xs transition-all relative overflow-hidden group",
+                      theme === 'holographic' ? "bg-[var(--accent)] text-stone-900" : "bg-white text-stone-900"
+                    )}
+                  >
+                    <div className="relative z-10 flex items-center justify-center gap-2">
+                      {loading ? (
+                        <>
+                          <Loader2 size={18} className="animate-spin" />
+                          <span>Searching...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Search size={18} />
+                          <span>Check Results</span>
+                        </>
+                      )}
+                    </div>
+                    {!loading && <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Results Modal */}
+          <AnimatePresence>
+            {showResultModal && results.length > 0 && (
+              <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-8">
+                <motion.div 
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  onClick={() => setShowResultModal(false)}
+                  className="absolute inset-0 bg-black/80 backdrop-blur-xl"
+                />
+                
+                <motion.div 
+                  initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                  className={cn(
+                    "relative w-full max-w-4xl max-h-[90vh] overflow-y-auto custom-scrollbar rounded-[2.5rem] border p-1 focus:outline-none",
+                    theme === 'holographic' ? "bg-black/90 border-white/20 shadow-[0_0_100px_rgba(255,255,255,0.05)]" : "glass border-white/10"
+                  )}
+                >
+                  <div className="p-8 md:p-12 space-y-10 focus:outline-none">
+                    {/* Modal Header */}
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-8 border-b border-white/5">
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center border border-white/10">
+                            <GraduationCap className="text-[var(--accent)]" size={24} />
+                          </div>
+                          <div>
+                            <h2 className="text-2xl font-black text-white tracking-widest uppercase italic">Transcript</h2>
+                            <p className="text-[10px] text-white/40 font-bold uppercase tracking-[0.2em]">Academic Record Verification</p>
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap gap-3">
+                          <div className="bg-white/5 px-4 py-2 rounded-xl border border-white/5">
+                            <p className="text-[8px] text-white/30 uppercase font-black mb-1">Board Roll</p>
+                            <p className="text-sm font-black text-white">{results[0].rollNumber}</p>
+                          </div>
+                          <div className="bg-white/5 px-4 py-2 rounded-xl border border-white/5">
+                            <p className="text-[8px] text-white/30 uppercase font-black mb-1">Regulation</p>
+                            <p className="text-sm font-black text-white">{results[0].regulation}</p>
+                          </div>
+                          <div className="bg-white/5 px-4 py-2 rounded-xl border border-white/5">
+                            <p className="text-[8px] text-white/30 uppercase font-black mb-1">Status</p>
+                            <p className={cn("text-xs font-black uppercase", results[0].status === 'pass' ? "text-emerald-500" : "text-rose-500")}>{results[0].status}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 text-white/40">
+                          <MapPin size={12} />
+                          <span className="text-[10px] font-bold uppercase tracking-tight truncate max-w-[300px]">{results[0].instituteName}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col items-center justify-center p-8 bg-white/5 border border-white/10 rounded-[2.5rem] min-w-[200px]">
+                        <p className="text-[10px] font-black text-[var(--accent)] uppercase tracking-widest mb-1">Total CGPA</p>
+                        <div className="flex items-baseline gap-1">
+                          <span className="text-5xl font-black text-white tracking-tighter">{calculateCGPA()}</span>
+                          <span className="text-xs font-bold text-white/20">/ 4.00</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Semester Grid */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                      {[1, 2, 3, 4, 5, 6, 7, 8].map(sem => {
+                        const res = results.find(r => r.semester === sem || (r.gpas && r.gpas[`gpa${sem}`] !== undefined));
+                        const gpaValue = res ? (res.gpas ? res.gpas[`gpa${sem}`] : res.gpa) : null;
+                        
+                        return (
+                          <div 
+                            key={sem}
+                            className={cn(
+                              "p-6 rounded-[1.5rem] border transition-all duration-300",
+                              res ? "bg-white/5 border-white/10" : "bg-black/20 border-white/5 opacity-40"
+                            )}
+                          >
+                            <div className="flex justify-between items-start mb-4">
+                              <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">{sem}th Semester</span>
+                              {res && (
+                                <div className={cn(
+                                  "w-2 h-2 rounded-full",
+                                  res.status === 'pass' ? "bg-emerald-500" : "bg-rose-500"
+                                )} />
+                              )}
+                            </div>
+                            
+                            {res ? (
+                              <div className="space-y-4">
+                                <div className="flex items-baseline gap-2">
+                                  <span className="text-3xl font-black text-white tracking-tighter">
+                                    {(gpaValue !== null && gpaValue !== undefined) ? Number(gpaValue).toFixed(2) : "0.00"}
+                                  </span>
+                                  <span className="text-[10px] font-bold text-white/20 uppercase">GPA</span>
+                                </div>
+                                {res.referredSubjects && res.referredSubjects.length > 0 && (
+                                  <div className="space-y-1.5">
+                                    <p className="text-[8px] font-black text-rose-400 uppercase tracking-widest">Referred</p>
+                                    <div className="flex flex-wrap gap-1">
+                                      {res.referredSubjects.map((s: string, idx: number) => (
+                                        <span key={idx} className="text-[8px] bg-rose-500/10 text-rose-400 px-2 py-0.5 rounded-full border border-rose-500/10">
+                                          {s}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                                <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
+                                  <motion.div 
+                                    initial={{ width: 0 }}
+                                    animate={{ width: `${((gpaValue || 0) / 4) * 100}%` }}
+                                    className={cn(
+                                      "h-full",
+                                      res.status === 'pass' ? "bg-emerald-500" : "bg-rose-500"
+                                    )}
+                                  />
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="h-12 flex items-center">
+                                <span className="text-[10px] font-bold text-white/5 uppercase italic tracking-widest">N/A</span>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    <div className="flex gap-4">
+                      <button 
+                        onClick={() => setShowResultModal(false)}
+                        className="flex-1 py-5 rounded-[1.5rem] bg-white text-stone-900 font-black uppercase tracking-widest hover:bg-white/90 transition-all text-xs"
+                      >
+                        Close
+                      </button>
+                    </div>
+                  </div>
+                </motion.div>
+              </div>
+            )}
+          </AnimatePresence>
+
+          <AnimatePresence mode="wait">
+            {!roll ? (
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="text-center py-20"
+              >
+                <div className="max-w-md mx-auto space-y-6">
+                  <div className="p-10 border border-white/5 bg-white/[0.02] rounded-[3rem]">
+                    <GraduationCap className="text-white/10 mx-auto mb-6" size={60} />
+                    <h3 className="text-lg font-black text-white uppercase tracking-widest">Academic Database</h3>
+                    <p className="text-white/30 text-[10px] font-bold leading-relaxed uppercase tracking-widest italic mt-4">
+                      Enter details above to lookup your transcript.
+                    </p>
+                  </div>
+                </div>
+              </motion.div>
+            ) : results.length === 0 && !loading ? (
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="text-center py-20 space-y-4"
+              >
+                <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center mx-auto border border-white/5">
+                  <Search size={32} className="text-white/20" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-white">No Results Found</h3>
+                  <p className="text-white/40 text-sm">Check the roll, regulation or source.</p>
+                </div>
+              </motion.div>
+            ) : null}
+          </AnimatePresence>
+        </div>
+      )}
     </div>
   );
 }
